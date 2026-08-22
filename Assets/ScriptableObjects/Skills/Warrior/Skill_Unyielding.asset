@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33564269414bad2439b83f3f7597e022, type: 3}
+  m_Name: Skill_Unyielding
+  m_EditorClassIdentifier: Assembly-CSharp::PassiveSkillData
+  skillName: "\u041D\u0435\u0441\u0433\u0438\u0431\u0430\u0435\u043C\u044B\u0439"
+  category: 1
+  effectDescription: "\u041F\u043E\u043A\u0430 \u043D\u0430 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436\u0435
+    \u0435\u0441\u0442\u044C \u0434\u0435\u0431\u0430\u0444\u0444, \u0435\u0433\u043E
+    \u0443\u0440\u043E\u043D \u0443\u0432\u0435\u043B\u0438\u0447\u0435\u043D: 1\u0443\u0440=+5%,
+    2\u0443\u0440=+10%, 3\u0443\u0440=+15%, 4\u0443\u0440=+20%, 5\u0443\u0440=+25%."
+  maxLevel: 5
