@@ -13,6 +13,7 @@
             <ui:Label name="RationsLabel" text="Рационы: 5" class="top-bar-label" />
         </ui:VisualElement>
 
+        <ui:VisualElement name="MainRow" class="main-row">
         <ui:VisualElement name="ContentArea" class="content-area">
 
             <ui:VisualElement name="CombatPanel" class="panel hidden">
@@ -29,10 +30,6 @@
                     </ui:VisualElement>
                     <ui:VisualElement name="EnemyListContainer" class="enemy-list" />
                 </ui:VisualElement>
-
-                <ui:ScrollView name="CombatLogScroll" class="combat-log-scroll">
-                    <ui:Label name="CombatLogText" text="" class="combat-log-text" />
-                </ui:ScrollView>
 
                 <ui:VisualElement class="combat-controls-row">
                     <ui:Toggle name="AutoModeToggle" label="Авто-режим навыка" value="true" />
@@ -85,21 +82,24 @@
 
             <ui:VisualElement name="ItemComparePanel" class="panel hidden">
                 <ui:Label text="Новый предмет" class="panel-title" />
-                <ui:VisualElement class="item-compare-row">
-                    <ui:VisualElement name="NewItemCard" class="item-card">
-                        <ui:Label text="Новый" class="item-card-header" />
-                        <ui:Label name="NewItemName" text="" class="item-card-name" />
-                        <ui:Label name="NewItemStats" text="" class="body-label" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="CurrentItemCard" class="item-card">
-                        <ui:Label text="Сейчас надето" class="item-card-header" />
-                        <ui:Label name="CurrentItemName" text="" class="item-card-name" />
-                        <ui:Label name="CurrentItemStats" text="" class="body-label" />
-                    </ui:VisualElement>
+                <ui:VisualElement name="NewItemCard" class="item-card">
+                    <ui:Label text="Новый" class="item-card-header" />
+                    <ui:Label name="NewItemName" text="" class="item-card-name" />
+                    <ui:Label name="NewItemStats" text="" class="body-label" />
                 </ui:VisualElement>
-                <ui:Button name="ItemEquipButton" text="Надеть" class="button-primary" />
-                <ui:Button name="ItemDiscardButton" text="Выбросить" class="button-secondary" />
+                <ui:Label text="Выберите, какой слот занять:" class="body-label" />
+                <ui:VisualElement name="SlotChoicesContainer" class="item-compare-row" />
+                <ui:Button name="ItemDiscardButton" text="Выбросить новый предмет" class="button-secondary" />
             </ui:VisualElement>
+
+        </ui:VisualElement>
+
+        <ui:VisualElement name="RunLogPanel" class="run-log-panel">
+            <ui:Label text="Журнал забега" class="panel-title" />
+            <ui:ScrollView name="RunLogScroll" class="combat-log-scroll">
+                <ui:Label name="RunLogText" text="" class="combat-log-text" />
+            </ui:ScrollView>
+        </ui:VisualElement>
 
         </ui:VisualElement>
     </ui:VisualElement>

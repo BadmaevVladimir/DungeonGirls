@@ -59,11 +59,13 @@ public class RunFlowController : MonoBehaviour
     Label playerDefenseText;
     Label playerShieldText;
     VisualElement enemyListContainer;
-    ScrollView combatLogScroll;
-    Label combatLogText;
     Toggle autoModeToggle;
     Button activeSkillButton;
-    readonly List<string> combatLogLines = new List<string>();
+
+    // --- Журнал забега (7.2: персистентный лог, не только боевой — виден и вне боя) ---
+    ScrollView runLogScroll;
+    Label runLogText;
+    readonly List<string> runLogLines = new List<string>();
 
     // --- Событие (квест, MultipleChoice) ---
     Label eventDescriptionLabel;
@@ -99,9 +101,7 @@ public class RunFlowController : MonoBehaviour
     VisualElement itemComparePanel;
     Label newItemName;
     Label newItemStats;
-    Label currentItemName;
-    Label currentItemStats;
-    Button itemEquipButton;
+    VisualElement slotChoicesContainer;
     Button itemDiscardButton;
 
     // Служебное состояние ожидания клика/выбора между кадрами корутины.
@@ -162,8 +162,8 @@ public class RunFlowController : MonoBehaviour
         playerDefenseText = root.Q<Label>("PlayerDefenseText");
         playerShieldText = root.Q<Label>("PlayerShieldText");
         enemyListContainer = root.Q<VisualElement>("EnemyListContainer");
-        combatLogScroll = root.Q<ScrollView>("CombatLogScroll");
-        combatLogText = root.Q<Label>("CombatLogText");
+        runLogScroll = root.Q<ScrollView>("RunLogScroll");
+        runLogText = root.Q<Label>("RunLogText");
         autoModeToggle = root.Q<Toggle>("AutoModeToggle");
         activeSkillButton = root.Q<Button>("ActiveSkillButton");
 
@@ -194,9 +194,7 @@ public class RunFlowController : MonoBehaviour
 
         newItemName = root.Q<Label>("NewItemName");
         newItemStats = root.Q<Label>("NewItemStats");
-        currentItemName = root.Q<Label>("CurrentItemName");
-        currentItemStats = root.Q<Label>("CurrentItemStats");
-        itemEquipButton = root.Q<Button>("ItemEquipButton");
+        slotChoicesContainer = root.Q<VisualElement>("SlotChoicesContainer");
         itemDiscardButton = root.Q<Button>("ItemDiscardButton");
     }
 
@@ -367,7 +365,6 @@ public class RunFlowController : MonoBehaviour
         float activeMultiplier = activeLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f };
         combatManager.ConfigureUniqueActiveSkill(3, activeMultiplier, jenniferCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value);
 
-        combatLogLines.Clear();
         combatManager.LogMessage += OnCombatLog;
         ShowOnly(combatPanel);
         combatManager.StartCombat(characterManager.Combatant, enemies);
@@ -404,11 +401,27 @@ public class RunFlowController : MonoBehaviour
 
     void OnCombatLog(string message)
     {
-        combatLogLines.Add(message);
-        if (combatLogLines.Count > 60)
+        LogEvent(message);
+    }
+
+    // 7.2: общий персистентный лог забега — сюда пишутся боевые события (4.5), результаты
+    // комнат/квестов/ловушек, левел-апы и т.д. Виден на отдельной панели вне зависимости от
+    // текущей фазы забега (не только во время боя).
+    void LogEvent(string message)
+    {
+        runLogLines.Add(message);
+        if (runLogLines.Count > 200)
         {
-            combatLogLines.RemoveAt(0);
+            runLogLines.RemoveAt(0);
         }
+
+        RefreshRunLog();
+    }
+
+    void RefreshRunLog()
+    {
+        runLogText.text = string.Join("\n", runLogLines);
+        runLogScroll.schedule.Execute(() => runLogScroll.scrollOffset = new Vector2(0f, float.MaxValue));
     }
 
     void UpdateCombatUI()
@@ -461,9 +474,6 @@ public class RunFlowController : MonoBehaviour
 
             enemyListContainer.Add(box);
         }
-
-        combatLogText.text = string.Join("\n", combatLogLines);
-        combatLogScroll.schedule.Execute(() => combatLogScroll.scrollOffset = new Vector2(0f, float.MaxValue));
 
         bool ready = combatManager.IsActiveSkillReady;
         activeSkillButton.SetEnabled(!autoModeToggle.value && ready);
@@ -552,6 +562,8 @@ public class RunFlowController : MonoBehaviour
             outcome = chanceSucceeded ? successText : failText;
         }
 
+        LogEvent($"[{trapPopupTitle.text}] {outcome}");
+
         trapOutcomeLabel.text = outcome;
         trapOutcomeLabel.RemoveFromClassList("hidden");
         trapContinueButton.RemoveFromClassList("hidden");
@@ -591,6 +603,8 @@ public class RunFlowController : MonoBehaviour
 
             yield return WaitForAnyClick(buttons.ToArray());
             var picked = quest.Choices[clickedIndex];
+
+            LogEvent($"[Событие] {picked.OutcomeText}");
 
             eventChoicesContainer.Clear();
             eventDescriptionLabel.text = picked.OutcomeText;
@@ -660,18 +674,22 @@ public class RunFlowController : MonoBehaviour
         }
 
         yield return WaitForAnyClick(buttons.ToArray());
-        levelUpManager.ApplyChoice(characterManager.Progress, options[clickedIndex]);
+        var chosen = options[clickedIndex];
+        levelUpManager.ApplyChoice(characterManager.Progress, chosen);
         characterManager.RefreshCombatStats();
+        LogEvent($"[Левел-ап] {chosen} (уровень {characterManager.Level}).");
     }
 
     // ==================== Привал (раздел 6) ====================
 
     // 6.1: триггер привала — явное решение игрока. Игра предлагает встать на привал; если
-    // игрок отказывается, рацион не тратится и автоматика 6.2 не запускается.
+    // игрок отказывается, рацион не тратится и автоматика 6.2 не запускается. Показывает текущее
+    // HP, чтобы решение о трате рациона было осознанным.
     IEnumerator CampOfferAndPhaseCoroutine()
     {
         ShowOnly(campPanel);
-        campText.text = $"Можно встать на привал (потратит 1 рацион). Осталось рационов: {campManager.RationsRemaining}.";
+        var combatant = characterManager.Combatant;
+        campText.text = $"Можно встать на привал (потратит 1 рацион). Здоровье: {Mathf.Max(combatant.CurrentHP, 0f):F0}/{combatant.MaxHP:F0}. Осталось рационов: {campManager.RationsRemaining}.";
         SetCampOfferButtonsVisible(true);
 
         yield return WaitForAnyClick(campAcceptButton, campDeclineButton);
@@ -680,6 +698,7 @@ public class RunFlowController : MonoBehaviour
         bool accepted = clickedIndex == 0;
         if (!accepted)
         {
+            LogEvent("[Привал] Игрок отказался от привала.");
             yield break;
         }
 
@@ -703,6 +722,7 @@ public class RunFlowController : MonoBehaviour
             $"\n+{result.HpRestored:F0} HP" +
             (result.ArmorRestored > 0f ? $", +{result.ArmorRestored:F0} физ. защиты (Полевой ремонт)" : string.Empty) +
             $"\nОсталось рационов: {campManager.RationsRemaining}";
+        LogEvent($"[Привал] +{result.HpRestored:F0} HP{(result.ArmorRestored > 0f ? $", +{result.ArmorRestored:F0} физ. защиты" : string.Empty)}. Осталось рационов: {campManager.RationsRemaining}.");
 
         yield return WaitForClick(campContinueButton);
     }
@@ -757,6 +777,7 @@ public class RunFlowController : MonoBehaviour
             (reward.BonusReward ? "\n+ дополнительная награда (Удача)" : string.Empty) +
             $"\nВсего валюты забега: {characterManager.RunCurrency}";
         SetRarityClass(rewardText, reward.ItemRarity);
+        LogEvent($"[Награда] +{reward.Currency} валюты забега, {RarityLabel(reward.ItemRarity)} предмет{(reward.Item != null ? $" ({reward.Item.itemName})" : string.Empty)}{(reward.BonusReward ? ", + доп. награда (Удача)" : string.Empty)}.");
 
         yield return WaitForClick(rewardContinueButton);
 
@@ -818,23 +839,42 @@ public class RunFlowController : MonoBehaviour
         return string.Join("\n", lines);
     }
 
-    // Показывает новый предмет рядом с текущим надетым в том же слоте (или "свободный слот", если
-    // сравнивать не с чем) и ждёт выбора игрока: надеть или выбросить.
+    // 3.4: если новый предмет подходит сразу в несколько слотов (2 слота оружия/рук, 2 слота
+    // колец) — показываем ВСЕ подходящие слоты с их текущим содержимым и даём игроку самому
+    // выбрать, какой занять (или отказаться от нового предмета вовсе). Никакого автовыбора слота.
     IEnumerator ItemCompareFlow(ItemData newItem)
     {
-        var currentItem = characterManager.GetComparisonTarget(newItem);
+        var candidates = characterManager.GetComparisonCandidates(newItem); // null-элемент = свободный слот
 
         ShowOnly(itemComparePanel);
         newItemName.text = newItem.itemName;
         newItemStats.text = ItemStatsText(newItem);
-        currentItemName.text = currentItem != null ? currentItem.itemName : "(свободный слот)";
-        currentItemStats.text = currentItem != null ? ItemStatsText(currentItem) : string.Empty;
 
-        yield return WaitForAnyClick(itemEquipButton, itemDiscardButton);
-
-        if (clickedIndex == 0)
+        slotChoicesContainer.Clear();
+        var buttons = new List<Button>();
+        foreach (var candidate in candidates)
         {
-            characterManager.EquipItem(newItem, currentItem);
+            var btn = new Button
+            {
+                text = candidate != null ? $"Заменить: {candidate.itemName}\n{ItemStatsText(candidate)}" : "Занять свободный слот"
+            };
+            btn.AddToClassList("choice-card");
+            slotChoicesContainer.Add(btn);
+            buttons.Add(btn);
+        }
+        buttons.Add(itemDiscardButton);
+
+        yield return WaitForAnyClick(buttons.ToArray());
+
+        if (clickedIndex < candidates.Count)
+        {
+            var replacing = candidates[clickedIndex];
+            characterManager.EquipItem(newItem, replacing);
+            LogEvent($"[Снаряжение] Надето: {newItem.itemName}{(replacing != null ? $" (заменён {replacing.itemName})" : string.Empty)}.");
+        }
+        else
+        {
+            LogEvent($"[Снаряжение] Выброшено: {newItem.itemName}.");
         }
     }
 
@@ -842,6 +882,8 @@ public class RunFlowController : MonoBehaviour
 
     IEnumerator ShowResultsFlow(bool victory)
     {
+        LogEvent($"[Забег] Завершён: {(victory ? "победа" : "поражение")}.");
+
         runScreen.style.display = DisplayStyle.None;
         resultsScreen.style.display = DisplayStyle.Flex;
 

@@ -32,12 +32,22 @@ public class CharacterManager : MonoBehaviour
     // остальные слоты — по 1).
     static int SlotCapacity(EquipmentSlot slot) => slot == EquipmentSlot.Weapon || slot == EquipmentSlot.Ring ? 2 : 1;
 
-    // Возвращает предмет, с которым нужно сравнить newItem (3.4), или null, если в слоте есть
-    // свободное место и сравнивать не с чем — новый предмет можно надеть без замены.
-    public ItemData GetComparisonTarget(ItemData newItem)
+    // 3.4: возвращает все физические слоты, куда может встать newItem — по одному элементу на
+    // каждый слот его типа (2 для Оружия/Колец, 1 для остальных). Элемент — предмет, который там
+    // сейчас надет, либо null, если слот свободен. Игрок выбирает сам, какой из них занять —
+    // никакого автовыбора по правилу.
+    public List<ItemData> GetComparisonCandidates(ItemData newItem)
     {
         var sameSlot = EquippedItems.FindAll(i => i != null && i.slot == newItem.slot);
-        return sameSlot.Count >= SlotCapacity(newItem.slot) ? sameSlot[0] : null;
+        int capacity = SlotCapacity(newItem.slot);
+
+        var candidates = new List<ItemData>(sameSlot);
+        while (candidates.Count < capacity)
+        {
+            candidates.Add(null);
+        }
+
+        return candidates;
     }
 
     // 3.4: надеть newItem, при необходимости заменив replacing (старый предмет просто исчезает —

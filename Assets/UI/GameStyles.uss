@@ -104,9 +104,23 @@
     border-radius: 9px;
 }
 
+.main-row {
+    flex-direction: row;
+    flex-grow: 1;
+}
+
 .content-area {
     flex-grow: 1;
     padding: 16px;
+}
+
+.run-log-panel {
+    width: 300px;
+    flex-shrink: 0;
+    background-color: rgb(26, 26, 32);
+    padding: 12px;
+    border-left-width: 1px;
+    border-left-color: rgb(50, 50, 58);
 }
 
 .panel {
@@ -226,6 +240,11 @@
     font-size: 12px;
     white-space: normal;
     padding: 6px;
+}
+
+.run-log-panel .combat-log-scroll {
+    height: auto;
+    flex-grow: 1;
 }
 
 .combat-controls-row {
