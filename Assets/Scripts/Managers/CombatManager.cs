@@ -14,10 +14,10 @@ public class CombatManager : MonoBehaviour
         Enemies = enemies ?? new List<CombatantRuntime>();
         IsCombatActive = true;
 
-        Player.AttackTimer = 0f;
+        ResetAttackTimers(Player);
         foreach (var enemy in Enemies)
         {
-            enemy.AttackTimer = 0f;
+            ResetAttackTimers(enemy);
         }
 
         Player.Target = GetDefaultTarget();
@@ -60,6 +60,18 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        UpdateStatusEffects(Player, deltaTime);
+        foreach (var enemy in Enemies)
+        {
+            UpdateStatusEffects(enemy, deltaTime);
+        }
+
+        CheckCombatEnd();
+        if (!IsCombatActive)
+        {
+            return;
+        }
+
         TickCombatant(Player, deltaTime);
 
         foreach (var enemy in Enemies)
@@ -70,26 +82,117 @@ public class CombatManager : MonoBehaviour
         CheckCombatEnd();
     }
 
+    static void ResetAttackTimers(CombatantRuntime combatant)
+    {
+        foreach (var weapon in combatant.Weapons)
+        {
+            weapon.AttackTimer = 0f;
+        }
+    }
+
+    // 3.9 "Амбидекстрия": у каждого оружия персонажа свой независимый таймер атаки по своей
+    // собственной скорости — обрабатываются в отдельных циклах, а не слитно одним таймером.
     void TickCombatant(CombatantRuntime attacker, float deltaTime)
     {
-        if (!attacker.IsAlive)
+        // 3.9 "Заморозка": замороженный участник не может атаковать; таймеры атаки не копятся.
+        if (!attacker.IsAlive || attacker.IsFrozen)
         {
             return;
         }
 
-        attacker.AttackTimer += deltaTime;
-        float interval = attacker.AttackInterval;
-
-        while (IsCombatActive && attacker.IsAlive && attacker.AttackTimer >= interval)
+        foreach (var weapon in attacker.Weapons)
         {
-            attacker.AttackTimer -= interval;
-            ResolveAttack(attacker);
+            weapon.AttackTimer += deltaTime;
+
+            while (IsCombatActive && attacker.IsAlive && !attacker.IsFrozen && weapon.AttackTimer >= attacker.GetEffectiveAttackInterval(weapon))
+            {
+                weapon.AttackTimer -= attacker.GetEffectiveAttackInterval(weapon);
+                ResolveAttack(attacker, weapon);
+            }
+        }
+    }
+
+    // Дебаффы, влияющие на скорость атаки (Колдун и т.п.), стаки заморозки и кровотечение
+    // тикают независимо от того, атакует ли участник в этом кадре.
+    void UpdateStatusEffects(CombatantRuntime combatant, float deltaTime)
+    {
+        for (int i = combatant.ActiveDebuffs.Count - 1; i >= 0; i--)
+        {
+            var debuff = combatant.ActiveDebuffs[i];
+            debuff.RemainingTime -= deltaTime;
+            if (debuff.RemainingTime <= 0f)
+            {
+                combatant.ActiveDebuffs.RemoveAt(i);
+            }
+        }
+
+        if (combatant.FreezeStacks > 0 && !combatant.IsFrozen)
+        {
+            combatant.FreezeStackTimer -= deltaTime;
+            if (combatant.FreezeStackTimer <= 0f)
+            {
+                combatant.FreezeStacks = 0;
+            }
+        }
+
+        if (combatant.IsFrozen)
+        {
+            combatant.FreezeTimer -= deltaTime;
+            if (combatant.FreezeTimer <= 0f)
+            {
+                combatant.IsFrozen = false;
+                combatant.FreezeStacks = 0;
+            }
+        }
+
+        if (combatant.FreezeImmune)
+        {
+            combatant.FreezeImmuneTimer -= deltaTime;
+            if (combatant.FreezeImmuneTimer <= 0f)
+            {
+                combatant.FreezeImmune = false;
+            }
+        }
+
+        TickBleed(combatant, deltaTime);
+    }
+
+    // 3.9 "Кровотечение": тикает раз в секунду, не зависит от таймера атаки.
+    void TickBleed(CombatantRuntime target, float deltaTime)
+    {
+        if (!target.HasBleed)
+        {
+            return;
+        }
+
+        if (!float.IsPositiveInfinity(target.BleedTimer))
+        {
+            target.BleedTimer -= deltaTime;
+        }
+
+        target.BleedTickAccumulator += deltaTime;
+        while (target.BleedTickAccumulator >= 1f && target.HasBleed && target.IsAlive)
+        {
+            target.BleedTickAccumulator -= 1f;
+            target.CurrentHP -= target.BleedDamagePerSecond;
+            Debug.Log($"[Combat] {target.DisplayName} получает {target.BleedDamagePerSecond:F1} урона от кровотечения (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+
+            if (!target.IsAlive)
+            {
+                Debug.Log($"[Combat] {target.DisplayName} погибает от кровотечения.");
+            }
+        }
+
+        if (!float.IsPositiveInfinity(target.BleedTimer) && target.BleedTimer <= 0f)
+        {
+            target.HasBleed = false;
         }
     }
 
     // 4.1-4.2: игрок атакует выбранную вручную цель либо (по умолчанию) первого живого
     // противника в списке; противники всегда атакуют персонажа.
-    void ResolveAttack(CombatantRuntime attacker)
+    // 3.9: сюда же подключены Уклонение, Критические атаки, Несгибаемый, Шипы, Заморозка, Кровотечение.
+    void ResolveAttack(CombatantRuntime attacker, WeaponAttackState weapon)
     {
         CombatantRuntime target = attacker.IsPlayer ? GetPlayerTarget() : Player;
 
@@ -98,21 +201,157 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        float damage = Random.Range(attacker.DamageMin, attacker.DamageMax);
-        var result = DamageCalculator.ApplyDamage(target, damage, attacker.DamageType);
+        // "Уклонение": шанс полностью проигнорировать атаку (любого типа урона).
+        if (target.SkillEvasionLevel > 0)
+        {
+            float evadeChancePercent = target.SkillEvasionLevel * 5f; // 5/10/15/20/25%
+            if (Random.value * 100f < evadeChancePercent)
+            {
+                Debug.Log($"[Combat] {target.DisplayName} уклоняется от атаки {attacker.DisplayName}.");
+                return;
+            }
+        }
+
+        float damage = Random.Range(weapon.DamageMin, weapon.DamageMax);
+
+        // "Несгибаемый": пока на атакующем есть активный дебафф, его урон увеличен.
+        if (attacker.SkillUnyieldingLevel > 0 && attacker.HasActiveDebuff)
+        {
+            damage *= 1f + attacker.SkillUnyieldingLevel * 0.05f; // 5/10/15/20/25%
+        }
+
+        // "Критические атаки" + бонус крита с предметов, суммарно клампится на 75% (8.6).
+        float critChancePercent = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems; // 10/20/30/40/50% за уровень навыка
+        critChancePercent = BalanceClamps.ClampCritChancePercent(critChancePercent);
+        bool isCrit = critChancePercent > 0f && Random.value * 100f < critChancePercent;
+        if (isCrit)
+        {
+            damage *= 1.5f;
+        }
+
+        var result = DamageCalculator.ApplyDamage(target, damage, weapon.DamageType);
 
         if (result.WasBlocked)
         {
-            Debug.Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}: урон {damage:F1} полностью заблокирован.");
+            Debug.Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: урон {damage:F1} полностью заблокирован.");
         }
         else
         {
-            Debug.Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}: {result.DamageToHP:F1} урона по HP (осталось {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+            Debug.Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: {result.DamageToHP:F1} урона по HP (осталось {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+        }
+
+        // "Шипы": если атака не пробила броню (полный блок) — отражается часть заблокированного
+        // урона; на 5 уровне также отражает 50% урона, даже если атака пробила броню.
+        if (target.SkillThornsLevel > 0 && weapon.DamageType == DamageType.Physical)
+        {
+            float reflectPercent = target.SkillThornsLevel * 0.20f; // 20/40/60/80/100%
+            float reflectedDamage = 0f;
+
+            if (result.WasBlocked)
+            {
+                reflectedDamage = damage * reflectPercent;
+            }
+            else if (target.SkillThornsLevel >= 5)
+            {
+                reflectedDamage = damage * 0.5f;
+            }
+
+            if (reflectedDamage > 0f)
+            {
+                attacker.CurrentHP -= reflectedDamage;
+                Debug.Log($"[Combat] Шипы {target.DisplayName} отражают {reflectedDamage:F1} урона по {attacker.DisplayName}.");
+                if (!attacker.IsAlive)
+                {
+                    Debug.Log($"[Combat] {attacker.DisplayName} погибает от шипов.");
+                }
+            }
+        }
+
+        // "Заморозка": накладывается при любом уроне по HP; "разбивается" физическим уроном.
+        if (attacker.SkillFreezeLevel > 0)
+        {
+            ApplyFreezeOnHit(attacker, weapon, target, result);
+        }
+
+        // "Кровотечение": только от физического урона, дошедшего до HP.
+        if (attacker.SkillBleedLevel > 0 && weapon.DamageType == DamageType.Physical && result.DamageToHP > 0f)
+        {
+            ApplyBleed(target, attacker.SkillBleedLevel);
         }
 
         if (!target.IsAlive)
         {
             Debug.Log($"[Combat] {target.DisplayName} погибает.");
+        }
+    }
+
+    static int FreezeMaxStacksByLevel(int level)
+    {
+        switch (level)
+        {
+            case 1: return 2;
+            case 2: return 4;
+            case 3: return 6;
+            case 4: return 8;
+            default: return 10;
+        }
+    }
+
+    void ApplyFreezeOnHit(CombatantRuntime attacker, WeaponAttackState weapon, CombatantRuntime target, DamageCalculator.DamageResult result)
+    {
+        if (target.IsFrozen)
+        {
+            // Физический урон по замороженной цели "разбивает" заморозку: доп. магический урон,
+            // равный фактически полученному (после защиты) физическому урону, затем иммунитет 5 сек.
+            if (weapon.DamageType == DamageType.Physical && !target.FreezeImmune && result.DamageToHP > 0f)
+            {
+                float bonusMagicDamage = result.DamageToHP;
+                DamageCalculator.ApplyMagicalDamage(target, bonusMagicDamage);
+                Debug.Log($"[Combat] Заморозка {target.DisplayName} разбивается! +{bonusMagicDamage:F1} доп. магического урона.");
+
+                target.IsFrozen = false;
+                target.FreezeStacks = 0;
+                target.FreezeImmune = true;
+                target.FreezeImmuneTimer = 5f;
+            }
+
+            return;
+        }
+
+        if (target.FreezeImmune || result.DamageToHP <= 0f)
+        {
+            return;
+        }
+
+        int maxStacks = FreezeMaxStacksByLevel(attacker.SkillFreezeLevel);
+        target.FreezeStacks = Mathf.Min(target.FreezeStacks + 1, maxStacks);
+        target.FreezeStackTimer = 3f;
+
+        Debug.Log($"[Combat] {target.DisplayName} получает стак заморозки ({target.FreezeStacks}/{maxStacks}).");
+
+        if (target.FreezeStacks >= 10)
+        {
+            target.IsFrozen = true;
+            target.FreezeTimer = 5f;
+            Debug.Log($"[Combat] {target.DisplayName} замораживается на 5 секунд!");
+        }
+    }
+
+    void ApplyBleed(CombatantRuntime target, int bleedLevel)
+    {
+        bool isFreshApplication = !target.HasBleed;
+
+        target.HasBleed = true;
+        target.BleedDamagePerSecond = bleedLevel >= 4 ? 20f : bleedLevel * 5f; // 5/10/15/20, остаётся 20 на ур.5
+        target.BleedTimer = bleedLevel >= 5 ? float.PositiveInfinity : 3f; // не стакается, обновляет длительность
+
+        // Повторное наложение обновляет только длительность (см. 3.9), а не расписание тиков урона:
+        // если сбрасывать аккумулятор на каждый удар, при атаках чаще раза в секунду кровотечение
+        // никогда не успевало бы тикнуть.
+        if (isFreshApplication)
+        {
+            target.BleedTickAccumulator = 0f;
+            Debug.Log($"[Combat] {target.DisplayName} получает кровотечение ({target.BleedDamagePerSecond:F1}/сек).");
         }
     }
 
