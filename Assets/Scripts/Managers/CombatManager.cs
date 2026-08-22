@@ -8,6 +8,65 @@ public class CombatManager : MonoBehaviour
     public List<CombatantRuntime> Enemies { get; private set; } = new List<CombatantRuntime>();
     public bool IsCombatActive { get; private set; }
 
+    // Позволяет UI подписаться на текстовый лог боя (7.2), не читая консоль Unity.
+    public event System.Action<string> LogMessage;
+
+    void Log(string message)
+    {
+        Debug.Log(message);
+        LogMessage?.Invoke(message);
+    }
+
+    // 4.3: уникальный активный навык персонажа (3.1 "3 быстрые атаки" — единственный активный
+    // навык прототипа, общего пула активных навыков в 3.9 нет). Настраивается при входе в бой,
+    // т.к. зависит от текущего уровня навыка игрока.
+    int activeSkillHitCount;
+    float activeSkillDamageMultiplierPerHit;
+    float activeSkillCooldownSeconds;
+    bool activeSkillAutoMode = true;
+
+    public bool IsActiveSkillConfigured { get; private set; }
+    public float ActiveSkillCooldownRemaining => Player != null ? Mathf.Max(0f, Player.ActiveSkillCooldownTimer) : 0f;
+    public bool IsActiveSkillReady => Player != null && Player.IsAlive && Player.ActiveSkillCooldownTimer <= 0f;
+
+    public void ConfigureUniqueActiveSkill(int hitCount, float damageMultiplierPerHit, float cooldownSeconds, bool autoMode)
+    {
+        activeSkillHitCount = hitCount;
+        activeSkillDamageMultiplierPerHit = damageMultiplierPerHit;
+        activeSkillCooldownSeconds = cooldownSeconds;
+        activeSkillAutoMode = autoMode;
+        IsActiveSkillConfigured = true;
+    }
+
+    public void SetActiveSkillAutoMode(bool autoMode)
+    {
+        activeSkillAutoMode = autoMode;
+    }
+
+    // 4.3: ручной режим — доступна только по готовности кулдауна; автоматический — срабатывает
+    // сама, без участия игрока (тикается в Tick()).
+    public bool TryActivateUniqueActiveSkill()
+    {
+        if (!IsCombatActive || !IsActiveSkillConfigured || !IsActiveSkillReady || Player.Weapons.Count == 0)
+        {
+            return false;
+        }
+
+        var weapon = Player.Weapons[0];
+        for (int i = 0; i < activeSkillHitCount; i++)
+        {
+            if (!IsCombatActive || !Player.IsAlive)
+            {
+                break;
+            }
+
+            ResolveAttack(Player, weapon, activeSkillDamageMultiplierPerHit);
+        }
+
+        Player.ActiveSkillCooldownTimer = activeSkillCooldownSeconds;
+        return true;
+    }
+
     public void StartCombat(CombatantRuntime player, List<CombatantRuntime> enemies)
     {
         Player = player;
@@ -20,9 +79,10 @@ public class CombatManager : MonoBehaviour
             ResetAttackTimers(enemy);
         }
 
+        Player.ActiveSkillCooldownTimer = 0f;
         Player.Target = GetDefaultTarget();
 
-        Debug.Log($"[Combat] Бой начался: {Player.DisplayName} (HP {Player.CurrentHP:F1}) против {Enemies.Count} противников.");
+        Log($"[Combat] Бой начался: {Player.DisplayName} (HP {Player.CurrentHP:F1}) против {Enemies.Count} противников.");
     }
 
     public void EndCombat()
@@ -37,7 +97,7 @@ public class CombatManager : MonoBehaviour
         // 3.3: магический щит восстанавливается до максимума после каждого боя; физ. защита — нет.
         Player.RestoreMagicShield();
 
-        Debug.Log(Player.IsAlive
+        Log(Player.IsAlive
             ? $"[Combat] Бой окончен. {Player.DisplayName} побеждает."
             : $"[Combat] Бой окончен. {Player.DisplayName} погибает.");
     }
@@ -77,6 +137,19 @@ public class CombatManager : MonoBehaviour
         foreach (var enemy in Enemies)
         {
             TickCombatant(enemy, deltaTime);
+        }
+
+        if (IsCombatActive && Player.IsAlive)
+        {
+            if (Player.ActiveSkillCooldownTimer > 0f)
+            {
+                Player.ActiveSkillCooldownTimer -= deltaTime;
+            }
+
+            if (IsActiveSkillConfigured && activeSkillAutoMode && IsActiveSkillReady)
+            {
+                TryActivateUniqueActiveSkill();
+            }
         }
 
         CheckCombatEnd();
@@ -175,11 +248,11 @@ public class CombatManager : MonoBehaviour
         {
             target.BleedTickAccumulator -= 1f;
             target.CurrentHP -= target.BleedDamagePerSecond;
-            Debug.Log($"[Combat] {target.DisplayName} получает {target.BleedDamagePerSecond:F1} урона от кровотечения (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+            Log($"[Combat] {target.DisplayName} получает {target.BleedDamagePerSecond:F1} урона от кровотечения (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
             if (!target.IsAlive)
             {
-                Debug.Log($"[Combat] {target.DisplayName} погибает от кровотечения.");
+                Log($"[Combat] {target.DisplayName} погибает от кровотечения.");
             }
         }
 
@@ -192,7 +265,7 @@ public class CombatManager : MonoBehaviour
     // 4.1-4.2: игрок атакует выбранную вручную цель либо (по умолчанию) первого живого
     // противника в списке; противники всегда атакуют персонажа.
     // 3.9: сюда же подключены Уклонение, Критические атаки, Несгибаемый, Шипы, Заморозка, Кровотечение.
-    void ResolveAttack(CombatantRuntime attacker, WeaponAttackState weapon)
+    void ResolveAttack(CombatantRuntime attacker, WeaponAttackState weapon, float damageMultiplier = 1f)
     {
         CombatantRuntime target = attacker.IsPlayer ? GetPlayerTarget() : Player;
 
@@ -207,12 +280,12 @@ public class CombatManager : MonoBehaviour
             float evadeChancePercent = target.SkillEvasionLevel * 5f; // 5/10/15/20/25%
             if (Random.value * 100f < evadeChancePercent)
             {
-                Debug.Log($"[Combat] {target.DisplayName} уклоняется от атаки {attacker.DisplayName}.");
+                Log($"[Combat] {target.DisplayName} уклоняется от атаки {attacker.DisplayName}.");
                 return;
             }
         }
 
-        float damage = Random.Range(weapon.DamageMin, weapon.DamageMax);
+        float damage = Random.Range(weapon.DamageMin, weapon.DamageMax) * damageMultiplier;
 
         // "Несгибаемый": пока на атакующем есть активный дебафф, его урон увеличен.
         if (attacker.SkillUnyieldingLevel > 0 && attacker.HasActiveDebuff)
@@ -233,11 +306,11 @@ public class CombatManager : MonoBehaviour
 
         if (result.WasBlocked)
         {
-            Debug.Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: урон {damage:F1} полностью заблокирован.");
+            Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: урон {damage:F1} полностью заблокирован.");
         }
         else
         {
-            Debug.Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: {result.DamageToHP:F1} урона по HP (осталось {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+            Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: {result.DamageToHP:F1} урона по HP (осталось {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
         }
 
         // "Шипы": если атака не пробила броню (полный блок) — отражается часть заблокированного
@@ -259,10 +332,10 @@ public class CombatManager : MonoBehaviour
             if (reflectedDamage > 0f)
             {
                 attacker.CurrentHP -= reflectedDamage;
-                Debug.Log($"[Combat] Шипы {target.DisplayName} отражают {reflectedDamage:F1} урона по {attacker.DisplayName}.");
+                Log($"[Combat] Шипы {target.DisplayName} отражают {reflectedDamage:F1} урона по {attacker.DisplayName}.");
                 if (!attacker.IsAlive)
                 {
-                    Debug.Log($"[Combat] {attacker.DisplayName} погибает от шипов.");
+                    Log($"[Combat] {attacker.DisplayName} погибает от шипов.");
                 }
             }
         }
@@ -281,7 +354,7 @@ public class CombatManager : MonoBehaviour
 
         if (!target.IsAlive)
         {
-            Debug.Log($"[Combat] {target.DisplayName} погибает.");
+            Log($"[Combat] {target.DisplayName} погибает.");
         }
     }
 
@@ -307,7 +380,7 @@ public class CombatManager : MonoBehaviour
             {
                 float bonusMagicDamage = result.DamageToHP;
                 DamageCalculator.ApplyMagicalDamage(target, bonusMagicDamage);
-                Debug.Log($"[Combat] Заморозка {target.DisplayName} разбивается! +{bonusMagicDamage:F1} доп. магического урона.");
+                Log($"[Combat] Заморозка {target.DisplayName} разбивается! +{bonusMagicDamage:F1} доп. магического урона.");
 
                 target.IsFrozen = false;
                 target.FreezeStacks = 0;
@@ -327,13 +400,13 @@ public class CombatManager : MonoBehaviour
         target.FreezeStacks = Mathf.Min(target.FreezeStacks + 1, maxStacks);
         target.FreezeStackTimer = 3f;
 
-        Debug.Log($"[Combat] {target.DisplayName} получает стак заморозки ({target.FreezeStacks}/{maxStacks}).");
+        Log($"[Combat] {target.DisplayName} получает стак заморозки ({target.FreezeStacks}/{maxStacks}).");
 
         if (target.FreezeStacks >= 10)
         {
             target.IsFrozen = true;
             target.FreezeTimer = 5f;
-            Debug.Log($"[Combat] {target.DisplayName} замораживается на 5 секунд!");
+            Log($"[Combat] {target.DisplayName} замораживается на 5 секунд!");
         }
     }
 
@@ -351,7 +424,7 @@ public class CombatManager : MonoBehaviour
         if (isFreshApplication)
         {
             target.BleedTickAccumulator = 0f;
-            Debug.Log($"[Combat] {target.DisplayName} получает кровотечение ({target.BleedDamagePerSecond:F1}/сек).");
+            Log($"[Combat] {target.DisplayName} получает кровотечение ({target.BleedDamagePerSecond:F1}/сек).");
         }
     }
 

@@ -1,0 +1,268 @@
+.full-screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(24, 24, 28);
+}
+
+.hidden {
+    display: none;
+}
+
+.title-label {
+    font-size: 48px;
+    color: rgb(240, 240, 240);
+    -unity-font-style: bold;
+    margin-bottom: 40px;
+}
+
+.button-primary {
+    background-color: rgb(70, 100, 160);
+    color: rgb(255, 255, 255);
+    border-width: 0;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-size: 18px;
+    margin: 6px;
+}
+
+.button-primary:hover {
+    background-color: rgb(90, 120, 180);
+}
+
+.button-secondary {
+    background-color: rgb(70, 70, 78);
+    color: rgb(230, 230, 230);
+    border-width: 0;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 16px;
+    margin: 6px;
+}
+
+.button-secondary:hover {
+    background-color: rgb(90, 90, 98);
+}
+
+.run-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: column;
+    background-color: rgb(18, 18, 22);
+}
+
+.top-bar {
+    height: 64px;
+    flex-direction: row;
+    align-items: center;
+    background-color: rgb(32, 32, 38);
+    padding: 8px 16px;
+    justify-content: space-between;
+}
+
+.top-bar-label {
+    color: rgb(230, 230, 230);
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+
+.room-progress-row {
+    flex-direction: row;
+    flex-grow: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+.room-pip {
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    margin-left: 3px;
+    margin-right: 3px;
+    background-color: rgb(80, 80, 88);
+}
+
+.room-pip-done {
+    background-color: rgb(90, 180, 100);
+}
+
+.room-pip-current {
+    background-color: rgb(230, 200, 60);
+}
+
+.room-pip-boss {
+    background-color: rgb(200, 60, 60);
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+}
+
+.content-area {
+    flex-grow: 1;
+    padding: 16px;
+}
+
+.panel {
+    background-color: rgb(30, 30, 36);
+    border-radius: 6px;
+    padding: 16px;
+    flex-grow: 1;
+}
+
+.panel-title {
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: rgb(240, 240, 240);
+    margin-bottom: 10px;
+}
+
+.body-label {
+    font-size: 15px;
+    color: rgb(210, 210, 210);
+    white-space: normal;
+    margin-bottom: 10px;
+}
+
+/* --- Бой --- */
+
+.combat-top-row {
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.combatant-box {
+    background-color: rgb(40, 40, 48);
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 6px;
+    min-width: 220px;
+}
+
+.combatant-box-target {
+    border-width: 2px;
+    border-color: rgb(230, 200, 60);
+}
+
+.combatant-name {
+    color: rgb(240, 240, 240);
+    font-size: 15px;
+    -unity-font-style: bold;
+}
+
+.hp-bar-bg {
+    height: 14px;
+    background-color: rgb(60, 20, 20);
+    border-radius: 3px;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.hp-bar-fill {
+    height: 14px;
+    background-color: rgb(200, 60, 60);
+}
+
+.hp-bar-fill-player {
+    background-color: rgb(80, 180, 90);
+}
+
+.hp-text {
+    color: rgb(220, 220, 220);
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+.enemy-list {
+    flex-direction: column;
+}
+
+.combat-log-scroll {
+    height: 140px;
+    background-color: rgb(20, 20, 24);
+    border-radius: 4px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.combat-log-text {
+    color: rgb(190, 190, 190);
+    font-size: 12px;
+    white-space: normal;
+    padding: 6px;
+}
+
+.combat-controls-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* --- Карточки левел-апа / выбора --- */
+
+.choice-card {
+    background-color: rgb(45, 45, 54);
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 8px;
+    white-space: normal;
+    -unity-text-align: upper-left;
+    height: auto;
+}
+
+.choice-card:hover {
+    background-color: rgb(60, 60, 72);
+}
+
+/* --- Редкость (8.2): серый/синий/фиолетовый --- */
+
+.rarity-common {
+    color: rgb(180, 180, 180);
+}
+
+.rarity-rare {
+    color: rgb(90, 150, 230);
+}
+
+.rarity-epic {
+    color: rgb(190, 110, 230);
+}
+
+.rarity-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    margin-right: 8px;
+}
+
+.swatch-common {
+    background-color: rgb(150, 150, 150);
+}
+
+.swatch-rare {
+    background-color: rgb(70, 120, 220);
+}
+
+.swatch-epic {
+    background-color: rgb(160, 80, 220);
+}
+
+.results-victory {
+    color: rgb(90, 200, 100);
+    font-size: 40px;
+    -unity-font-style: bold;
+    margin-bottom: 20px;
+}
+
+.results-defeat {
+    color: rgb(210, 80, 80);
+    font-size: 40px;
+    -unity-font-style: bold;
+    margin-bottom: 20px;
+}

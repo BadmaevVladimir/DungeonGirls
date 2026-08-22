@@ -29,6 +29,9 @@ public class CombatantRuntime
 
     public CombatantRuntime Target;
 
+    // 4.3: кулдаун уникального активного навыка (только у игрока в прототипе).
+    public float ActiveSkillCooldownTimer;
+
     // Уровни навыков из 3.9, известных этому участнику боя (0 = не известен).
     // На практике заполняются только у игрока через CombatantFactory.ApplyCharacterSkills.
     public int SkillFreezeLevel;

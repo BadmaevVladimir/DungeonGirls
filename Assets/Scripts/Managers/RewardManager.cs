@@ -16,6 +16,13 @@ public class ChestReward
     public bool BonusReward; // 3.9 "Удача" ур.5: доп. шанс на дополнительную награду
 }
 
+// 8.5: награды за завершённый забег (победа/поражение), отдельно от валюты забега из сундуков.
+public struct RunCompletionReward
+{
+    public int MetaCurrency;
+    public int GachaCurrency;
+}
+
 public class RewardManager : MonoBehaviour
 {
     // 8.2: валюта забега = 10 x номер этажа, ±20% разброс; сундук босса = x5 от базовой суммы.
@@ -54,16 +61,33 @@ public class RewardManager : MonoBehaviour
         return luckSkillLevel >= 5 && Random.value < 0.10f;
     }
 
-    public ChestReward CalculateRewards(int floorNumber, bool isBoss, int luckSkillLevel = 0)
+    // currencyMultiplier/noCurrency — модификаторы от квестов (5.4, напр. "Загадка сфинкса").
+    public ChestReward CalculateRewards(int floorNumber, bool isBoss, int luckSkillLevel = 0, float currencyMultiplier = 1f, bool noCurrency = false)
     {
+        int currency = noCurrency ? 0 : Mathf.RoundToInt(CalculateCurrencyReward(floorNumber, isBoss) * currencyMultiplier);
+
         var reward = new ChestReward
         {
-            Currency = CalculateCurrencyReward(floorNumber, isBoss),
+            Currency = currency,
             ItemRarity = RollItemRarity(isBoss),
             BonusReward = RollBonusReward(luckSkillLevel)
         };
 
         Debug.Log($"[Reward] Сундук: {reward.Currency} валюты забега, редкость предмета — {reward.ItemRarity}{(reward.BonusReward ? ", + доп. награда (Удача)" : string.Empty)}.");
+
+        return reward;
+    }
+
+    // 8.5: [DRAFT] мета-валюта победа=80/поражение=30; гача-валюта=15 в любом случае.
+    public RunCompletionReward CalculateRunCompletionReward(bool victory)
+    {
+        var reward = new RunCompletionReward
+        {
+            MetaCurrency = victory ? 80 : 30,
+            GachaCurrency = 15
+        };
+
+        Debug.Log($"[Reward] Итог забега: {reward.MetaCurrency} мета-валюты, {reward.GachaCurrency} гача-валюты.");
 
         return reward;
     }
