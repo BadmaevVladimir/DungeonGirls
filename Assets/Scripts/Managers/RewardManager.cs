@@ -13,6 +13,7 @@ public class ChestReward
 {
     public int Currency;
     public ItemTier ItemRarity;
+    public ItemData Item; // 3.4: конкретный предмет для сравнения/эквипа; null, если каталог пуст
     public bool BonusReward; // 3.9 "Удача" ур.5: доп. шанс на дополнительную награду
 }
 
@@ -25,6 +26,8 @@ public struct RunCompletionReward
 
 public class RewardManager : MonoBehaviour
 {
+    [SerializeField] ItemCatalogData itemCatalog;
+
     // 8.2: валюта забега = 10 x номер этажа, ±20% разброс; сундук босса = x5 от базовой суммы.
     public int CalculateCurrencyReward(int floorNumber, bool isBoss)
     {
@@ -61,15 +64,24 @@ public class RewardManager : MonoBehaviour
         return luckSkillLevel >= 5 && Random.value < 0.10f;
     }
 
-    // currencyMultiplier/noCurrency — модификаторы от квестов (5.4, напр. "Загадка сфинкса").
-    public ChestReward CalculateRewards(int floorNumber, bool isBoss, int luckSkillLevel = 0, float currencyMultiplier = 1f, bool noCurrency = false)
+    // currencyBonus/noCurrency — модификаторы от квестов (5.4: "Загадка сфинкса" даёт +200
+    // валюты забега в следующем бою при верном ответе). goldenTouchLevel — пассивка "Золотое
+    // касание" (3.10, Корона Мидаса): +1% к валюте забега из сундука за уровень предмета.
+    public ChestReward CalculateRewards(int floorNumber, bool isBoss, int luckSkillLevel = 0, int currencyBonus = 0, bool noCurrency = false, int goldenTouchLevel = 0)
     {
-        int currency = noCurrency ? 0 : Mathf.RoundToInt(CalculateCurrencyReward(floorNumber, isBoss) * currencyMultiplier);
+        int currency = noCurrency ? 0 : Mathf.RoundToInt((CalculateCurrencyReward(floorNumber, isBoss) + currencyBonus) * (1f + goldenTouchLevel * 0.01f));
+        ItemTier itemRarity = RollItemRarity(isBoss);
+        ItemData rolledItem = null;
+        if (itemCatalog != null)
+        {
+            itemCatalog.TryGetRandomItem(itemRarity, out rolledItem);
+        }
 
         var reward = new ChestReward
         {
             Currency = currency,
-            ItemRarity = RollItemRarity(isBoss),
+            ItemRarity = itemRarity,
+            Item = rolledItem,
             BonusReward = RollBonusReward(luckSkillLevel)
         };
 

@@ -9,4 +9,10 @@ public class WeaponAttackState
     public DamageType DamageType;
     public float AttackSpeed;
     public float AttackTimer;
+
+    // 3.10: пассивки эпических предметов, привязанные к конкретному оружию (0 = нет пассивки).
+    // Значение — уровень ПРЕДМЕТА (не навыка), масштаб задаётся в CombatManager.
+    public int VampirismLevel;
+    public int ArmorBreakLevel;
+    public int PiercingLevel;
 }

@@ -7,7 +7,9 @@ public static class CombatantFactory
     // progress != null: дополнительно применяются уровни известных навыков (3.9) — как к базовым
     // статам (Прочный, "Я — стена", Амбидекстрия), так и к рантайм-полям для динамических эффектов
     // боя (Заморозка/Уклонение/Крит/Шипы/Несгибаемый/Кровотечение — см. CombatManager).
-    public static CombatantRuntime CreatePlayerCombatant(CharacterData character, int level, RunCharacterProgress progress = null)
+    // equipment == null: используется character.startingEquipment (стартовый лоадаут); иначе —
+    // переданный список текущего снаряжения персонажа за забег (3.4, после эквипа новых предметов).
+    public static CombatantRuntime CreatePlayerCombatant(CharacterData character, int level, RunCharacterProgress progress = null, IReadOnlyList<ItemData> equipment = null)
     {
         var runtime = new CombatantRuntime
         {
@@ -21,14 +23,20 @@ public static class CombatantFactory
 
         int ambidexterityLevel = progress != null ? progress.GetSkillLevel(SkillEffectMap.Ambidexterity) : 0;
 
+        ItemData[] items = equipment != null ? new List<ItemData>(equipment).ToArray() : character.startingEquipment;
+
         AggregateEquipmentStats(
-            character.startingEquipment,
+            items,
             ambidexterityLevel,
             out List<WeaponAttackState> weapons,
             out float physicalDefense,
             out float maxPhysicalDefenseBonus,
             out float magicShield,
-            out float critChanceBonus);
+            out float critChanceBonus,
+            out int elusivenessLevel,
+            out int goldenTouchLevel,
+            out int toughSoleLevel,
+            out int repairLevel);
 
         runtime.Weapons = weapons;
 
@@ -40,9 +48,14 @@ public static class CombatantFactory
 
         runtime.CritChanceBonusFromItems = critChanceBonus;
 
+        runtime.ItemElusivenessLevel = elusivenessLevel;
+        runtime.ItemGoldenTouchLevel = goldenTouchLevel;
+        runtime.ItemToughSoleLevel = toughSoleLevel;
+        runtime.ItemRepairLevel = repairLevel;
+
         if (progress != null)
         {
-            ApplyCharacterSkills(runtime, progress, character.startingEquipment);
+            ApplyCharacterSkills(runtime, progress, items);
         }
 
         return runtime;
@@ -153,13 +166,21 @@ public static class CombatantFactory
         out float physicalDefense,
         out float maxPhysicalDefenseBonus,
         out float magicShield,
-        out float critChanceBonus)
+        out float critChanceBonus,
+        out int elusivenessLevel,
+        out int goldenTouchLevel,
+        out int toughSoleLevel,
+        out int repairLevel)
     {
         weapons = new List<WeaponAttackState>();
         physicalDefense = 0f;
         maxPhysicalDefenseBonus = 0f;
         magicShield = 0f;
         critChanceBonus = 0f;
+        elusivenessLevel = 0;
+        goldenTouchLevel = 0;
+        toughSoleLevel = 0;
+        repairLevel = 0;
 
         if (items == null)
         {
@@ -194,13 +215,22 @@ public static class CombatantFactory
                 itemDamage *= dualWieldMultiplier;
             }
 
+            string passiveName = item.passiveSkill != null ? item.passiveSkill.skillName : null;
             weapons.Add(new WeaponAttackState
             {
                 DamageMin = itemDamage,
                 DamageMax = itemDamage,
                 DamageType = item.damageType,
-                AttackSpeed = item.attackSpeed
+                AttackSpeed = item.attackSpeed,
+                VampirismLevel = passiveName == SkillEffectMap.Vampirism ? item.itemLevel : 0,
+                ArmorBreakLevel = passiveName == SkillEffectMap.ArmorBreak ? item.itemLevel : 0,
+                PiercingLevel = passiveName == SkillEffectMap.Piercing ? item.itemLevel : 0
             });
+
+            if (passiveName == SkillEffectMap.Repair)
+            {
+                repairLevel += item.itemLevel;
+            }
         }
 
         foreach (var item in items)
@@ -227,6 +257,20 @@ public static class CombatantFactory
             if (item.bonusStat != null && item.bonusStat.type == BonusStatType.CritChancePercent)
             {
                 critChanceBonus += item.bonusStat.baseValue * item.itemLevel;
+            }
+
+            string passiveName = item.passiveSkill != null ? item.passiveSkill.skillName : null;
+            if (passiveName == SkillEffectMap.Elusiveness)
+            {
+                elusivenessLevel += item.itemLevel;
+            }
+            else if (passiveName == SkillEffectMap.GoldenTouch)
+            {
+                goldenTouchLevel += item.itemLevel;
+            }
+            else if (passiveName == SkillEffectMap.ToughSole)
+            {
+                toughSoleLevel += item.itemLevel;
             }
         }
     }

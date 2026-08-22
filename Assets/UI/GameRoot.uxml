@@ -24,6 +24,8 @@
                             <ui:VisualElement name="PlayerHpFill" class="hp-bar-fill hp-bar-fill-player" style="width: 100%;" />
                         </ui:VisualElement>
                         <ui:Label name="PlayerHpText" text="20/20" class="hp-text" />
+                        <ui:Label name="PlayerDefenseText" text="Защита: 0" class="stat-text" />
+                        <ui:Label name="PlayerShieldText" text="Щит: 0" class="stat-text" />
                     </ui:VisualElement>
                     <ui:VisualElement name="EnemyListContainer" class="enemy-list" />
                 </ui:VisualElement>
@@ -64,6 +66,8 @@
             <ui:VisualElement name="CampPanel" class="panel hidden">
                 <ui:Label text="Привал" class="panel-title" />
                 <ui:Label name="CampText" text="Дженифер отдыхает..." class="body-label" />
+                <ui:Button name="CampAcceptButton" text="Встать на привал" class="button-primary" />
+                <ui:Button name="CampDeclineButton" text="Идти дальше" class="button-secondary" />
                 <ui:Button name="CampContinueButton" text="Продолжить" class="button-primary" />
             </ui:VisualElement>
 
@@ -77,6 +81,24 @@
                 <ui:Label text="Награда" class="panel-title" />
                 <ui:Label name="RewardText" text="" class="body-label" />
                 <ui:Button name="RewardContinueButton" text="Продолжить" class="button-primary" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="ItemComparePanel" class="panel hidden">
+                <ui:Label text="Новый предмет" class="panel-title" />
+                <ui:VisualElement class="item-compare-row">
+                    <ui:VisualElement name="NewItemCard" class="item-card">
+                        <ui:Label text="Новый" class="item-card-header" />
+                        <ui:Label name="NewItemName" text="" class="item-card-name" />
+                        <ui:Label name="NewItemStats" text="" class="body-label" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="CurrentItemCard" class="item-card">
+                        <ui:Label text="Сейчас надето" class="item-card-header" />
+                        <ui:Label name="CurrentItemName" text="" class="item-card-name" />
+                        <ui:Label name="CurrentItemStats" text="" class="body-label" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Button name="ItemEquipButton" text="Надеть" class="button-primary" />
+                <ui:Button name="ItemDiscardButton" text="Выбросить" class="button-secondary" />
             </ui:VisualElement>
 
         </ui:VisualElement>

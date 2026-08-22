@@ -274,15 +274,13 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        // "Уклонение": шанс полностью проигнорировать атаку (любого типа урона).
-        if (target.SkillEvasionLevel > 0)
+        // "Уклонение" + пассивка предмета "Неуловимость" (3.10, Эфирный доспех) — складываются:
+        // шанс полностью проигнорировать атаку (любого типа урона).
+        float evadeChancePercent = target.SkillEvasionLevel * 5f + target.ItemElusivenessLevel * 1f; // 5/10/15/20/25% + 1%/уровень предмета
+        if (evadeChancePercent > 0f && Random.value * 100f < evadeChancePercent)
         {
-            float evadeChancePercent = target.SkillEvasionLevel * 5f; // 5/10/15/20/25%
-            if (Random.value * 100f < evadeChancePercent)
-            {
-                Log($"[Combat] {target.DisplayName} уклоняется от атаки {attacker.DisplayName}.");
-                return;
-            }
+            Log($"[Combat] {target.DisplayName} уклоняется от атаки {attacker.DisplayName}.");
+            return;
         }
 
         float damage = Random.Range(weapon.DamageMin, weapon.DamageMax) * damageMultiplier;
@@ -311,6 +309,46 @@ public class CombatManager : MonoBehaviour
         else
         {
             Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: {result.DamageToHP:F1} урона по HP (осталось {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+        }
+
+        // "Вампиризм" (3.10, Кровавый меч): при крите восстанавливает атакующему часть урона крита здоровьем.
+        if (isCrit && weapon.VampirismLevel > 0)
+        {
+            float healAmount = damage * 0.02f * weapon.VampirismLevel; // 2% от урона крита за уровень предмета
+            attacker.CurrentHP = Mathf.Min(attacker.MaxHP, attacker.CurrentHP + healAmount);
+            Log($"[Combat] «Вампиризм» восстанавливает {attacker.DisplayName} {healAmount:F1} HP.");
+        }
+
+        // "Разрушение брони" (3.10, Рубило): при пробитии физ. защиты снижает её ещё на 1 за каждые
+        // 5 уровней оружия, сверх обычной деградации на 1 из DamageCalculator.
+        if (!result.WasBlocked && weapon.DamageType == DamageType.Physical && weapon.ArmorBreakLevel > 0)
+        {
+            int extraDegrade = weapon.ArmorBreakLevel / 5;
+            if (extraDegrade > 0)
+            {
+                target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - extraDegrade);
+                Log($"[Combat] «Разрушение брони» снижает физ. защиту {target.DisplayName} ещё на {extraDegrade}.");
+            }
+        }
+
+        // "Насквозь" (3.10, Стремительное копьё): часть урона дополнительно проходит по всем
+        // остальным живым противникам в комнате, помимо выбранной цели.
+        if (attacker.IsPlayer && weapon.PiercingLevel > 0)
+        {
+            float splashDamage = damage * weapon.PiercingLevel * 0.01f; // 1% урона за уровень предмета
+            if (splashDamage > 0f)
+            {
+                foreach (var other in Enemies)
+                {
+                    if (other == target || !other.IsAlive)
+                    {
+                        continue;
+                    }
+
+                    var splashResult = DamageCalculator.ApplyDamage(other, splashDamage, weapon.DamageType);
+                    Log($"[Combat] «Насквозь» задевает {other.DisplayName}: {splashResult.DamageToHP:F1} урона по HP.");
+                }
+            }
         }
 
         // "Шипы": если атака не пробила броню (полный блок) — отражается часть заблокированного
@@ -346,8 +384,9 @@ public class CombatManager : MonoBehaviour
             ApplyFreezeOnHit(attacker, weapon, target, result);
         }
 
-        // "Кровотечение": только от физического урона, дошедшего до HP.
-        if (attacker.SkillBleedLevel > 0 && weapon.DamageType == DamageType.Physical && result.DamageToHP > 0f)
+        // "Кровотечение": только от физического урона, реально пробившего защиту (не от
+        // минимального прохождения при полном блоке, см. 3.3).
+        if (attacker.SkillBleedLevel > 0 && weapon.DamageType == DamageType.Physical && !result.WasBlocked)
         {
             ApplyBleed(target, attacker.SkillBleedLevel);
         }
@@ -376,7 +415,7 @@ public class CombatManager : MonoBehaviour
         {
             // Физический урон по замороженной цели "разбивает" заморозку: доп. магический урон,
             // равный фактически полученному (после защиты) физическому урону, затем иммунитет 5 сек.
-            if (weapon.DamageType == DamageType.Physical && !target.FreezeImmune && result.DamageToHP > 0f)
+            if (weapon.DamageType == DamageType.Physical && !target.FreezeImmune && !result.WasBlocked)
             {
                 float bonusMagicDamage = result.DamageToHP;
                 DamageCalculator.ApplyMagicalDamage(target, bonusMagicDamage);
@@ -391,7 +430,7 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        if (target.FreezeImmune || result.DamageToHP <= 0f)
+        if (target.FreezeImmune || result.WasBlocked)
         {
             return;
         }

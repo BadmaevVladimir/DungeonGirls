@@ -33,10 +33,13 @@ public class CampManager : MonoBehaviour
 
         float armorRestored = 0f;
         int fieldRepairLevel = characterManager.Progress.UniquePassiveLevel;
-        if (fieldRepairLevel > 0)
+        // "Ремонт" (3.10, Молот кузнеца): +1% за уровень предмета, складывается с "Полевым ремонтом".
+        float itemRepairPercent = combatant.ItemRepairLevel * 1f;
+        float fieldRepairPercent = fieldRepairLevel > 0 ? fieldRepairLevel * 10f : 0f; // "Полевой ремонт": 10/20/30/40/50%
+        float totalRepairPercent = fieldRepairPercent + itemRepairPercent;
+        if (totalRepairPercent > 0f)
         {
-            float fieldRepairPercent = fieldRepairLevel * 10f; // "Полевой ремонт": 10/20/30/40/50%
-            float clampedPercent = BalanceClamps.ClampArmorRestorePercent(fieldRepairPercent);
+            float clampedPercent = BalanceClamps.ClampArmorRestorePercent(totalRepairPercent);
             float armorBefore = combatant.PhysicalDefenseCurrent;
             combatant.PhysicalDefenseCurrent = Mathf.Min(combatant.PhysicalDefenseMax, combatant.PhysicalDefenseCurrent + combatant.PhysicalDefenseMax * clampedPercent / 100f);
             armorRestored = combatant.PhysicalDefenseCurrent - armorBefore;

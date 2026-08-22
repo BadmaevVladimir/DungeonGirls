@@ -12,4 +12,14 @@ public static class SkillEffectMap
     public const string Thorns = "Шипы";
     public const string Unyielding = "Несгибаемый";
     public const string Bleed = "Кровотечение";
+
+    // 3.10: пассивки эпических предметов (ItemData.passiveSkill.skillName). Каждая масштабируется
+    // с уровнем ПРЕДМЕТА (item.itemLevel), а не с уровнем персонажа/навыка.
+    public const string Vampirism = "Вампиризм"; // Кровавый меч
+    public const string ArmorBreak = "Разрушение брони"; // Рубило
+    public const string Piercing = "Насквозь"; // Стремительное копьё
+    public const string Repair = "Ремонт"; // Молот кузнеца
+    public const string Elusiveness = "Неуловимость"; // Эфирный доспех
+    public const string GoldenTouch = "Золотое касание"; // Корона Мидаса
+    public const string ToughSole = "Крепкая подошва"; // Бронированные сапоги
 }

@@ -179,6 +179,36 @@
     margin-top: 2px;
 }
 
+.stat-text {
+    color: rgb(180, 190, 210);
+    font-size: 10px;
+    margin-top: 1px;
+}
+
+.item-compare-row {
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.item-card {
+    flex-grow: 1;
+    margin: 4px;
+    padding: 8px;
+    background-color: rgb(40, 40, 48);
+    border-radius: 6px;
+}
+
+.item-card-header {
+    font-size: 11px;
+    color: rgb(160, 160, 170);
+}
+
+.item-card-name {
+    font-size: 15px;
+    -unity-font-style: bold;
+    margin-bottom: 4px;
+}
+
 .enemy-list {
     flex-direction: column;
 }

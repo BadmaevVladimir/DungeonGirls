@@ -11,6 +11,10 @@ public class CharacterManager : MonoBehaviour
     public RunModifiers Modifiers { get; private set; } = new RunModifiers();
     public int RunCurrency { get; private set; } // 5.2/8.2: валюта забега, обнуляется в конце забега
 
+    // 3.4 "Без инвентаря": текущее снаряжение персонажа за забег. Начинается со стартового
+    // лоадаута и меняется только через EquipItem (сравнение со слотом, без склада/хранилища).
+    public List<ItemData> EquippedItems { get; private set; } = new List<ItemData>();
+
     public int CurrentHP => Mathf.CeilToInt(Combatant != null ? Combatant.CurrentHP : 0f);
     public int Level => Progress != null ? Progress.Level : 1;
 
@@ -20,7 +24,33 @@ public class CharacterManager : MonoBehaviour
         Progress = new RunCharacterProgress(character);
         Modifiers = new RunModifiers();
         RunCurrency = 0;
-        Combatant = CombatantFactory.CreatePlayerCombatant(character, Progress.Level, Progress);
+        EquippedItems = new List<ItemData>(character.startingEquipment ?? new ItemData[0]);
+        Combatant = CombatantFactory.CreatePlayerCombatant(character, Progress.Level, Progress, EquippedItems);
+    }
+
+    // 3.4: сколько предметов слота/подтипа может быть надето одновременно (Оружие и Кольца — по 2,
+    // остальные слоты — по 1).
+    static int SlotCapacity(EquipmentSlot slot) => slot == EquipmentSlot.Weapon || slot == EquipmentSlot.Ring ? 2 : 1;
+
+    // Возвращает предмет, с которым нужно сравнить newItem (3.4), или null, если в слоте есть
+    // свободное место и сравнивать не с чем — новый предмет можно надеть без замены.
+    public ItemData GetComparisonTarget(ItemData newItem)
+    {
+        var sameSlot = EquippedItems.FindAll(i => i != null && i.slot == newItem.slot);
+        return sameSlot.Count >= SlotCapacity(newItem.slot) ? sameSlot[0] : null;
+    }
+
+    // 3.4: надеть newItem, при необходимости заменив replacing (старый предмет просто исчезает —
+    // склада/хранилища в прототипе нет).
+    public void EquipItem(ItemData newItem, ItemData replacing)
+    {
+        if (replacing != null)
+        {
+            EquippedItems.Remove(replacing);
+        }
+
+        EquippedItems.Add(newItem);
+        RefreshCombatStats();
     }
 
     public void AddCurrency(int amount)
@@ -39,7 +69,7 @@ public class CharacterManager : MonoBehaviour
         float oldDefenseMax = Combatant.PhysicalDefenseMax;
         float oldDefenseCurrent = Combatant.PhysicalDefenseCurrent;
 
-        var rebuilt = CombatantFactory.CreatePlayerCombatant(Character, Progress.Level, Progress);
+        var rebuilt = CombatantFactory.CreatePlayerCombatant(Character, Progress.Level, Progress, EquippedItems);
 
         rebuilt.CurrentHP = Mathf.Clamp(oldCurrentHP + (rebuilt.MaxHP - oldMaxHP), 0f, rebuilt.MaxHP);
         rebuilt.PhysicalDefenseCurrent = Mathf.Clamp(oldDefenseCurrent + (rebuilt.PhysicalDefenseMax - oldDefenseMax), 0f, rebuilt.PhysicalDefenseMax);

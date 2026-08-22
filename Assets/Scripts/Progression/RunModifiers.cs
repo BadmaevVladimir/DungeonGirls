@@ -6,7 +6,7 @@ public class RunModifiers
     public float? NextCombatAttackSpeedMultiplier;
     public bool NextCombatMonsterDamageBuff10Percent;
 
-    public float? NextChestCurrencyMultiplier;
+    public int? NextChestCurrencyBonus;
     public bool NextChestNoCurrency;
 
     public float? NextCampHealMultiplier;
@@ -32,10 +32,10 @@ public class RunModifiers
         return value;
     }
 
-    public float ConsumeChestCurrencyMultiplier()
+    public int ConsumeChestCurrencyBonus()
     {
-        float value = NextChestCurrencyMultiplier ?? 1f;
-        NextChestCurrencyMultiplier = null;
+        int value = NextChestCurrencyBonus ?? 0;
+        NextChestCurrencyBonus = null;
         return value;
     }
 

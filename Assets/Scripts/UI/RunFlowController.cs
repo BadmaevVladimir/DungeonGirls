@@ -56,6 +56,8 @@ public class RunFlowController : MonoBehaviour
     Label playerNameLabel;
     VisualElement playerHpFill;
     Label playerHpText;
+    Label playerDefenseText;
+    Label playerShieldText;
     VisualElement enemyListContainer;
     ScrollView combatLogScroll;
     Label combatLogText;
@@ -82,6 +84,8 @@ public class RunFlowController : MonoBehaviour
 
     // --- Привал ---
     Label campText;
+    Button campAcceptButton;
+    Button campDeclineButton;
     Button campContinueButton;
 
     // --- Торговец ---
@@ -90,6 +94,15 @@ public class RunFlowController : MonoBehaviour
     // --- Награда ---
     Label rewardText;
     Button rewardContinueButton;
+
+    // --- Сравнение предмета (3.4, "Без инвентаря") ---
+    VisualElement itemComparePanel;
+    Label newItemName;
+    Label newItemStats;
+    Label currentItemName;
+    Label currentItemStats;
+    Button itemEquipButton;
+    Button itemDiscardButton;
 
     // Служебное состояние ожидания клика/выбора между кадрами корутины.
     int clickedIndex;
@@ -141,10 +154,13 @@ public class RunFlowController : MonoBehaviour
         campPanel = root.Q<VisualElement>("CampPanel");
         merchantPanel = root.Q<VisualElement>("MerchantPanel");
         rewardPanel = root.Q<VisualElement>("RewardPanel");
+        itemComparePanel = root.Q<VisualElement>("ItemComparePanel");
 
         playerNameLabel = root.Q<Label>("PlayerNameLabel");
         playerHpFill = root.Q<VisualElement>("PlayerHpFill");
         playerHpText = root.Q<Label>("PlayerHpText");
+        playerDefenseText = root.Q<Label>("PlayerDefenseText");
+        playerShieldText = root.Q<Label>("PlayerShieldText");
         enemyListContainer = root.Q<VisualElement>("EnemyListContainer");
         combatLogScroll = root.Q<ScrollView>("CombatLogScroll");
         combatLogText = root.Q<Label>("CombatLogText");
@@ -166,12 +182,22 @@ public class RunFlowController : MonoBehaviour
         levelUpCardsContainer = root.Q<VisualElement>("LevelUpCardsContainer");
 
         campText = root.Q<Label>("CampText");
+        campAcceptButton = root.Q<Button>("CampAcceptButton");
+        campDeclineButton = root.Q<Button>("CampDeclineButton");
         campContinueButton = root.Q<Button>("CampContinueButton");
+        SetCampOfferButtonsVisible(false);
 
         merchantContinueButton = root.Q<Button>("MerchantContinueButton");
 
         rewardText = root.Q<Label>("RewardText");
         rewardContinueButton = root.Q<Button>("RewardContinueButton");
+
+        newItemName = root.Q<Label>("NewItemName");
+        newItemStats = root.Q<Label>("NewItemStats");
+        currentItemName = root.Q<Label>("CurrentItemName");
+        currentItemStats = root.Q<Label>("CurrentItemStats");
+        itemEquipButton = root.Q<Button>("ItemEquipButton");
+        itemDiscardButton = root.Q<Button>("ItemDiscardButton");
     }
 
     // ==================== Главный цикл забега (Core Loop, раздел 1) ====================
@@ -230,7 +256,7 @@ public class RunFlowController : MonoBehaviour
                 else if (campManager.CanCamp)
                 {
                     floorManager.SetFloorState(FloorState.CampPhase);
-                    yield return CampPhaseCoroutine();
+                    yield return CampOfferAndPhaseCoroutine();
 
                     if (!characterManager.IsAlive)
                     {
@@ -394,6 +420,8 @@ public class RunFlowController : MonoBehaviour
         float playerHpPercent = player.MaxHP > 0f ? Mathf.Clamp01(player.CurrentHP / player.MaxHP) * 100f : 0f;
         playerHpFill.style.width = new Length(playerHpPercent, LengthUnit.Percent);
         playerHpText.text = $"{Mathf.Max(player.CurrentHP, 0f):F0}/{player.MaxHP:F0}";
+        playerDefenseText.text = $"Защита: {Mathf.Max(player.PhysicalDefenseCurrent, 0f):F0}/{player.PhysicalDefenseMax:F0}";
+        playerShieldText.text = $"Щит: {Mathf.Max(player.MagicShieldCurrent, 0f):F0}/{player.MagicShieldMax:F0}";
 
         enemyListContainer.Clear();
         foreach (var enemy in combatManager.Enemies)
@@ -421,6 +449,10 @@ public class RunFlowController : MonoBehaviour
             var hpText = new Label($"{Mathf.Max(enemy.CurrentHP, 0f):F0}/{enemy.MaxHP:F0}");
             hpText.AddToClassList("hp-text");
             box.Add(hpText);
+
+            var statsText = new Label($"Защита: {Mathf.Max(enemy.PhysicalDefenseCurrent, 0f):F0}/{enemy.PhysicalDefenseMax:F0}  Щит: {Mathf.Max(enemy.MagicShieldCurrent, 0f):F0}/{enemy.MagicShieldMax:F0}");
+            statsText.AddToClassList("stat-text");
+            box.Add(statsText);
 
             if (enemy.IsAlive)
             {
@@ -466,7 +498,9 @@ public class RunFlowController : MonoBehaviour
         {
             if (trap == TrapCatalog.MinedChest)
             {
-                characterManager.ApplyDirectDamage(15);
+                // "Крепкая подошва" (3.10, Бронированные сапоги): -1% урона от сработавших ловушек за уровень предмета.
+                float toughSoleReduction = characterManager.Combatant.ItemToughSoleLevel * 0.01f;
+                characterManager.ApplyDirectDamage(15 * (1f - toughSoleReduction));
                 characterManager.ApplyDirectArmorLoss(20);
             }
             else if (trap == TrapCatalog.Alarm)
@@ -567,9 +601,8 @@ public class RunFlowController : MonoBehaviour
 
             if (picked.IsCorrect)
             {
-                // [ОТКРЫТЫЙ ВОПРОС ГДД 5.4]: точный размер "бонуса к деньгам" для правильного
-                // ответа не указан — используется плейсхолдер +50%, требует подтверждения дизайном.
-                characterManager.Modifiers.NextChestCurrencyMultiplier = (characterManager.Modifiers.NextChestCurrencyMultiplier ?? 1f) * 1.5f;
+                // ГДД 5.4: верный ответ на загадку сфинкса — +200 валюты забега в следующем бою.
+                characterManager.Modifiers.NextChestCurrencyBonus = (characterManager.Modifiers.NextChestCurrencyBonus ?? 0) + 200;
             }
             else
             {
@@ -586,9 +619,9 @@ public class RunFlowController : MonoBehaviour
             {
                 if (chanceAttempted && campManager.CanCamp)
                 {
-                    // [ОТКРЫТЫЙ ВОПРОС ГДД 5.4]: точный размер бонуса при успехе ("больше здоровья")
-                    // не указан — плейсхолдер x1.5; провал даёт точное значение из ГДД (половина).
-                    float healMultiplier = chanceSucceeded ? 1.5f : 0.5f;
+                    // ГДД 5.4: успех — на 20% больше здоровья, чем базовый отдых (70% вместо
+                    // базовых 50%, т.е. x1.4); провал — половина обычного объёма привала.
+                    float healMultiplier = chanceSucceeded ? 1.4f : 0.5f;
                     floorManager.SetFloorState(FloorState.CampPhase);
                     yield return CampPhaseCoroutine(healMultiplier);
                     skipNextAutoCamp = true;
@@ -632,6 +665,33 @@ public class RunFlowController : MonoBehaviour
     }
 
     // ==================== Привал (раздел 6) ====================
+
+    // 6.1: триггер привала — явное решение игрока. Игра предлагает встать на привал; если
+    // игрок отказывается, рацион не тратится и автоматика 6.2 не запускается.
+    IEnumerator CampOfferAndPhaseCoroutine()
+    {
+        ShowOnly(campPanel);
+        campText.text = $"Можно встать на привал (потратит 1 рацион). Осталось рационов: {campManager.RationsRemaining}.";
+        SetCampOfferButtonsVisible(true);
+
+        yield return WaitForAnyClick(campAcceptButton, campDeclineButton);
+        SetCampOfferButtonsVisible(false);
+
+        bool accepted = clickedIndex == 0;
+        if (!accepted)
+        {
+            yield break;
+        }
+
+        yield return CampPhaseCoroutine();
+    }
+
+    void SetCampOfferButtonsVisible(bool visible)
+    {
+        campAcceptButton.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        campDeclineButton.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        campContinueButton.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
+    }
 
     IEnumerator CampPhaseCoroutine(float healMultiplierOverride = -1f)
     {
@@ -685,10 +745,11 @@ public class RunFlowController : MonoBehaviour
         floorManager.SetFloorState(FloorState.RewardChest);
 
         int luckLevel = characterManager.Progress.GetSkillLevel(SkillEffectMap.Luck);
-        float currencyMultiplier = characterManager.Modifiers.ConsumeChestCurrencyMultiplier();
+        int currencyBonus = characterManager.Modifiers.ConsumeChestCurrencyBonus();
         bool noCurrency = characterManager.Modifiers.ConsumeChestNoCurrency();
 
-        var reward = rewardManager.CalculateRewards(floorNumber, isBoss, luckLevel, currencyMultiplier, noCurrency);
+        int goldenTouchLevel = characterManager.Combatant.ItemGoldenTouchLevel;
+        var reward = rewardManager.CalculateRewards(floorNumber, isBoss, luckLevel, currencyBonus, noCurrency, goldenTouchLevel);
         characterManager.AddCurrency(reward.Currency);
 
         ShowOnly(rewardPanel);
@@ -698,6 +759,83 @@ public class RunFlowController : MonoBehaviour
         SetRarityClass(rewardText, reward.ItemRarity);
 
         yield return WaitForClick(rewardContinueButton);
+
+        if (reward.Item != null)
+        {
+            yield return ItemCompareFlow(reward.Item);
+        }
+    }
+
+    // ==================== Сравнение предмета (3.4, "Без инвентаря") ====================
+
+    static string SlotLabel(EquipmentSlot slot)
+    {
+        switch (slot)
+        {
+            case EquipmentSlot.Helmet: return "Шлем";
+            case EquipmentSlot.Armor: return "Броня";
+            case EquipmentSlot.Boots: return "Сапоги";
+            case EquipmentSlot.Weapon: return "Оружие";
+            case EquipmentSlot.Ring: return "Кольцо";
+            default: return "Аксессуар";
+        }
+    }
+
+    static string ItemStatsText(ItemData item)
+    {
+        if (item == null)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string> { $"{SlotLabel(item.slot)}, {RarityLabel(item.tier)}, ур. {item.itemLevel}" };
+
+        if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
+        {
+            lines.Add($"Урон: {item.baseDamage:F0} ({item.damageType}), скорость атаки: {item.attackSpeed:F2}");
+        }
+
+        if (item.physicalDefense > 0f)
+        {
+            lines.Add($"Физ. защита: {item.physicalDefense:F0}");
+        }
+
+        if (item.maxPhysicalDefenseBonus > 0f)
+        {
+            lines.Add($"+макс. физ. защита: {item.maxPhysicalDefenseBonus:F0}");
+        }
+
+        if (item.bonusStat != null)
+        {
+            lines.Add($"{item.bonusStat.type}: {item.bonusStat.baseValue * item.itemLevel:F1}");
+        }
+
+        if (item.passiveSkill != null)
+        {
+            lines.Add($"Пассивка «{item.passiveSkill.skillName}»: {item.passiveSkill.effectDescription}");
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    // Показывает новый предмет рядом с текущим надетым в том же слоте (или "свободный слот", если
+    // сравнивать не с чем) и ждёт выбора игрока: надеть или выбросить.
+    IEnumerator ItemCompareFlow(ItemData newItem)
+    {
+        var currentItem = characterManager.GetComparisonTarget(newItem);
+
+        ShowOnly(itemComparePanel);
+        newItemName.text = newItem.itemName;
+        newItemStats.text = ItemStatsText(newItem);
+        currentItemName.text = currentItem != null ? currentItem.itemName : "(свободный слот)";
+        currentItemStats.text = currentItem != null ? ItemStatsText(currentItem) : string.Empty;
+
+        yield return WaitForAnyClick(itemEquipButton, itemDiscardButton);
+
+        if (clickedIndex == 0)
+        {
+            characterManager.EquipItem(newItem, currentItem);
+        }
     }
 
     // ==================== Результаты забега (1 п.7-8, 7.2 п.6) ====================
@@ -755,7 +893,7 @@ public class RunFlowController : MonoBehaviour
 
     void ShowOnly(VisualElement panelToShow)
     {
-        foreach (var panel in new[] { combatPanel, eventPopup, trapPopup, levelUpPanel, campPanel, merchantPanel, rewardPanel })
+        foreach (var panel in new[] { combatPanel, eventPopup, trapPopup, levelUpPanel, campPanel, merchantPanel, rewardPanel, itemComparePanel })
         {
             panel.style.display = panel == panelToShow ? DisplayStyle.Flex : DisplayStyle.None;
         }
