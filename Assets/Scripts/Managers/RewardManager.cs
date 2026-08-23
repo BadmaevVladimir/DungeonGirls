@@ -90,16 +90,33 @@ public class RewardManager : MonoBehaviour
         return reward;
     }
 
-    // 8.5: [DRAFT] мета-валюта победа=80/поражение=30; гача-валюта=15 в любом случае.
-    public RunCompletionReward CalculateRunCompletionReward(bool victory)
+    // 8.5 [DRAFT, обновлено]: победа = 80 мета/15 гача (фиксировано). Поражение зависит от
+    // прогресса — 5 мета/2 гача за каждую пройденную комнату (roomsCleared считает только
+    // комнаты, где персонаж выжил, см. CharacterManager.RoomsClearedThisRun), потолки 70/14.
+    // Умер в первой комнате, не пройдя ни одной, — 0 награды.
+    public RunCompletionReward CalculateRunCompletionReward(bool victory, int roomsCleared = 0)
     {
+        int metaCurrency;
+        int gachaCurrency;
+
+        if (victory)
+        {
+            metaCurrency = 80;
+            gachaCurrency = 15;
+        }
+        else
+        {
+            metaCurrency = Mathf.Min(roomsCleared * 5, 70);
+            gachaCurrency = Mathf.Min(roomsCleared * 2, 14);
+        }
+
         var reward = new RunCompletionReward
         {
-            MetaCurrency = victory ? 80 : 30,
-            GachaCurrency = 15
+            MetaCurrency = metaCurrency,
+            GachaCurrency = gachaCurrency
         };
 
-        Debug.Log($"[Reward] Итог забега: {reward.MetaCurrency} мета-валюты, {reward.GachaCurrency} гача-валюты.");
+        Debug.Log($"[Reward] Итог забега: {reward.MetaCurrency} мета-валюты, {reward.GachaCurrency} гача-валюты (комнат пройдено: {roomsCleared}).");
 
         return reward;
     }

@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1703b22eba2c29499f4fd300e671827, type: 3}
+  m_Name: Character_Placeholder2
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterData
+  characterName: "Персонаж 2"
+  characterClass: 0
+  baseHealth: 20
+  healthPerLevel: 20
+  uniquePassiveSkill: {fileID: 0}
+  uniqueActiveSkill: {fileID: 0}
+  startingEquipment: []

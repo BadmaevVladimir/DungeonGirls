@@ -213,6 +213,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b32f145a22a66a540bf4f0ffcad30f4f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HubManager
+  uiDocument: {fileID: 702948515}
+  saveManager: {fileID: 6340600}
+  gachaCharacters:
+  - {fileID: 11400000, guid: fc548e39806d27b4ca5fa23e3fa061de, type: 2}
+  - {fileID: 11400000, guid: 181aae94b69a4c15a0ed897f86ce9576, type: 2}
 --- !u!114 &6340602
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -599,6 +604,8 @@ MonoBehaviour:
   rewardManager: {fileID: 6340604}
   levelUpManager: {fileID: 6340603}
   characterManager: {fileID: 6340602}
+  equipmentManager: {fileID: 6340599}
+  saveManager: {fileID: 6340600}
 --- !u!114 &702948515
 MonoBehaviour:
   m_ObjectHideFlags: 0

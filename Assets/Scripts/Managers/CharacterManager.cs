@@ -11,6 +11,10 @@ public class CharacterManager : MonoBehaviour
     public RunModifiers Modifiers { get; private set; } = new RunModifiers();
     public int RunCurrency { get; private set; } // 5.2/8.2: валюта забега, обнуляется в конце забега
 
+    // 8.5: сколько комнат пройдено ЗА ВЕСЬ ЗАБЕГ (все этажи), считая только комнаты, в которых
+    // персонаж выжил — комната, в которой персонаж погиб, в счёт не идёт (см. RewardManager).
+    public int RoomsClearedThisRun { get; private set; }
+
     // 3.4 "Без инвентаря": текущее снаряжение персонажа за забег. Начинается со стартового
     // лоадаута и меняется только через EquipItem (сравнение со слотом, без склада/хранилища).
     public List<ItemData> EquippedItems { get; private set; } = new List<ItemData>();
@@ -18,13 +22,27 @@ public class CharacterManager : MonoBehaviour
     public int CurrentHP => Mathf.CeilToInt(Combatant != null ? Combatant.CurrentHP : 0f);
     public int Level => Progress != null ? Progress.Level : 1;
 
-    public void BeginRun(CharacterData character)
+    // equipmentManager/saveManager опциональны (могут быть null, напр. в тестах) — тогда бонус
+    // от Кузницы/гачи (3.5/8.1) не применяется, персонаж стартует с базовым лоадаутом.
+    public void BeginRun(CharacterData character, EquipmentManager equipmentManager = null, SaveManager saveManager = null)
     {
         Character = character;
         Progress = new RunCharacterProgress(character);
         Modifiers = new RunModifiers();
         RunCurrency = 0;
-        EquippedItems = new List<ItemData>(character.startingEquipment ?? new ItemData[0]);
+        RoomsClearedThisRun = 0;
+
+        if (equipmentManager != null)
+        {
+            int forgeLevel = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Forge) : 0;
+            int copyCount = saveManager != null ? saveManager.GetCharacterCopies(character.characterName) : 0;
+            EquippedItems = equipmentManager.GetEffectiveStartingEquipment(character, forgeLevel, copyCount);
+        }
+        else
+        {
+            EquippedItems = new List<ItemData>(character.startingEquipment ?? new ItemData[0]);
+        }
+
         Combatant = CombatantFactory.CreatePlayerCombatant(character, Progress.Level, Progress, EquippedItems);
     }
 
@@ -66,6 +84,12 @@ public class CharacterManager : MonoBehaviour
     public void AddCurrency(int amount)
     {
         RunCurrency += amount;
+    }
+
+    // 8.5: вызывать только когда персонаж пережил комнату (см. RunFlowController.RunLoop).
+    public void MarkRoomCleared()
+    {
+        RoomsClearedThisRun++;
     }
 
     // Пересобирает боевые статы персонажа (после левел-апа/нового навыка), сохраняя текущее

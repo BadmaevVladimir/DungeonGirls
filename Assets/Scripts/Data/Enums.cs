@@ -52,6 +52,14 @@ public enum ActiveSkillTargetType
     AoE
 }
 
+// 8.1: 3 здания деревни, апгрейдятся 0-5.
+public enum BuildingType
+{
+    Forge,
+    Temple,
+    Tavern
+}
+
 public enum BonusStatType
 {
     None,

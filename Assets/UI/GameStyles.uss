@@ -315,3 +315,32 @@
     -unity-font-style: bold;
     margin-bottom: 20px;
 }
+
+/* --- Хаб / здания / гача (Фаза 5) --- */
+
+.currency-label {
+    font-size: 18px;
+    color: rgb(230, 200, 60);
+    -unity-font-style: bold;
+    margin-bottom: 20px;
+}
+
+.buildings-row {
+    flex-direction: row;
+    justify-content: center;
+}
+
+.building-card {
+    background-color: rgb(30, 30, 36);
+    border-radius: 6px;
+    padding: 16px;
+    margin: 8px;
+    width: 280px;
+}
+
+.building-card-title {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: rgb(240, 240, 240);
+    margin-bottom: 8px;
+}

@@ -4,6 +4,49 @@
     <ui:VisualElement name="MainMenuScreen" class="full-screen">
         <ui:Label text="Dungeon Girls" class="title-label" />
         <ui:Button name="StartRunButton" text="Начать забег" class="button-primary" />
+        <ui:Button name="BuildingsButton" text="Здания" class="button-secondary" />
+        <ui:Button name="GachaButton" text="Гача" class="button-secondary" />
+    </ui:VisualElement>
+
+    <ui:VisualElement name="BuildingsScreen" class="full-screen hidden" style="flex-direction: column;">
+        <ui:Label text="Здания деревни" class="title-label" />
+        <ui:Label name="MetaCurrencyLabel" text="Мета-валюта: 0" class="currency-label" />
+        <ui:VisualElement class="buildings-row">
+            <ui:VisualElement name="ForgeCard" class="building-card">
+                <ui:Label text="Кузница" class="building-card-title" />
+                <ui:Label name="ForgeLevelLabel" text="" class="body-label" />
+                <ui:Label name="ForgeBonusLabel" text="" class="body-label" />
+                <ui:Label name="ForgeCostLabel" text="" class="body-label" />
+                <ui:Button name="ForgeUpgradeButton" text="Улучшить" class="button-primary" />
+            </ui:VisualElement>
+            <ui:VisualElement name="TempleCard" class="building-card">
+                <ui:Label text="Храм" class="building-card-title" />
+                <ui:Label name="TempleLevelLabel" text="" class="body-label" />
+                <ui:Label name="TempleBonusLabel" text="" class="body-label" />
+                <ui:Label name="TempleCostLabel" text="" class="body-label" />
+                <ui:Button name="TempleUpgradeButton" text="Улучшить" class="button-primary" />
+            </ui:VisualElement>
+            <ui:VisualElement name="TavernCard" class="building-card">
+                <ui:Label text="Таверна" class="building-card-title" />
+                <ui:Label name="TavernLevelLabel" text="" class="body-label" />
+                <ui:Label name="TavernBonusLabel" text="" class="body-label" />
+                <ui:Label name="TavernCostLabel" text="" class="body-label" />
+                <ui:Button name="TavernUpgradeButton" text="Улучшить" class="button-primary" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:Button name="BuildingsBackButton" text="Назад" class="button-secondary" />
+    </ui:VisualElement>
+
+    <ui:VisualElement name="GachaScreen" class="full-screen hidden" style="flex-direction: column;">
+        <ui:Label text="Гача" class="title-label" />
+        <ui:Label name="GachaCurrencyLabel" text="Гача-валюта: 0" class="currency-label" />
+        <ui:Button name="GachaPullButton" text="Призыв (50 гача-валюты)" class="button-primary" />
+        <ui:VisualElement name="GachaResultPopup" class="panel hidden" style="max-width: 400px; flex-grow: 0;">
+            <ui:Label text="Результат призыва" class="panel-title" />
+            <ui:Label name="GachaResultLabel" text="" class="body-label" />
+            <ui:Button name="GachaResultCloseButton" text="Ок" class="button-secondary" />
+        </ui:VisualElement>
+        <ui:Button name="GachaBackButton" text="Назад" class="button-secondary" />
     </ui:VisualElement>
 
     <ui:VisualElement name="RunScreen" class="run-root hidden">

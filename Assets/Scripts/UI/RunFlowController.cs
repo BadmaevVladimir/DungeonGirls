@@ -28,6 +28,8 @@ public class RunFlowController : MonoBehaviour
     [SerializeField] RewardManager rewardManager;
     [SerializeField] LevelUpManager levelUpManager;
     [SerializeField] CharacterManager characterManager;
+    [SerializeField] EquipmentManager equipmentManager;
+    [SerializeField] SaveManager saveManager;
 
     // --- Экраны верхнего уровня ---
     VisualElement mainMenuScreen;
@@ -208,7 +210,7 @@ public class RunFlowController : MonoBehaviour
         levelUpManager.GeneralSkillPool = generalSkillPool;
         levelUpManager.WarriorSkillPool = warriorSkillPool;
 
-        characterManager.BeginRun(jenniferCharacter);
+        characterManager.BeginRun(jenniferCharacter, equipmentManager, saveManager);
         campManager.BeginRun();
         dungeonManager.SetRunState(RunState.RunSetup);
         dungeonManager.GenerateDungeon();
@@ -241,6 +243,9 @@ public class RunFlowController : MonoBehaviour
                     floorLost = true;
                     break;
                 }
+
+                // 8.5: комната засчитывается в награду за поражение только если персонаж её пережил.
+                characterManager.MarkRoomCleared();
 
                 if (isBossRoom)
                 {
@@ -887,7 +892,12 @@ public class RunFlowController : MonoBehaviour
         runScreen.style.display = DisplayStyle.None;
         resultsScreen.style.display = DisplayStyle.Flex;
 
-        var completion = rewardManager.CalculateRunCompletionReward(victory);
+        var completion = rewardManager.CalculateRunCompletionReward(victory, characterManager.RoomsClearedThisRun);
+        if (saveManager != null)
+        {
+            saveManager.AddMetaCurrency(completion.MetaCurrency);
+            saveManager.AddGachaCurrency(completion.GachaCurrency);
+        }
 
         resultsTitleLabel.text = victory ? "Победа" : "Поражение";
         resultsTitleLabel.RemoveFromClassList(victory ? "results-defeat" : "results-victory");
