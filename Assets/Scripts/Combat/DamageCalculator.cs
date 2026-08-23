@@ -8,15 +8,16 @@ public static class DamageCalculator
         public bool WasBlocked;
     }
 
-    // 3.3: урон меньше защиты — почти полностью блокируется, но минимум 1 единица урона
-    // всё равно проходит по HP (броня при этом НЕ теряет единицу); иначе защита снижает
-    // урон на своё значение, остаток идёт по HP, после чего защита теряет 1 единицу.
+    // 3.3 [ОТКАТИЛО после плейтеста]: правило минимального гарантированного урона (1 единица)
+    // убрано — урон меньше защиты снова блокируется полностью (0 по HP, броня не теряет
+    // единицу). Гейт против пробития брони Скелета стартовым оружием решён снижением его
+    // защиты (2.4), а не смягчением этого правила. Иначе защита снижает урон на своё значение,
+    // остаток идёт по HP, после чего защита теряет 1 единицу.
     public static DamageResult ApplyPhysicalDamage(CombatantRuntime target, float incomingDamage)
     {
         if (incomingDamage < target.PhysicalDefenseCurrent)
         {
-            target.CurrentHP -= 1f;
-            return new DamageResult { DamageToHP = 1f, WasBlocked = true };
+            return new DamageResult { DamageToHP = 0f, WasBlocked = true };
         }
 
         float remainder = incomingDamage - target.PhysicalDefenseCurrent;

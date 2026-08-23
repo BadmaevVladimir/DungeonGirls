@@ -774,7 +774,7 @@ public class RunFlowController : MonoBehaviour
         bool noCurrency = characterManager.Modifiers.ConsumeChestNoCurrency();
 
         int goldenTouchLevel = characterManager.Combatant.ItemGoldenTouchLevel;
-        var reward = rewardManager.CalculateRewards(floorNumber, isBoss, luckLevel, currencyBonus, noCurrency, goldenTouchLevel);
+        var reward = rewardManager.CalculateRewards(floorNumber, isBoss, characterManager.Level, luckLevel, currencyBonus, noCurrency, goldenTouchLevel);
         characterManager.AddCurrency(reward.Currency);
 
         ShowOnly(rewardPanel);

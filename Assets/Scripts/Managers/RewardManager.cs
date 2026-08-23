@@ -64,17 +64,31 @@ public class RewardManager : MonoBehaviour
         return luckSkillLevel >= 5 && Random.value < 0.10f;
     }
 
+    // 8.2 [DRAFT, обновлено после плейтеста]: уровень предмета в сундуке больше не всегда 1 —
+    // случайный в диапазоне [уровеньПерсонажа; уровеньПерсонажа+2] (раньше весь лут падал
+    // 1 уровня, разница между уровнями предмета была незаметна). ItemData — общий
+    // ScriptableObject-ассет каталога, поэтому уровень выставляется на runtime-клоне, а не на
+    // самом ассете (иначе он "утёк" бы во все последующие роллы), см. также EquipmentManager.
+    ItemData RollItemLevel(ItemData baseItem, int characterLevel)
+    {
+        if (baseItem == null) return null;
+
+        var clone = Instantiate(baseItem);
+        clone.itemLevel = Random.Range(characterLevel, characterLevel + 3); // [char; char+2] включительно
+        return clone;
+    }
+
     // currencyBonus/noCurrency — модификаторы от квестов (5.4: "Загадка сфинкса" даёт +200
     // валюты забега в следующем бою при верном ответе). goldenTouchLevel — пассивка "Золотое
     // касание" (3.10, Корона Мидаса): +1% к валюте забега из сундука за уровень предмета.
-    public ChestReward CalculateRewards(int floorNumber, bool isBoss, int luckSkillLevel = 0, int currencyBonus = 0, bool noCurrency = false, int goldenTouchLevel = 0)
+    public ChestReward CalculateRewards(int floorNumber, bool isBoss, int characterLevel, int luckSkillLevel = 0, int currencyBonus = 0, bool noCurrency = false, int goldenTouchLevel = 0)
     {
         int currency = noCurrency ? 0 : Mathf.RoundToInt((CalculateCurrencyReward(floorNumber, isBoss) + currencyBonus) * (1f + goldenTouchLevel * 0.01f));
         ItemTier itemRarity = RollItemRarity(isBoss);
         ItemData rolledItem = null;
-        if (itemCatalog != null)
+        if (itemCatalog != null && itemCatalog.TryGetRandomItem(itemRarity, out var baseItem))
         {
-            itemCatalog.TryGetRandomItem(itemRarity, out rolledItem);
+            rolledItem = RollItemLevel(baseItem, characterLevel);
         }
 
         var reward = new ChestReward

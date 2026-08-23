@@ -19,6 +19,6 @@ MonoBehaviour:
   damageMax: 15
   damageType: 0
   attackSpeed: 1
-  physicalDefense: 10
+  physicalDefense: 5
   magicDefense: 0
   passiveSkill: {fileID: 0}
