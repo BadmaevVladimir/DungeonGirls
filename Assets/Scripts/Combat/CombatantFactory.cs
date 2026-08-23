@@ -145,7 +145,7 @@ public static class CombatantFactory
         {
             if (item != null && item.slot == EquipmentSlot.Weapon && item.weaponSubtype == WeaponSubtype.Shield)
             {
-                sum += item.maxPhysicalDefenseBonus;
+                sum += item.EffectiveMaxDefenseBonus;
             }
         }
 
@@ -209,17 +209,20 @@ public static class CombatantFactory
 
         foreach (var item in realWeaponItems)
         {
-            float itemDamage = item.baseDamage;
+            float itemDamage = item.EffectiveDamage; // 3.10: основной стат уже с бонусом уровня
             if (isDualWielding)
             {
                 itemDamage *= dualWieldMultiplier;
             }
 
+            // 3.2: фиксированный урон -> диапазон [ПОЛ(база×0.8); ОКРУГЛВВЕРХ(база×1.2)].
+            DamageCalculator.ComputeDamageRange(itemDamage, out float damageMin, out float damageMax);
+
             string passiveName = item.passiveSkill != null ? item.passiveSkill.skillName : null;
             weapons.Add(new WeaponAttackState
             {
-                DamageMin = itemDamage,
-                DamageMax = itemDamage,
+                DamageMin = damageMin,
+                DamageMax = damageMax,
                 DamageType = item.damageType,
                 AttackSpeed = item.attackSpeed,
                 VampirismLevel = passiveName == SkillEffectMap.Vampirism ? item.itemLevel : 0,
@@ -242,11 +245,11 @@ public static class CombatantFactory
 
             if (item.slot == EquipmentSlot.Armor)
             {
-                physicalDefense += item.physicalDefense;
+                physicalDefense += item.EffectiveDefense;
             }
             else
             {
-                maxPhysicalDefenseBonus += item.maxPhysicalDefenseBonus;
+                maxPhysicalDefenseBonus += item.EffectiveMaxDefenseBonus;
             }
 
             if (item.bonusStat != null && item.bonusStat.type == BonusStatType.MagicShieldFlat)

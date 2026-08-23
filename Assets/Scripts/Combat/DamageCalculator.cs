@@ -43,6 +43,17 @@ public static class DamageCalculator
         return new DamageResult { DamageToHP = remainder, WasBlocked = false };
     }
 
+    // 3.2 [ОБНОВЛЕНО после плейтеста]: любое ранее фиксированное значение урона снаряжения теперь
+    // диапазон вокруг базового значения — [ПОЛ(база×0.8); ОКРУГЛВВЕРХ(база×1.2)]. Общее правило,
+    // применяется в CombatantFactory при сборке WeaponAttackState из ItemData.EffectiveDamage.
+    // Урон монстров НЕ идёт через эту формулу — MonsterData уже хранит явные diapazon-поля
+    // damageMin/damageMax (не единое "базовое" значение), их не трогаем.
+    public static void ComputeDamageRange(float baseDamage, out float min, out float max)
+    {
+        min = Mathf.Floor(baseDamage * 0.8f);
+        max = Mathf.Ceil(baseDamage * 1.2f);
+    }
+
     public static DamageResult ApplyDamage(CombatantRuntime target, float incomingDamage, DamageType damageType)
     {
         return damageType == DamageType.Physical

@@ -818,17 +818,18 @@ public class RunFlowController : MonoBehaviour
 
         if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
         {
-            lines.Add($"Урон: {item.baseDamage:F0} ({item.damageType}), скорость атаки: {item.attackSpeed:F2}");
+            DamageCalculator.ComputeDamageRange(item.EffectiveDamage, out float dmgMin, out float dmgMax);
+            lines.Add($"Урон: {dmgMin:F0}-{dmgMax:F0} ({item.damageType}), скорость атаки: {item.attackSpeed:F2}");
         }
 
         if (item.physicalDefense > 0f)
         {
-            lines.Add($"Физ. защита: {item.physicalDefense:F0}");
+            lines.Add($"Физ. защита: {item.EffectiveDefense:F0}");
         }
 
         if (item.maxPhysicalDefenseBonus > 0f)
         {
-            lines.Add($"+макс. физ. защита: {item.maxPhysicalDefenseBonus:F0}");
+            lines.Add($"+макс. физ. защита: {item.EffectiveMaxDefenseBonus:F0}");
         }
 
         if (item.bonusStat != null)
