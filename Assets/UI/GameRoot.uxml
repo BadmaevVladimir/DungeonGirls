@@ -60,7 +60,7 @@
 
     <ui:VisualElement name="RunScreen" class="run-root hidden">
         <ui:VisualElement name="TopBar" class="top-bar">
-            <ui:Label name="FloorLabel" text="Этаж 1/3" class="top-bar-label" />
+            <ui:Label name="FloorLabel" text="Этаж 1/10" class="top-bar-label" />
             <ui:VisualElement name="RoomProgressContainer" class="room-progress-row" />
             <ui:Label name="RationsLabel" text="Рационы: 5" class="top-bar-label" />
         </ui:VisualElement>

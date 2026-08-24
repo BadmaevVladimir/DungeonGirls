@@ -128,6 +128,55 @@ public static class PlayModeSmokeTest
         Check(sword.EffectiveDefense == 0f, $"3.10 защита от нуля не масштабируется: {sword.EffectiveDefense} (ожидалось 0)");
         UnityEngine.Object.DestroyImmediate(sword);
 
+        // 2.1: длина подземелья в этажах
+        Check(DungeonManager.TotalFloors == 10, $"2.1 этажей в подземелье: {DungeonManager.TotalFloors} (ожидалось 10)");
+
+        // 2.6: броня монстра масштабируется x1.15/этаж
+        var skeletonBase = ScriptableObject.CreateInstance<MonsterData>();
+        skeletonBase.physicalDefense = 8f;
+        skeletonBase.hp = 40f;
+        skeletonBase.damageMin = 10f;
+        skeletonBase.damageMax = 15f;
+        var floor10Skeleton = CombatantFactory.CreateMonsterCombatant(skeletonBase, 10);
+        // x1.15^9 ≈ 3.5179; StatScaling.ApplyLevelBonus at level 1 is a no-op (level-1=0), so this is
+        // just 8 * 3.5179 ≈ 28.14, matching the GDD's "≈28" example.
+        Check(floor10Skeleton.PhysicalDefenseMax > 27f && floor10Skeleton.PhysicalDefenseMax < 29f,
+            $"2.6 броня Скелета на этаже 10: {floor10Skeleton.PhysicalDefenseMax:F2} (ожидалось ~28.1, было бы ~850+ со старым x1.8)");
+        UnityEngine.Object.DestroyImmediate(skeletonBase);
+
+        // 3.6: потолок уровня персонажа и опыт
+        Check(RunCharacterProgress.MaxCharacterLevel == 15, $"3.6 потолок уровня: {RunCharacterProgress.MaxCharacterLevel} (ожидалось 15)");
+
+        int totalXpTo15 = 0;
+        for (int lvl = 1; lvl < 15; lvl++) totalXpTo15 += RunCharacterProgress.ExperienceRequiredForLevel(lvl);
+        Check(totalXpTo15 == 2625, $"3.6 суммарный опыт до 15 ур.: {totalXpTo15} (ожидалось 2625)");
+
+        var jennifer = ScriptableObject.CreateInstance<CharacterData>();
+        var progress = new RunCharacterProgress(jennifer);
+        progress.AddExperience(100000); // огромный оверфлоу — не должен пробить потолок 15
+        Check(progress.Level == 15, $"3.6 AddExperience не пробивает потолок: {progress.Level} (ожидалось 15)");
+        UnityEngine.Object.DestroyImmediate(jennifer);
+
+        // 8.2: доля редкостей предметов в сундуках
+        var rewardManagerGO = new GameObject("SmokeTest_RewardManager");
+        var rewardManager = rewardManagerGO.AddComponent<RewardManager>();
+        int commonCount = 0, rareCount = 0, epicCount = 0;
+        const int sampleSize = 20000;
+        for (int i = 0; i < sampleSize; i++)
+        {
+            switch (rewardManager.RollItemRarity(false))
+            {
+                case ItemTier.Common: commonCount++; break;
+                case ItemTier.Rare: rareCount++; break;
+                case ItemTier.Epic: epicCount++; break;
+            }
+        }
+        float commonPct = commonCount * 100f / sampleSize;
+        float epicPct = epicCount * 100f / sampleSize;
+        Check(commonPct > 59f && commonPct < 65f, $"8.2 доля Обычных ~62%: {commonPct:F1}%");
+        Check(epicPct > 1.5f && epicPct < 4.5f, $"8.2 доля Эпических ~3%: {epicPct:F1}%");
+        UnityEngine.Object.DestroyImmediate(rewardManagerGO);
+
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
     }
 
@@ -226,6 +275,18 @@ public static class PlayModeSmokeTest
             Check(characterManager.Combatant != null && characterManager.Combatant.IsAlive, "BeginRun с бонусом Кузницы не падает, боевой юнит жив");
             Check(characterManager.EquippedItems.Count == jennifer.startingEquipment.Length, "BeginRun выдал столько же предметов, сколько стартовый лоадаут");
         }
+
+        // 8.4: состав мешка комнат
+        var floorManagerGO = new GameObject("SmokeTest_FloorManager");
+        var floorManager = floorManagerGO.AddComponent<FloorManager>();
+        floorManager.GenerateRoomBag();
+        int combatCount = floorManager.RoomBag.FindAll(r => r == RoomType.Combat).Count;
+        int merchantCount = floorManager.RoomBag.FindAll(r => r == RoomType.Merchant).Count;
+        int trapCount = floorManager.RoomBag.FindAll(r => r == RoomType.Trap).Count;
+        int specialCount = floorManager.RoomBag.FindAll(r => r == RoomType.Special).Count;
+        Check(combatCount == 8 && merchantCount == 1 && trapCount == 2 && specialCount == 1 && floorManager.RoomBag.Count == 12,
+            $"8.4 состав мешка: combat={combatCount}, merchant={merchantCount}, trap={trapCount}, special={specialCount}, total={floorManager.RoomBag.Count} (ожидалось 8/1/2/1/12)");
+        UnityEngine.Object.DestroyImmediate(floorManagerGO);
 
         Info.Add("Play Mode проверки хаба/зданий/гачи/сейва/BeginRun выполнены.");
     }
