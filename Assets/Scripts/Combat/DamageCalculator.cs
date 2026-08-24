@@ -8,11 +8,15 @@ public static class DamageCalculator
         public bool WasBlocked;
     }
 
-    // 3.3 [ОТКАТИЛО после плейтеста]: правило минимального гарантированного урона (1 единица)
-    // убрано — урон меньше защиты снова блокируется полностью (0 по HP, броня не теряет
-    // единицу). Гейт против пробития брони Скелета стартовым оружием решён снижением его
-    // защиты (2.4), а не смягчением этого правила. Иначе защита снижает урон на своё значение,
-    // остаток идёт по HP, после чего защита теряет 1 единицу.
+    // 3.3: урон меньше текущей брони блокируется полностью (0 по HP, броня не теряет единицу).
+    // Иначе защита снижает урон на своё значение, остаток идёт по HP, после чего защита теряет
+    // 1 единицу — кроме случая «полного пробития» ниже.
+    //
+    // 3.3 [ОБНОВЛЕНО, третий плейтест] «Полное пробитие»: если урон ≥ удвоенной текущей брони,
+    // броня теряет 2 единицы вместо 1 (остальной расчёт урона/остатка не меняется). Пример:
+    // броня=10, урон=12 — обычное пробитие, −1; урон=22 (≥20=2×10) — полное пробитие, −2.
+    // Причина: без этого часть боёв могла затягиваться навечно (высокая броня вырабатывалась
+    // только по 1 за удар). Считается редким случаем на практике.
     public static DamageResult ApplyPhysicalDamage(CombatantRuntime target, float incomingDamage)
     {
         if (incomingDamage < target.PhysicalDefenseCurrent)
@@ -21,7 +25,8 @@ public static class DamageCalculator
         }
 
         float remainder = incomingDamage - target.PhysicalDefenseCurrent;
-        target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - 1f);
+        float armorLoss = incomingDamage >= target.PhysicalDefenseCurrent * 2f ? 2f : 1f;
+        target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - armorLoss);
         target.CurrentHP -= remainder;
 
         return new DamageResult { DamageToHP = remainder, WasBlocked = false };

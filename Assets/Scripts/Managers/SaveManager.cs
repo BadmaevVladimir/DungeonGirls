@@ -129,6 +129,15 @@ public class SaveManager : MonoBehaviour
         SaveGame();
     }
 
+    // 7.1: кнопка «Сбросить прогресс» в хабе — полностью очищает SaveData (мета-валюта,
+    // гача-валюта, уровни зданий, гача-копии), возвращая игру в состояние первого запуска.
+    // Нужна для удобства баланс-тестирования (см. ГДД 7.1).
+    public void ResetProgress()
+    {
+        Data = new SaveData();
+        SaveGame();
+    }
+
     static KeyCountEntry FindEntry(List<KeyCountEntry> list, string key) => list.Find(e => e.key == key);
 
     static KeyCountEntry FindOrCreateEntry(List<KeyCountEntry> list, string key)

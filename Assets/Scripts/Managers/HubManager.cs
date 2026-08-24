@@ -49,6 +49,11 @@ public class HubManager : MonoBehaviour
     Label gachaResultLabel;
     Button gachaResultCloseButton;
 
+    Button resetProgressButton;
+    VisualElement resetProgressConfirmPopup;
+    Button resetProgressConfirmButton;
+    Button resetProgressCancelButton;
+
     // Start() вместо OnEnable(): HubManager сидит на GameObject "GameManager", а UIDocument — на
     // отдельном GameObject "UI". Unity не гарантирует порядок OnEnable МЕЖДУ разными GameObject
     // (в отличие от порядка компонентов ВНУТРИ одного GameObject, где UIDocument идёт раньше
@@ -68,6 +73,10 @@ public class HubManager : MonoBehaviour
         gachaBackButton.clicked += OpenVillage;
         gachaPullButton.clicked += TryPullGacha;
         gachaResultCloseButton.clicked += () => gachaResultPopup.style.display = DisplayStyle.None;
+
+        resetProgressButton.clicked += () => resetProgressConfirmPopup.style.display = DisplayStyle.Flex;
+        resetProgressCancelButton.clicked += () => resetProgressConfirmPopup.style.display = DisplayStyle.None;
+        resetProgressConfirmButton.clicked += ConfirmResetProgress;
 
         for (int i = 0; i < BuildingOrder.Length; i++)
         {
@@ -105,6 +114,11 @@ public class HubManager : MonoBehaviour
         gachaResultPopup = root.Q<VisualElement>("GachaResultPopup");
         gachaResultLabel = root.Q<Label>("GachaResultLabel");
         gachaResultCloseButton = root.Q<Button>("GachaResultCloseButton");
+
+        resetProgressButton = root.Q<Button>("ResetProgressButton");
+        resetProgressConfirmPopup = root.Q<VisualElement>("ResetProgressConfirmPopup");
+        resetProgressConfirmButton = root.Q<Button>("ResetProgressConfirmButton");
+        resetProgressCancelButton = root.Q<Button>("ResetProgressCancelButton");
     }
 
     // ==================== Навигация (7.1) ====================
@@ -216,6 +230,16 @@ public class HubManager : MonoBehaviour
         gachaResultLabel.text = resultText;
         gachaResultPopup.style.display = DisplayStyle.Flex;
 
+        RefreshGachaScreen();
+    }
+
+    // ==================== Сброс прогресса (7.1) ====================
+
+    void ConfirmResetProgress()
+    {
+        saveManager.ResetProgress();
+        resetProgressConfirmPopup.style.display = DisplayStyle.None;
+        RefreshBuildingsScreen();
         RefreshGachaScreen();
     }
 }

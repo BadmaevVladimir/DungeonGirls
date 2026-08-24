@@ -6,6 +6,15 @@
         <ui:Button name="StartRunButton" text="Начать забег" class="button-primary" />
         <ui:Button name="BuildingsButton" text="Здания" class="button-secondary" />
         <ui:Button name="GachaButton" text="Гача" class="button-secondary" />
+        <ui:Button name="ResetProgressButton" text="Сбросить прогресс" class="button-secondary" />
+        <ui:VisualElement name="ResetProgressConfirmPopup" class="panel hidden" style="max-width: 400px; flex-grow: 0;">
+            <ui:Label text="Сбросить прогресс?" class="panel-title" />
+            <ui:Label text="Действие необратимо: мета-валюта, гача-валюта, уровни зданий и гача-копии будут удалены." class="body-label" />
+            <ui:VisualElement style="flex-direction: row;">
+                <ui:Button name="ResetProgressConfirmButton" text="Да, сбросить" class="button-primary" />
+                <ui:Button name="ResetProgressCancelButton" text="Отмена" class="button-secondary" />
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 
     <ui:VisualElement name="BuildingsScreen" class="full-screen hidden" style="flex-direction: column;">

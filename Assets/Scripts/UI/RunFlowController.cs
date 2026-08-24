@@ -317,11 +317,13 @@ public class RunFlowController : MonoBehaviour
 
     // ==================== Бой (раздел 4, 7.2) ====================
 
+    // 4.1 [ОБНОВЛЕНО после третьего плейтеста]: пороги количества монстров в обычной боевой
+    // комнате снижены — старый порог в 7 уровня для 3 монстров был слишком поздним.
     int RollMonsterCount(int level)
     {
-        if (level <= 3) return 1;
-        if (level <= 6) return Random.Range(1, 3); // 1-2
-        return Random.Range(1, 4); // 1-3
+        if (level <= 2) return 1;
+        if (level <= 5) return Random.Range(1, 3); // 1-2
+        return Random.Range(1, 4); // 1-3 (уровень 6+)
     }
 
     IEnumerator CombatRoomFlow(bool isBoss)
@@ -333,11 +335,13 @@ public class RunFlowController : MonoBehaviour
         }
         else
         {
+            // 2.7/8.4: уровень монстра растёт с позицией уже пройденных комнат этажа в мешке.
+            int monsterLevel = 1 + floorManager.RoomsCompletedOnFloor / 3;
             int count = RollMonsterCount(characterManager.Level);
             for (int i = 0; i < count; i++)
             {
                 var data = regularMonsterPool[Random.Range(0, regularMonsterPool.Count)];
-                enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber));
+                enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber, monsterLevel));
             }
         }
 

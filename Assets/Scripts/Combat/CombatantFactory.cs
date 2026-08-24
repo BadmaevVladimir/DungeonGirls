@@ -65,20 +65,37 @@ public static class CombatantFactory
 
     // 2.6: HP x1.25, урон x1.15, физ. защита x1.8 за этаж — три независимых множителя, каждый
     // накапливается степенью (этаж 1 = база). Скорость атаки и маг. защита не масштабируются.
-    public static CombatantRuntime CreateMonsterCombatant(MonsterData monster, int floorNumber)
+    //
+    // 2.7 [DRAFT, авторский выбор — точная формула в ГДД была открытым вопросом]: у монстра
+    // из обычной боевой комнаты есть свой уровень, растущий с позицией комнаты в мешке этажа
+    // (8.4): monsterLevel = 1 + (позиция / 3), где позиция — число уже пройденных комнат этажа
+    // (RunFlowController передаёт floorManager.RoomsCompletedOnFloor). При составе мешка 12
+    // комнат (8.4) это даёт уровни 1 (комнаты 0-2) → 2 (3-5) → 3 (6-8) → 4 (9-11), т.е. плавный
+    // рост к боссу без баланс-выбросов. Уровень масштабирует HP/урон/броню через ту же формулу
+    // мин.+1/уровень, что и предметы (StatScaling, см. 3.10), применяется ПОВЕРХ уже
+    // отмасштабированных по этажу (2.6) значений — прирост считается от уже увеличенного этажом
+    // числа. Босс уровня не получает (monsterLevel по умолчанию 1 = формула не меняет базу) —
+    // гейт на босса держится отдельно (см. 2.2).
+    public static CombatantRuntime CreateMonsterCombatant(MonsterData monster, int floorNumber, int monsterLevel = 1)
     {
         int floorIndex = Mathf.Max(floorNumber, 1);
+        int level = Mathf.Max(monsterLevel, 1);
         float hpMultiplier = FloorScalingMultiplier(1.25f, floorIndex);
         float damageMultiplier = FloorScalingMultiplier(1.15f, floorIndex);
         float armorMultiplier = FloorScalingMultiplier(1.8f, floorIndex);
+
+        float hp = StatScaling.ApplyLevelBonus(monster.hp * hpMultiplier, level);
+        float armor = StatScaling.ApplyLevelBonus(monster.physicalDefense * armorMultiplier, level);
+        float damageMin = StatScaling.ApplyLevelBonus(monster.damageMin * damageMultiplier, level);
+        float damageMax = StatScaling.ApplyLevelBonus(monster.damageMax * damageMultiplier, level);
 
         var runtime = new CombatantRuntime
         {
             DisplayName = monster.monsterName,
             IsPlayer = false,
-            MaxHP = monster.hp * hpMultiplier,
-            PhysicalDefenseMax = monster.physicalDefense * armorMultiplier,
-            PhysicalDefenseCurrent = monster.physicalDefense * armorMultiplier,
+            MaxHP = hp,
+            PhysicalDefenseMax = armor,
+            PhysicalDefenseCurrent = armor,
             MagicShieldMax = monster.magicDefense,
             MagicShieldCurrent = monster.magicDefense
         };
@@ -86,8 +103,8 @@ public static class CombatantFactory
 
         runtime.Weapons.Add(new WeaponAttackState
         {
-            DamageMin = monster.damageMin * damageMultiplier,
-            DamageMax = monster.damageMax * damageMultiplier,
+            DamageMin = damageMin,
+            DamageMax = damageMax,
             DamageType = monster.damageType,
             AttackSpeed = monster.attackSpeed
         });
