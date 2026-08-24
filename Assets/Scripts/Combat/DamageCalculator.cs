@@ -6,11 +6,18 @@ public static class DamageCalculator
     {
         public float DamageToHP;
         public bool WasBlocked;
+        // 3.3 «Износ брони при блокированном уроне»: true, если урон был полностью заблокирован
+        // (WasBlocked), но всё равно снял с брони 1 единицу за износ (см. ApplyPhysicalDamage).
+        // Магический щит эту логику не использует — у ApplyMagicalDamage всегда false.
+        public bool ArmorWornOnBlock;
     }
 
-    // 3.3: урон меньше текущей брони блокируется полностью (0 по HP, броня не теряет единицу).
-    // Иначе защита снижает урон на своё значение, остаток идёт по HP, после чего защита теряет
-    // 1 единицу — кроме случая «полного пробития» ниже.
+    // 3.3: приоритет проверок при физическом уроне (по убыванию):
+    //  1) урон ≥ 2×брони — «полное пробитие», броня −2 (см. ниже).
+    //  2) урон ≥ брони — обычное пробитие, броня −1, остаток идёт по HP.
+    //  3) урон ≥ 0.5×брони — «износ при блокировке» [НОВОЕ]: урон полностью заблокирован (0 по
+    //     HP), но броня всё равно теряет 1 единицу за износ.
+    //  4) иначе — полная блокировка без последствий (0 по HP, броня не теряет единицу).
     //
     // 3.3 [ОБНОВЛЕНО, третий плейтест] «Полное пробитие»: если урон ≥ удвоенной текущей брони,
     // броня теряет 2 единицы вместо 1 (остальной расчёт урона/остатка не меняется). Пример:
@@ -21,7 +28,13 @@ public static class DamageCalculator
     {
         if (incomingDamage < target.PhysicalDefenseCurrent)
         {
-            return new DamageResult { DamageToHP = 0f, WasBlocked = true };
+            bool armorWorn = incomingDamage >= target.PhysicalDefenseCurrent * 0.5f;
+            if (armorWorn)
+            {
+                target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - 1f);
+            }
+
+            return new DamageResult { DamageToHP = 0f, WasBlocked = true, ArmorWornOnBlock = armorWorn };
         }
 
         float remainder = incomingDamage - target.PhysicalDefenseCurrent;

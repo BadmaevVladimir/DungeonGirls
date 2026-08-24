@@ -304,7 +304,10 @@ public class CombatManager : MonoBehaviour
 
         if (result.WasBlocked)
         {
-            Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: урон {damage:F1} полностью заблокирован.");
+            // 3.3 «Износ брони при блокированном уроне»: лог отдельно показывает случай, когда
+            // блок всё же снял с брони 1 единицу, от полной блокировки без последствий.
+            string blockSuffix = result.ArmorWornOnBlock ? ", броня истёрлась (-1)" : string.Empty;
+            Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: урон {damage:F1} полностью заблокирован{blockSuffix}.");
         }
         else
         {
