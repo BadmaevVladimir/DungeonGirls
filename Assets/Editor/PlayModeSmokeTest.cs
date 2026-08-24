@@ -94,9 +94,11 @@ public static class PlayModeSmokeTest
 
     static void RunPureLogicChecks()
     {
-        // 3.3: строгая блокировка урона < брони, броня не теряет единицу.
+        // 3.3: строгая блокировка урона < 0.5×брони, броня не теряет единицу (урон=2 < 2.5=0.5×5,
+        // ниже порога "износа при блокировке" — иначе тест столкнулся бы с этим более новым
+        // правилом и получил бы -1 брони вместо "без последствий").
         var target = new CombatantRuntime { PhysicalDefenseMax = 5f, PhysicalDefenseCurrent = 5f, MaxHP = 20f, CurrentHP = 20f };
-        var blockedResult = DamageCalculator.ApplyPhysicalDamage(target, 4f);
+        var blockedResult = DamageCalculator.ApplyPhysicalDamage(target, 2f);
         Check(blockedResult.WasBlocked && blockedResult.DamageToHP == 0f && target.CurrentHP == 20f && target.PhysicalDefenseCurrent == 5f,
             $"3.3 блокировка: WasBlocked={blockedResult.WasBlocked}, DamageToHP={blockedResult.DamageToHP}, HP={target.CurrentHP}, Defense={target.PhysicalDefenseCurrent} (ожидалось true/0/20/5)");
 
