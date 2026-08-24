@@ -63,8 +63,10 @@ public static class CombatantFactory
         return runtime;
     }
 
-    // 2.6: HP x1.25, урон x1.15, физ. защита x1.8 за этаж — три независимых множителя, каждый
-    // накапливается степенью (этаж 1 = база). Скорость атаки и маг. защита не масштабируются.
+    // 2.6 [ОБНОВЛЕНО 2026-08-25]: HP x1.25/этаж, урон x1.15/этаж, физ. защита ТЕПЕРЬ ТОЖЕ x1.15/этаж
+    // (было x1.8/этаж — на этаже 10 это давало бы ~x101 от базы, нереалистично; новое значение даёт
+    // x1.15^9 ≈ x3.52 на этаже 10). Все три множителя накапливаются степенью независимо друг от
+    // друга (этаж 1 = база). Скорость атаки и маг. защита не масштабируются.
     //
     // 2.7 [DRAFT, авторский выбор — точная формула в ГДД была открытым вопросом]: у монстра
     // из обычной боевой комнаты есть свой уровень, растущий с позицией комнаты в мешке этажа
@@ -82,7 +84,7 @@ public static class CombatantFactory
         int level = Mathf.Max(monsterLevel, 1);
         float hpMultiplier = FloorScalingMultiplier(1.25f, floorIndex);
         float damageMultiplier = FloorScalingMultiplier(1.15f, floorIndex);
-        float armorMultiplier = FloorScalingMultiplier(1.8f, floorIndex);
+        float armorMultiplier = FloorScalingMultiplier(1.15f, floorIndex);
 
         float hp = StatScaling.ApplyLevelBonus(monster.hp * hpMultiplier, level);
         float armor = StatScaling.ApplyLevelBonus(monster.physicalDefense * armorMultiplier, level);
