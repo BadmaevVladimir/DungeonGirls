@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public class RunCharacterProgress
 {
     public const int MaxKnownSkillSlots = 5; // 3.5: максимум 5 разных пассивных навыков одновременно (не считая уникальный)
-    public const int MaxCharacterLevel = 10; // 3.6: кривая опыта задана до 10 уровня
+    public const int MaxCharacterLevel = 15; // 3.6 [ОБНОВЛЕНО 2026-08-25]: потолок уровня поднят 10 -> 15 (расширение до 10 этажей требует более длинной кривой прокачки). Формула опыта до след. уровня (level x 25) НЕ меняется — кривая просто продолжена естественным образом до 15 (сумма на 15 ур. = 2625).
 
     public CharacterData Character;
     public int Level = 1;
