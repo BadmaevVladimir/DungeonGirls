@@ -22,8 +22,12 @@ public class CharacterManager : MonoBehaviour
     public int CurrentHP => Mathf.CeilToInt(Combatant != null ? Combatant.CurrentHP : 0f);
     public int Level => Progress != null ? Progress.Level : 1;
 
-    // equipmentManager/saveManager опциональны (могут быть null, напр. в тестах) — тогда бонус
-    // от Кузницы/гачи (3.5/8.1) не применяется, персонаж стартует с базовым лоадаутом.
+    // 8.1: уровень Таверны на момент старта забега — здания не меняются посреди забега, поэтому
+    // достаточно прочитать его один раз в BeginRun и переиспользовать в RefreshCombatStats.
+    int tavernLevelThisRun;
+
+    // equipmentManager/saveManager опциональны (могут быть null, напр. в тестах) — тогда бонусы
+    // от Кузницы/Таверны/гачи (3.5/8.1) не применяются, персонаж стартует с базовым лоадаутом.
     public void BeginRun(CharacterData character, EquipmentManager equipmentManager = null, SaveManager saveManager = null)
     {
         Character = character;
@@ -31,6 +35,7 @@ public class CharacterManager : MonoBehaviour
         Modifiers = new RunModifiers();
         RunCurrency = 0;
         RoomsClearedThisRun = 0;
+        tavernLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Tavern) : 0;
 
         if (equipmentManager != null)
         {
@@ -43,7 +48,7 @@ public class CharacterManager : MonoBehaviour
             EquippedItems = new List<ItemData>(character.startingEquipment ?? new ItemData[0]);
         }
 
-        Combatant = CombatantFactory.CreatePlayerCombatant(character, Progress.Level, Progress, EquippedItems);
+        Combatant = CombatantFactory.CreatePlayerCombatant(character, Progress.Level, Progress, EquippedItems, tavernLevelThisRun);
     }
 
     // 3.4: сколько предметов слота/подтипа может быть надето одновременно (Оружие и Кольца — по 2,
@@ -103,7 +108,7 @@ public class CharacterManager : MonoBehaviour
         float oldDefenseMax = Combatant.PhysicalDefenseMax;
         float oldDefenseCurrent = Combatant.PhysicalDefenseCurrent;
 
-        var rebuilt = CombatantFactory.CreatePlayerCombatant(Character, Progress.Level, Progress, EquippedItems);
+        var rebuilt = CombatantFactory.CreatePlayerCombatant(Character, Progress.Level, Progress, EquippedItems, tavernLevelThisRun);
 
         rebuilt.CurrentHP = Mathf.Clamp(oldCurrentHP + (rebuilt.MaxHP - oldMaxHP), 0f, rebuilt.MaxHP);
         rebuilt.PhysicalDefenseCurrent = Mathf.Clamp(oldDefenseCurrent + (rebuilt.PhysicalDefenseMax - oldDefenseMax), 0f, rebuilt.PhysicalDefenseMax);

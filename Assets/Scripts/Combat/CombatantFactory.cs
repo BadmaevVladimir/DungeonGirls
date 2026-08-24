@@ -9,7 +9,8 @@ public static class CombatantFactory
     // боя (Заморозка/Уклонение/Крит/Шипы/Несгибаемый/Кровотечение — см. CombatManager).
     // equipment == null: используется character.startingEquipment (стартовый лоадаут); иначе —
     // переданный список текущего снаряжения персонажа за забег (3.4, после эквипа новых предметов).
-    public static CombatantRuntime CreatePlayerCombatant(CharacterData character, int level, RunCharacterProgress progress = null, IReadOnlyList<ItemData> equipment = null)
+    // tavernLevel: 8.1 — Таверна ур.1 добавляет флэт-урон ко всем атакам оружия персонажа.
+    public static CombatantRuntime CreatePlayerCombatant(CharacterData character, int level, RunCharacterProgress progress = null, IReadOnlyList<ItemData> equipment = null, int tavernLevel = 0)
     {
         var runtime = new CombatantRuntime
         {
@@ -28,6 +29,7 @@ public static class CombatantFactory
         AggregateEquipmentStats(
             items,
             ambidexterityLevel,
+            tavernLevel,
             out List<WeaponAttackState> weapons,
             out float physicalDefense,
             out float maxPhysicalDefenseBonus,
@@ -61,20 +63,22 @@ public static class CombatantFactory
         return runtime;
     }
 
-    // 2.6: HP x1.25 и урон x1.15 за этаж, множители накапливаются. Скорость атаки и защита не масштабируются.
+    // 2.6: HP x1.25, урон x1.15, физ. защита x1.8 за этаж — три независимых множителя, каждый
+    // накапливается степенью (этаж 1 = база). Скорость атаки и маг. защита не масштабируются.
     public static CombatantRuntime CreateMonsterCombatant(MonsterData monster, int floorNumber)
     {
         int floorIndex = Mathf.Max(floorNumber, 1);
-        float hpMultiplier = Mathf.Pow(1.25f, floorIndex - 1);
-        float damageMultiplier = Mathf.Pow(1.15f, floorIndex - 1);
+        float hpMultiplier = FloorScalingMultiplier(1.25f, floorIndex);
+        float damageMultiplier = FloorScalingMultiplier(1.15f, floorIndex);
+        float armorMultiplier = FloorScalingMultiplier(1.8f, floorIndex);
 
         var runtime = new CombatantRuntime
         {
             DisplayName = monster.monsterName,
             IsPlayer = false,
             MaxHP = monster.hp * hpMultiplier,
-            PhysicalDefenseMax = monster.physicalDefense,
-            PhysicalDefenseCurrent = monster.physicalDefense,
+            PhysicalDefenseMax = monster.physicalDefense * armorMultiplier,
+            PhysicalDefenseCurrent = monster.physicalDefense * armorMultiplier,
             MagicShieldMax = monster.magicDefense,
             MagicShieldCurrent = monster.magicDefense
         };
@@ -90,6 +94,10 @@ public static class CombatantFactory
 
         return runtime;
     }
+
+    // 2.6: общая формула масштабирования по этажам — множитель за этаж накапливается степенью,
+    // общая для HP/урона/брони монстров (каждому передаётся свой per-floor коэффициент).
+    static float FloorScalingMultiplier(float perFloorMultiplier, int floorIndex) => Mathf.Pow(perFloorMultiplier, floorIndex - 1);
 
     // 3.9: "Прочный" (% к физ. защите) и "Я — стена" (часть бонуса брони от щита -> флэт урон)
     // запекаются в базовые статы один раз при постройке боевого юнита. Остальные навыки —
@@ -162,6 +170,7 @@ public static class CombatantFactory
     static void AggregateEquipmentStats(
         ItemData[] items,
         int ambidexterityLevel,
+        int tavernLevel,
         out List<WeaponAttackState> weapons,
         out float physicalDefense,
         out float maxPhysicalDefenseBonus,
@@ -207,6 +216,8 @@ public static class CombatantFactory
             _ => 0.75f // базовый штраф без навыка
         };
 
+        float tavernFlatDamage = BuildingCatalog.TavernFlatDamageBonus(tavernLevel); // 8.1: ур.1, до диапазона/брони
+
         foreach (var item in realWeaponItems)
         {
             float itemDamage = item.EffectiveDamage; // 3.10: основной стат уже с бонусом уровня
@@ -214,6 +225,8 @@ public static class CombatantFactory
             {
                 itemDamage *= dualWieldMultiplier;
             }
+
+            itemDamage += tavernFlatDamage; // 8.1: флэт-бонус Таверны, независимо от Кузницы
 
             // 3.2: фиксированный урон -> диапазон [ПОЛ(база×0.8); ОКРУГЛВВЕРХ(база×1.2)].
             DamageCalculator.ComputeDamageRange(itemDamage, out float damageMin, out float damageMax);

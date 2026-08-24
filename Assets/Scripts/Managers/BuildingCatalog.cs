@@ -61,4 +61,9 @@ public static class BuildingCatalog
         if (forgeLevel >= 3) bonus += 2;
         return bonus;
     }
+
+    // 8.1 [ОБНОВЛЕНО]: Таверна ур.1 — флэт бонус урона ко всем атакам оружия персонажа, помимо
+    // +5 рационов. Складывается с базовым уроном ДО расчёта диапазона/брони (см.
+    // CombatantFactory.AggregateEquipmentStats), независимо от бонуса Кузницы.
+    public static float TavernFlatDamageBonus(int tavernLevel) => tavernLevel >= 1 ? 1f : 0f;
 }
