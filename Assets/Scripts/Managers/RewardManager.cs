@@ -135,24 +135,26 @@ public class RewardManager : MonoBehaviour
         return reward;
     }
 
-    // 3.6: опыт выдаётся отдельно от сундука, автоматически.
-    public int GetExperienceReward(ExperienceSource source)
+    // 3.6 [ОБНОВЛЕНО 2026-08-25]: источники опыта растут вместе с этажом, чтобы прокачка успевала
+    // за расширением до 10 этажей. Босс остаётся флэт 50 (тот же переиспользуемый босс на всех этажах).
+    public int GetExperienceReward(ExperienceSource source, int floorNumber)
     {
+        int floorIndex = Mathf.Max(floorNumber, 1);
         switch (source)
         {
-            case ExperienceSource.CombatRoom: return 10;
-            case ExperienceSource.SuccessfulEventOrTrap: return 5;
+            case ExperienceSource.CombatRoom: return 10 + 3 * (floorIndex - 1);
+            case ExperienceSource.SuccessfulEventOrTrap: return 5 + 1 * (floorIndex - 1);
             case ExperienceSource.Boss: return 50;
             default: return 0;
         }
     }
 
-    public List<int> GrantExperience(RunCharacterProgress progress, ExperienceSource source)
+    public List<int> GrantExperience(RunCharacterProgress progress, ExperienceSource source, int floorNumber)
     {
-        int amount = GetExperienceReward(source);
+        int amount = GetExperienceReward(source, floorNumber);
         var levelsGained = progress.AddExperience(amount);
 
-        Debug.Log($"[Reward] +{amount} опыта ({source}). Текущий уровень: {progress.Level}, опыт: {progress.Experience}.");
+        Debug.Log($"[Reward] +{amount} опыта ({source}, этаж {floorNumber}). Текущий уровень: {progress.Level}, опыт: {progress.Experience}.");
 
         return levelsGained;
     }

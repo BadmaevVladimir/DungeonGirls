@@ -128,8 +128,8 @@ public class CharacterManager : MonoBehaviour
         Combatant.PhysicalDefenseCurrent = Mathf.Max(0f, Combatant.PhysicalDefenseCurrent - amount);
     }
 
-    public List<int> GrantExperience(RewardManager rewardManager, ExperienceSource source)
+    public List<int> GrantExperience(RewardManager rewardManager, ExperienceSource source, int floorNumber)
     {
-        return rewardManager.GrantExperience(Progress, source);
+        return rewardManager.GrantExperience(Progress, source, floorNumber);
     }
 }

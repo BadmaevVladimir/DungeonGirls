@@ -399,7 +399,7 @@ public class RunFlowController : MonoBehaviour
             yield break;
         }
 
-        var levelsGained = characterManager.GrantExperience(rewardManager, isBoss ? ExperienceSource.Boss : ExperienceSource.CombatRoom);
+        var levelsGained = characterManager.GrantExperience(rewardManager, isBoss ? ExperienceSource.Boss : ExperienceSource.CombatRoom, dungeonManager.CurrentFloorNumber);
         foreach (var _ in levelsGained)
         {
             yield return LevelUpFlow();
