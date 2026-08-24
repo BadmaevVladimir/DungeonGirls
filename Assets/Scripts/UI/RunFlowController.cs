@@ -898,7 +898,11 @@ public class RunFlowController : MonoBehaviour
         runScreen.style.display = DisplayStyle.None;
         resultsScreen.style.display = DisplayStyle.Flex;
 
-        var completion = rewardManager.CalculateRunCompletionReward(victory, characterManager.RoomsClearedThisRun);
+        var completion = rewardManager.CalculateRunCompletionReward(
+            victory,
+            characterManager.RoomsClearedThisRun,
+            dungeonManager.CurrentFloorNumber,
+            characterManager.RoomsClearedOnCurrentFloor);
         if (saveManager != null)
         {
             saveManager.AddMetaCurrency(completion.MetaCurrency);

@@ -104,11 +104,15 @@ public class RewardManager : MonoBehaviour
         return reward;
     }
 
-    // 8.5 [DRAFT, обновлено]: победа = 80 мета/15 гача (фиксировано). Поражение зависит от
-    // прогресса — 5 мета/2 гача за каждую пройденную комнату (roomsCleared считает только
-    // комнаты, где персонаж выжил, см. CharacterManager.RoomsClearedThisRun), потолки 70/14.
-    // Умер в первой комнате, не пройдя ни одной, — 0 награды.
-    public RunCompletionReward CalculateRunCompletionReward(bool victory, int roomsCleared = 0)
+    // 8.5 [ОБНОВЛЕНО 2026-08-25, под цель "20-30 поражений на полный макс всех 3 зданий"]:
+    // победа = 80 мета/15 гача (без изменений). Поражение: мета-валюта переработана —
+    // 50 x (число ПОЛНОСТЬЮ пройденных этажей) + 5 x (комнат пройдено НА этаже смерти), потолок
+    // снят (раньше был 70). "Полностью пройденных этажей" = currentFloorNumber - 1, т.к. этаж
+    // засчитывается только после победы над его боссом (DungeonManager.AdvanceToNextFloor).
+    // Умер в первой комнате первого этажа (0 этажей пройдено, 0 комнат на этаже) -> 0 награды,
+    // как явно требует ГДД. Гача-валюта за поражение НЕ меняется: 2 за каждую пройденную комнату
+    // за ВЕСЬ забег (totalRoomsCleared), потолок 14.
+    public RunCompletionReward CalculateRunCompletionReward(bool victory, int totalRoomsCleared, int currentFloorNumber = 0, int roomsClearedOnDeathFloor = 0)
     {
         int metaCurrency;
         int gachaCurrency;
@@ -120,8 +124,9 @@ public class RewardManager : MonoBehaviour
         }
         else
         {
-            metaCurrency = Mathf.Min(roomsCleared * 5, 70);
-            gachaCurrency = Mathf.Min(roomsCleared * 2, 14);
+            int floorsFullyCleared = Mathf.Max(0, currentFloorNumber - 1);
+            metaCurrency = 50 * floorsFullyCleared + 5 * Mathf.Max(0, roomsClearedOnDeathFloor);
+            gachaCurrency = Mathf.Min(totalRoomsCleared * 2, 14);
         }
 
         var reward = new RunCompletionReward
@@ -130,7 +135,7 @@ public class RewardManager : MonoBehaviour
             GachaCurrency = gachaCurrency
         };
 
-        Debug.Log($"[Reward] Итог забега: {reward.MetaCurrency} мета-валюты, {reward.GachaCurrency} гача-валюты (комнат пройдено: {roomsCleared}).");
+        Debug.Log($"[Reward] Итог забега: {reward.MetaCurrency} мета-валюты, {reward.GachaCurrency} гача-валюты (этажей пройдено: {Mathf.Max(0, currentFloorNumber - 1)}, комнат на этаже смерти: {roomsClearedOnDeathFloor}, комнат всего: {totalRoomsCleared}).");
 
         return reward;
     }

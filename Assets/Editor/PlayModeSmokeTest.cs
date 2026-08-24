@@ -250,14 +250,21 @@ public static class PlayModeSmokeTest
 
         // --- Награда за забег + персистентность SaveManager (8.5/9.2/9.3) ---
         int metaBefore = saveManager.Data.metaCurrency;
-        var defeatReward = rewardManager.CalculateRunCompletionReward(false, 3);
-        Check(defeatReward.MetaCurrency == 15 && defeatReward.GachaCurrency == 6, $"Награда за поражение (3 комнаты): {defeatReward.MetaCurrency}/{defeatReward.GachaCurrency} (ожидалось 15/6)");
-        var cappedReward = rewardManager.CalculateRunCompletionReward(false, 50);
-        Check(cappedReward.MetaCurrency == 70 && cappedReward.GachaCurrency == 14, $"Потолок награды за поражение: {cappedReward.MetaCurrency}/{cappedReward.GachaCurrency} (ожидалось 70/14)");
-        var zeroReward = rewardManager.CalculateRunCompletionReward(false, 0);
-        Check(zeroReward.MetaCurrency == 0 && zeroReward.GachaCurrency == 0, $"0 комнат -> 0 награды: {zeroReward.MetaCurrency}/{zeroReward.GachaCurrency}");
+        var earlyDeathReward = rewardManager.CalculateRunCompletionReward(false, totalRoomsCleared: 0, currentFloorNumber: 1, roomsClearedOnDeathFloor: 0);
+        Check(earlyDeathReward.MetaCurrency == 0 && earlyDeathReward.GachaCurrency == 0,
+            $"8.5 смерть в 1-й комнате 1-го этажа = 0 награды: {earlyDeathReward.MetaCurrency}/{earlyDeathReward.GachaCurrency} (ожидалось 0/0)");
+
+        var midDeathReward = rewardManager.CalculateRunCompletionReward(false, totalRoomsCleared: 15, currentFloorNumber: 3, roomsClearedOnDeathFloor: 2);
+        // floorsFullyCleared = 3-1 = 2 -> 50*2 + 5*2 = 110; gacha = min(15*2,14) = 14
+        Check(midDeathReward.MetaCurrency == 110 && midDeathReward.GachaCurrency == 14,
+            $"8.5 смерть на этаже 3 (2 комнаты пройдено на нём, 15 всего): {midDeathReward.MetaCurrency}/{midDeathReward.GachaCurrency} (ожидалось 110/14)");
+
+        var uncappedReward = rewardManager.CalculateRunCompletionReward(false, totalRoomsCleared: 5, currentFloorNumber: 10, roomsClearedOnDeathFloor: 11);
+        // floorsFullyCleared = 9 -> 50*9 + 5*11 = 505 -- must NOT be capped at the old 70.
+        Check(uncappedReward.MetaCurrency == 505, $"8.5 потолок снят: {uncappedReward.MetaCurrency} (ожидалось 505, старый потолок был 70)");
+
         var victoryReward = rewardManager.CalculateRunCompletionReward(true, 0);
-        Check(victoryReward.MetaCurrency == 80 && victoryReward.GachaCurrency == 15, $"Победа фиксированная: {victoryReward.MetaCurrency}/{victoryReward.GachaCurrency} (ожидалось 80/15)");
+        Check(victoryReward.MetaCurrency == 80 && victoryReward.GachaCurrency == 15, $"8.5 победа фиксированная: {victoryReward.MetaCurrency}/{victoryReward.GachaCurrency} (ожидалось 80/15)");
 
         saveManager.AddMetaCurrency(victoryReward.MetaCurrency);
         Check(saveManager.Data.metaCurrency == metaBefore + victoryReward.MetaCurrency, "AddMetaCurrency обновляет Data.metaCurrency");
