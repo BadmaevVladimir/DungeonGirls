@@ -281,6 +281,13 @@ public static class PlayModeSmokeTest
             characterManager.BeginRun(jennifer, equipmentManager, saveManager);
             Check(characterManager.Combatant != null && characterManager.Combatant.IsAlive, "BeginRun с бонусом Кузницы не падает, боевой юнит жив");
             Check(characterManager.EquippedItems.Count == jennifer.startingEquipment.Length, "BeginRun выдал столько же предметов, сколько стартовый лоадаут");
+
+            // 8.5: счётчик пройденных комнат этажа
+            characterManager.MarkRoomCleared();
+            characterManager.MarkRoomCleared();
+            Check(characterManager.RoomsClearedOnCurrentFloor == 2, $"8.5 счётчик комнат этажа: {characterManager.RoomsClearedOnCurrentFloor} (ожидалось 2)");
+            characterManager.BeginFloor();
+            Check(characterManager.RoomsClearedOnCurrentFloor == 0, "8.5 BeginFloor() сбрасывает счётчик комнат этажа");
         }
 
         // 8.4: состав мешка комнат

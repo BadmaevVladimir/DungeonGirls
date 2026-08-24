@@ -15,6 +15,11 @@ public class CharacterManager : MonoBehaviour
     // персонаж выжил — комната, в которой персонаж погиб, в счёт не идёт (см. RewardManager).
     public int RoomsClearedThisRun { get; private set; }
 
+    // 8.5: комнат пройдено (персонаж выжил) НА ТЕКУЩЕМ этаже — используется формулой мета-валюты
+    // за поражение, которая теперь считает "этаж смерти" отдельно от общего числа комнат за забег.
+    // Сбрасывается на старте каждого нового этажа (см. BeginFloor, вызывается из RunFlowController).
+    public int RoomsClearedOnCurrentFloor { get; private set; }
+
     // 3.4 "Без инвентаря": текущее снаряжение персонажа за забег. Начинается со стартового
     // лоадаута и меняется только через EquipItem (сравнение со слотом, без склада/хранилища).
     public List<ItemData> EquippedItems { get; private set; } = new List<ItemData>();
@@ -49,6 +54,11 @@ public class CharacterManager : MonoBehaviour
         }
 
         Combatant = CombatantFactory.CreatePlayerCombatant(character, Progress.Level, Progress, EquippedItems, tavernLevelThisRun);
+    }
+
+    public void BeginFloor()
+    {
+        RoomsClearedOnCurrentFloor = 0;
     }
 
     // 3.4: сколько предметов слота/подтипа может быть надето одновременно (Оружие и Кольца — по 2,
@@ -95,6 +105,7 @@ public class CharacterManager : MonoBehaviour
     public void MarkRoomCleared()
     {
         RoomsClearedThisRun++;
+        RoomsClearedOnCurrentFloor++;
     }
 
     // Пересобирает боевые статы персонажа (после левел-апа/нового навыка), сохраняя текущее

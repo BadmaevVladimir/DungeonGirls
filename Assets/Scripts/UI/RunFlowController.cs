@@ -222,6 +222,7 @@ public class RunFlowController : MonoBehaviour
         {
             floorManager.SetFloorState(FloorState.FloorStart);
             floorManager.GenerateRoomBag();
+            characterManager.BeginFloor(); // 8.5: сброс счётчика пройденных комнат этого этажа
             totalRoomsThisFloorCached = floorManager.TotalRoomsOnFloor;
             UpdateTopBar();
 
