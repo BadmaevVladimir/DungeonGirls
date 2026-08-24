@@ -43,12 +43,12 @@ public class RewardManager : MonoBehaviour
         return currency;
     }
 
-    // 8.2: редкость предмета в сундуке — Обычный 60% / Редкий 30% / Эпический 10%;
-    // сундук босса гарантированно даёт минимум Редкий предмет.
+    // 8.2 [ОБНОВЛЕНО 2026-08-25]: доля Эпического снижена ещё раз — Обычный 62% / Редкий 35% /
+    // Эпический 3% (было 60/30/10). Сундук босса гарантированно даёт минимум Редкий предмет.
     public ItemTier RollItemRarity(bool isBoss)
     {
         float roll = Random.value * 100f;
-        ItemTier rarity = roll < 60f ? ItemTier.Common : roll < 90f ? ItemTier.Rare : ItemTier.Epic;
+        ItemTier rarity = roll < 62f ? ItemTier.Common : roll < 97f ? ItemTier.Rare : ItemTier.Epic;
 
         if (isBoss && rarity == ItemTier.Common)
         {
