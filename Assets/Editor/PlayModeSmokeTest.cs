@@ -106,6 +106,28 @@ public static class PlayModeSmokeTest
         Check(!passResult.WasBlocked && passResult.DamageToHP == 3f && target.PhysicalDefenseCurrent == 4f,
             $"3.3 пробитие: WasBlocked={passResult.WasBlocked}, DamageToHP={passResult.DamageToHP}, Defense={target.PhysicalDefenseCurrent} (ожидалось false/3/4)");
 
+        // 3.3 "Износ брони при блокировке": урон >= 0.5×брони но < брони — 0 урона по HP, но -1 брони.
+        var wearTarget = new CombatantRuntime { PhysicalDefenseMax = 10f, PhysicalDefenseCurrent = 10f, MaxHP = 20f, CurrentHP = 20f };
+        var wearResult = DamageCalculator.ApplyPhysicalDamage(wearTarget, 6f); // >= 5 (0.5*10), < 10
+        Check(wearResult.WasBlocked && wearResult.ArmorWornOnBlock && wearResult.DamageToHP == 0f && wearTarget.PhysicalDefenseCurrent == 9f,
+            $"3.3 износ при блокировке (урон=6, броня=10): WasBlocked={wearResult.WasBlocked}, ArmorWornOnBlock={wearResult.ArmorWornOnBlock}, DamageToHP={wearResult.DamageToHP}, Defense={wearTarget.PhysicalDefenseCurrent} (ожидалось true/true/0/9)");
+
+        var noWearTarget = new CombatantRuntime { PhysicalDefenseMax = 10f, PhysicalDefenseCurrent = 10f, MaxHP = 20f, CurrentHP = 20f };
+        var noWearResult = DamageCalculator.ApplyPhysicalDamage(noWearTarget, 3f); // < 5 (0.5*10)
+        Check(noWearResult.WasBlocked && !noWearResult.ArmorWornOnBlock && noWearTarget.PhysicalDefenseCurrent == 10f,
+            $"3.3 полная блокировка без последствий (урон=3, броня=10): ArmorWornOnBlock={noWearResult.ArmorWornOnBlock}, Defense={noWearTarget.PhysicalDefenseCurrent} (ожидалось false/10)");
+
+        // 3.3 "Полное пробитие": урон >= 2×брони — -2 брони вместо -1.
+        var fullPierceTarget = new CombatantRuntime { PhysicalDefenseMax = 10f, PhysicalDefenseCurrent = 10f, MaxHP = 20f, CurrentHP = 20f };
+        var fullPierceResult = DamageCalculator.ApplyPhysicalDamage(fullPierceTarget, 22f); // >= 20 (2*10)
+        Check(!fullPierceResult.WasBlocked && fullPierceResult.DamageToHP == 12f && fullPierceTarget.PhysicalDefenseCurrent == 8f,
+            $"3.3 полное пробитие (урон=22, броня=10): DamageToHP={fullPierceResult.DamageToHP}, Defense={fullPierceTarget.PhysicalDefenseCurrent} (ожидалось 12/8)");
+
+        var normalPierceTarget = new CombatantRuntime { PhysicalDefenseMax = 10f, PhysicalDefenseCurrent = 10f, MaxHP = 20f, CurrentHP = 20f };
+        var normalPierceResult = DamageCalculator.ApplyPhysicalDamage(normalPierceTarget, 12f); // >= 10, < 20
+        Check(!normalPierceResult.WasBlocked && normalPierceResult.DamageToHP == 2f && normalPierceTarget.PhysicalDefenseCurrent == 9f,
+            $"3.3 обычное пробитие (урон=12, броня=10): DamageToHP={normalPierceResult.DamageToHP}, Defense={normalPierceTarget.PhysicalDefenseCurrent} (ожидалось 2/9)");
+
         // 3.2: диапазон урона [floor(base*0.8); ceil(base*1.2)].
         DamageCalculator.ComputeDamageRange(6f, out float dmgMin, out float dmgMax);
         Check(dmgMin == 4f && dmgMax == 8f, $"3.2 диапазон урона (база 6): min={dmgMin}, max={dmgMax} (ожидалось 4/8)");
