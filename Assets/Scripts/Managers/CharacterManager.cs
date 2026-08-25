@@ -101,6 +101,18 @@ public class CharacterManager : MonoBehaviour
         RunCurrency += amount;
     }
 
+    // 5.2: покупка у торговца тратит валюту забега; продавать снаряжение торговцу нельзя (только тратить).
+    public bool TrySpendCurrency(int amount)
+    {
+        if (RunCurrency < amount)
+        {
+            return false;
+        }
+
+        RunCurrency -= amount;
+        return true;
+    }
+
     // "Карманник" (2.4): монстр ворует часть текущей валюты забега при попадании.
     public void StealCurrencyPercent(float percent)
     {

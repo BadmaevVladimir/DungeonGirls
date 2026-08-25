@@ -278,6 +278,8 @@ public static class PlayModeSmokeTest
         RequireElement(root, "StartRunButton");
         RequireElement(root, "ForgeUpgradeButton");
         RequireElement(root, "GachaPullButton");
+        RequireElement(root, "MerchantOffersContainer");
+        RequireElement(root, "MerchantCurrencyLabel");
 
         if (mainMenuScreen == null || buildingsScreen == null || gachaScreen == null) return;
 

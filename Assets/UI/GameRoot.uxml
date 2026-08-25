@@ -122,8 +122,9 @@
 
             <ui:VisualElement name="MerchantPanel" class="panel hidden">
                 <ui:Label text="Торговец" class="panel-title" />
-                <ui:Label text="Торговец скоро появится." class="body-label" />
-                <ui:Button name="MerchantContinueButton" text="Продолжить" class="button-primary" />
+                <ui:Label name="MerchantCurrencyLabel" text="Валюта забега: 0" class="body-label" />
+                <ui:VisualElement name="MerchantOffersContainer" class="merchant-offers-row" />
+                <ui:Button name="MerchantContinueButton" text="Уйти от торговца" class="button-primary" />
             </ui:VisualElement>
 
             <ui:VisualElement name="RewardPanel" class="panel hidden">

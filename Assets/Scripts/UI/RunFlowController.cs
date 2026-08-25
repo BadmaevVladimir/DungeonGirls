@@ -5,9 +5,8 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 // Фаза 4: единственный оркестратор всего цикла забега (7.2), связывающий UI Toolkit с уже
-// реализованными менеджерами (Фазы 1-3.5). Хаб/меню зданий/гача/торговец вне скоупа — торговец
-// показан заглушкой, привал и ловушки/квесты — минимальным текстовым UI (3.8: только плоские
-// прямоугольники/лейблы).
+// реализованными менеджерами (Фазы 1-3.5). Хаб/меню зданий/гача вне скоупа; привал и
+// ловушки/квесты — минимальным текстовым UI (3.8: только плоские прямоугольники/лейблы).
 public class RunFlowController : MonoBehaviour
 {
     [Header("UI")]
@@ -94,6 +93,8 @@ public class RunFlowController : MonoBehaviour
 
     // --- Торговец ---
     Button merchantContinueButton;
+    Label merchantCurrencyLabel;
+    VisualElement merchantOffersContainer;
 
     // --- Награда ---
     Label rewardText;
@@ -190,6 +191,8 @@ public class RunFlowController : MonoBehaviour
         SetCampOfferButtonsVisible(false);
 
         merchantContinueButton = root.Q<Button>("MerchantContinueButton");
+        merchantCurrencyLabel = root.Q<Label>("MerchantCurrencyLabel");
+        merchantOffersContainer = root.Q<VisualElement>("MerchantOffersContainer");
 
         rewardText = root.Q<Label>("RewardText");
         rewardContinueButton = root.Q<Button>("RewardContinueButton");
@@ -754,12 +757,96 @@ public class RunFlowController : MonoBehaviour
         yield return WaitForClick(campContinueButton);
     }
 
-    // ==================== Торговец (заглушка, 5.2 вне скоупа) ====================
+    // ==================== Торговец (5.2) ====================
 
     IEnumerator MerchantRoomFlow()
     {
-        ShowOnly(merchantPanel);
-        yield return WaitForClick(merchantContinueButton);
+        var offers = rewardManager.GenerateMerchantOffers(characterManager.Level);
+
+        bool leave = false;
+        while (!leave)
+        {
+            ShowOnly(merchantPanel);
+            merchantCurrencyLabel.text = $"Валюта забега: {characterManager.RunCurrency}";
+            merchantOffersContainer.Clear();
+
+            var buttons = new List<Button>();
+            foreach (var offer in offers)
+            {
+                var card = new VisualElement();
+                card.AddToClassList("merchant-offer-card");
+
+                if (offer.Item == null)
+                {
+                    card.Add(new Label("Пусто") { });
+                    merchantOffersContainer.Add(card);
+                    continue;
+                }
+
+                var nameLabel = new Label(offer.Item.itemName);
+                nameLabel.AddToClassList("item-card-name");
+                SetRarityClass(nameLabel, offer.Item.tier);
+                card.Add(nameLabel);
+
+                var statsLabel = new Label(ItemStatsText(offer.Item));
+                statsLabel.AddToClassList("body-label");
+                card.Add(statsLabel);
+
+                if (offer.HasDiscount)
+                {
+                    var originalPriceLabel = new Label($"{offer.OriginalPrice} монет");
+                    originalPriceLabel.AddToClassList("merchant-offer-price-original");
+                    card.Add(originalPriceLabel);
+                    card.Add(new Label("СКИДКА!") { });
+                }
+
+                var priceLabel = new Label($"{offer.Price} монет");
+                priceLabel.AddToClassList("merchant-offer-price");
+                card.Add(priceLabel);
+
+                var buyButton = new Button { text = "Купить" };
+                buyButton.AddToClassList("button-primary");
+                buyButton.AddToClassList("merchant-offer-buy-button");
+                buyButton.SetEnabled(characterManager.RunCurrency >= offer.Price);
+                card.Add(buyButton);
+
+                merchantOffersContainer.Add(card);
+                buttons.Add(buyButton);
+            }
+
+            buttons.Add(merchantContinueButton);
+
+            yield return WaitForAnyClick(buttons.ToArray());
+
+            if (clickedIndex == buttons.Count - 1)
+            {
+                leave = true; // "Уйти от торговца"
+                continue;
+            }
+
+            // clickedIndex maps 1:1 into `offers` because empty-item offers still add a card but never
+            // a button — so `buttons` only ever contains as many entries as offers WITH an item, plus
+            // the leave button. Map back by re-walking offers with a running non-null index.
+            int runningIndex = -1;
+            MerchantOffer purchased = null;
+            foreach (var offer in offers)
+            {
+                if (offer.Item == null) continue;
+                runningIndex++;
+                if (runningIndex == clickedIndex)
+                {
+                    purchased = offer;
+                    break;
+                }
+            }
+
+            if (purchased != null && characterManager.TrySpendCurrency(purchased.Price))
+            {
+                LogEvent($"[Торговец] Куплено: {purchased.Item.itemName} за {purchased.Price} валюты забега.");
+                offers.Remove(purchased);
+                yield return ItemCompareFlow(purchased.Item);
+            }
+        }
     }
 
     // ==================== Награда / сундук (8.2, только текстовый результат) ====================
