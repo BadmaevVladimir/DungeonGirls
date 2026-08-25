@@ -24,6 +24,16 @@ public struct RunCompletionReward
     public int GachaCurrency;
 }
 
+// 5.2: один предмет в ассортименте торговца — цена уже с учётом возможной скидки (Price), и
+// OriginalPrice/HasDiscount для UI (зачёркнутая исходная цена и т.п.).
+public class MerchantOffer
+{
+    public ItemData Item;
+    public int OriginalPrice;
+    public int Price;
+    public bool HasDiscount;
+}
+
 public class RewardManager : MonoBehaviour
 {
     [SerializeField] ItemCatalogData itemCatalog;
@@ -76,6 +86,65 @@ public class RewardManager : MonoBehaviour
         var clone = Instantiate(baseItem);
         clone.itemLevel = Random.Range(characterLevel, characterLevel + 3); // [char; char+2] включительно
         return clone;
+    }
+
+    // 5.2: множитель цены по редкости — Обычный x1.0 / Редкий x1.2 / Эпический x1.5.
+    static float MerchantPriceMultiplier(ItemTier tier)
+    {
+        switch (tier)
+        {
+            case ItemTier.Rare: return 1.2f;
+            case ItemTier.Epic: return 1.5f;
+            default: return 1.0f;
+        }
+    }
+
+    // 5.2: Цена = 100 x УровеньПредмета x Множитель(редкость).
+    static int MerchantPrice(ItemData item) => Mathf.RoundToInt(100 * item.itemLevel * MerchantPriceMultiplier(item.tier));
+
+    // 5.2: размер скидки, если гейт в 30% (см. GenerateMerchantOffers) сработал. Таблица вероятностей
+    // суммируется в 100% ВНУТРИ этих 30% (это не отдельный шанс "скидки нет" — тот уже выше).
+    static float RollDiscountPercent()
+    {
+        float roll = Random.value * 100f;
+        if (roll < 50f) return 10f;
+        if (roll < 80f) return 25f;
+        if (roll < 94f) return 50f;
+        if (roll < 99f) return 75f;
+        return 90f;
+    }
+
+    // 5.2: 5 случайных предметов, та же таблица редкости, что и сундук (см. RollItemRarity), тот же
+    // диапазон уровня [char; char+2] (см. RollItemLevel). 30% шанс, что ОДИН случайно выбранный из 5
+    // получит скидку (роллится один раз на весь визит, не по каждому предмету).
+    public List<MerchantOffer> GenerateMerchantOffers(int characterLevel)
+    {
+        var offers = new List<MerchantOffer>();
+        for (int i = 0; i < 5; i++)
+        {
+            ItemTier tier = RollItemRarity(false);
+            ItemData item = null;
+            if (itemCatalog != null && itemCatalog.TryGetRandomItem(tier, out var baseItem))
+            {
+                item = RollItemLevel(baseItem, characterLevel);
+            }
+
+            int price = item != null ? MerchantPrice(item) : 0;
+            offers.Add(new MerchantOffer { Item = item, OriginalPrice = price, Price = price, HasDiscount = false });
+        }
+
+        if (Random.value < 0.30f)
+        {
+            var discounted = offers[Random.Range(0, offers.Count)];
+            if (discounted.Item != null)
+            {
+                float discountPercent = RollDiscountPercent();
+                discounted.HasDiscount = true;
+                discounted.Price = Mathf.RoundToInt(discounted.OriginalPrice * (1f - discountPercent / 100f));
+            }
+        }
+
+        return offers;
     }
 
     // currencyBonus/noCurrency — модификаторы от квестов (5.4: "Загадка сфинкса" даёт +200
