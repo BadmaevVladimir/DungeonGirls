@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33564269414bad2439b83f3f7597e022, type: 3}
+  m_Name: Skill_StunningScream
+  m_EditorClassIdentifier: Assembly-CSharp::PassiveSkillData
+  skillName: Оглушающий крик
+  category: 4
+  effectDescription: Пассивка Гарпии. 15% шанс при атаке снизить шанс крита персонажа на 20% на 4 сек.
+  maxLevel: 1

@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33564269414bad2439b83f3f7597e022, type: 3}
+  m_Name: Skill_DoubleStrike
+  m_EditorClassIdentifier: Assembly-CSharp::PassiveSkillData
+  skillName: Двойной удар
+  category: 4
+  effectDescription: Пассивка Рыцаря тьмы (элитный тип). Раз в 6 сек наносит доп. атаку с силой 150% от обычной.
+  maxLevel: 1

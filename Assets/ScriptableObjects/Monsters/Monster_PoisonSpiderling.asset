@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37c73bb7b20f0774db1d325b77fd4879, type: 3}
+  m_Name: Monster_PoisonSpiderling
+  m_EditorClassIdentifier: Assembly-CSharp::MonsterData
+  monsterName: Ядовитый паучок
+  isBoss: 0
+  hp: 25
+  damageMin: 6
+  damageMax: 10
+  damageType: 0
+  attackSpeed: 1.3
+  physicalDefense: 0
+  magicDefense: 0
+  passiveSkill: {fileID: 11400000, guid: 44367e29c4d74496860d446ed795d1c6, type: 2}
+  gender: 0
+  minFloorTier: 4
