@@ -179,6 +179,16 @@ public static class PlayModeSmokeTest
             $"2.6 броня Скелета на этаже 10: {floor10Skeleton.PhysicalDefenseMax:F2} (ожидалось ~28.1, было бы ~850+ со старым x1.8)");
         UnityEngine.Object.DestroyImmediate(skeletonBase);
 
+        // 2.2 (уточнено 2026-08-26): временный спрайт босса — переиспользует спрайт Рыцаря тьмы
+        // (Monster_DarkKnight), НЕ подменяя статы/имя/пассивку босса (не путать с заменой монстра).
+        var bossData = AssetDatabase.LoadAssetAtPath<MonsterData>("Assets/ScriptableObjects/Monsters/Monster_Boss.asset");
+        var darkKnightData = AssetDatabase.LoadAssetAtPath<MonsterData>("Assets/ScriptableObjects/Monsters/Monster_DarkKnight.asset");
+        if (Check(bossData != null && darkKnightData != null, "Monster_Boss.asset и Monster_DarkKnight.asset загрузились"))
+        {
+            Check(bossData.sprite != null && bossData.sprite == darkKnightData.sprite, "2.2 Monster_Boss.sprite временно переиспользует спрайт Рыцаря тьмы");
+            Check(bossData.hp == 150f && bossData.physicalDefense == 12f, "2.2 статы босса не изменились подменой спрайта");
+        }
+
         // Баг #8 (2026-08-26): CombatantFactory должен копировать CharacterData.portrait /
         // MonsterData.sprite в CombatantRuntime.Sprite, иначе бою нечего рендерить в PlayerBox/
         // enemy-боксах, даже если сами ui:Image-элементы существуют и спрайт назначен в ассете.
@@ -345,13 +355,17 @@ public static class PlayModeSmokeTest
         Check(descTestActiveOption.Description == "Тестовое описание активного навыка.", $"7.2 LevelUpOption.Description (активка): '{descTestActiveOption.Description}'");
         UnityEngine.Object.DestroyImmediate(descTestActiveSkill);
 
-        // 8.2: расчёт целевой позиции ленты сундука (та же формула, что и в RunFlowController.ChestRevealFlow).
+        // 8.2 (уточнено): расчёт целевой позиции ленты сундука (та же формула, что и в
+        // RunFlowController.ChestRevealFlow) — теперь со сдвигом на chestReelPadding (лента
+        // зациклена паддинг-иконками по краям, см. RunFlowController.chestReelPadding).
         const float chestIconWidth = 64f;
         const int chestReelLength = 20;
+        const int chestReelPadding = 3;
         float chestViewportWidth = 320f;
         float chestViewportCenter = chestViewportWidth / 2f;
-        float chestTargetLeft = chestViewportCenter - chestIconWidth / 2f - (chestReelLength - 2) * chestIconWidth;
-        Check(chestTargetLeft == 160f - 32f - 18 * 64f, $"8.2 расчёт целевой позиции ленты сундука: {chestTargetLeft} (ожидалось {160f - 32f - 18 * 64f})");
+        int chestWinningIndex = chestReelPadding + chestReelLength - 2;
+        float chestTargetLeft = chestViewportCenter - chestIconWidth / 2f - chestWinningIndex * chestIconWidth;
+        Check(chestTargetLeft == 160f - 32f - 21 * 64f, $"8.2 расчёт целевой позиции ленты сундука: {chestTargetLeft} (ожидалось {160f - 32f - 21 * 64f})");
 
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
     }

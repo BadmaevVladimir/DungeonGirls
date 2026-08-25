@@ -984,12 +984,24 @@ public class RunFlowController : MonoBehaviour
         }
     }
 
-    // 8.2/10.6: рулетка иконок предметов, открывающийся сундук, скип, вспышка на приземлении.
+    // Число дополнительных "шумовых" иконок с каждого края ленты сверх видимых 20 слотов (8.2:
+    // "лента зациклена" — ни начало, ни конец списка не должны быть видны ни в состоянии покоя,
+    // ни в любой момент прокрутки). Viewport показывает 5 иконок (320px / 64px), паддинга в 3
+    // с запасом хватает на обе стороны, где реально нужно видеть максимум 2.
+    const int chestReelPadding = 3;
+
+    // 8.2/10.6: тряска закрытого сундука, открытие, рулетка иконок предметов, скип, вспышка на приземлении.
     IEnumerator ChestRevealFlow(ChestReward reward)
     {
         chestRevealContainer.style.display = DisplayStyle.Flex;
         chestSpriteImage.image = chestClosedTexture;
         chestReelStrip.Clear();
+        chestSpriteImage.style.translate = new Translate(0, 0, 0);
+
+        // 8.2 (уточнено): сундук трясётся закрытым ~1с, затем переключается на открытый — и только
+        // ПОСЛЕ этого начинается формирование ленты (не одновременно с открытием, как раньше).
+        yield return ShakeChest(chestSpriteImage, 1f);
+        chestSpriteImage.image = chestOpenTexture;
 
         // 8.2: лента из ~20 иконок предметов, взятых из пула каталога (те же иконки, что уже
         // назначены в Task 2) — случайный подбор с повторами, если в каталоге меньше 20 предметов.
@@ -1004,12 +1016,18 @@ public class RunFlowController : MonoBehaviour
             yield break;
         }
 
+        // 8.2 (уточнено): паддинг-иконки с обеих сторон — та же "шумовая" логика, что и остальные
+        // ~19 слотов (случайный предмет + случайная фальшивая редкость), просто вне видимого при
+        // покое диапазона. Итоговый индекс победного слота в массиве смещён на chestReelPadding.
+        int totalIcons = reelLength + chestReelPadding * 2;
+        int winningIndex = chestReelPadding + reelLength - 2;
         Sprite winningIcon = reward.Item != null ? reward.Item.icon : pool[0].icon;
-        for (int i = 0; i < reelLength; i++)
+        for (int i = 0; i < totalIcons; i++)
         {
-            Sprite iconSprite = i == reelLength - 2 ? winningIcon : pool[Random.Range(0, pool.Length)].icon;
+            Sprite iconSprite = i == winningIndex ? winningIcon : pool[Random.Range(0, pool.Length)].icon;
             var icon = new Image { sprite = iconSprite };
             icon.AddToClassList("chest-reel-icon");
+            icon.AddToClassList(i == winningIndex ? ChestReelBgClassFor(reward.ItemRarity) : ChestReelBgClassFor(rewardManager.RollItemRarity(false)));
             chestReelStrip.Add(icon);
         }
 
@@ -1019,17 +1037,20 @@ public class RunFlowController : MonoBehaviour
         // успел посчитаться и viewport реально получил заданные в USS 320px.
         yield return null;
 
-        // Стартовая позиция: первая иконка уже видна в центре viewport (виден "текущий" слот).
+        // Стартовая позиция: первая ЛОГИЧЕСКАЯ иконка (индекс chestReelPadding в массиве, т.е.
+        // после паддинга) видна в центре viewport — паддинг-иконки слева ещё не показаны игроку,
+        // но существуют в массиве, поэтому слева от неё уже есть чем заполнить viewport.
         float viewportCenter = chestReelViewport.resolvedStyle.width / 2f;
-        chestReelStrip.style.left = viewportCenter - iconWidth / 2f;
+        chestReelStrip.style.left = viewportCenter - iconWidth / 2f - chestReelPadding * iconWidth;
 
         bool skipped = false;
         void OnSkip() => skipped = true;
         chestSkipButton.clicked += OnSkip;
 
-        // Целевая позиция: предпоследняя иконка (индекс reelLength-2, гарантированно выигрышная)
-        // должна оказаться под центром viewport — это и есть "указатель"/точка приземления ленты.
-        float targetLeft = viewportCenter - iconWidth / 2f - (reelLength - 2) * iconWidth;
+        // Целевая позиция: победный слот (winningIndex) должен оказаться под центром viewport —
+        // это и есть "указатель"/точка приземления ленты. Паддинг справа от него гарантирует, что
+        // после приземления справа тоже не видно края массива.
+        float targetLeft = viewportCenter - iconWidth / 2f - winningIndex * iconWidth;
         float tweenDuration = 4f; // середина диапазона 3-5 сек из ГДД 8.2
 
         bool tweenComplete = false;
@@ -1039,8 +1060,6 @@ public class RunFlowController : MonoBehaviour
             targetLeft,
             tweenDuration
         ).SetEase(DG.Tweening.Ease.OutCubic).OnComplete(() => tweenComplete = true);
-
-        chestSpriteImage.image = chestOpenTexture; // сундук открывается в момент начала прокрутки (10.6)
 
         while (!tweenComplete && !skipped)
         {
@@ -1063,6 +1082,43 @@ public class RunFlowController : MonoBehaviour
 
         chestRevealContainer.style.display = DisplayStyle.None;
     }
+
+    // 8.2 (уточнено): сундук трясётся на месте закрытым спрайтом ~1с перед открытием — DOTween.Punch
+    // по style.translate (UI Toolkit не имеет Transform/RectTransform, поэтому обычный
+    // transform.DOPunchPosition из DOTween для GameObject здесь неприменим).
+    IEnumerator ShakeChest(VisualElement element, float duration)
+    {
+        Vector3 shakeOffset = Vector3.zero;
+        bool shakeComplete = false;
+        DG.Tweening.DOTween.Punch(
+            () => shakeOffset,
+            v =>
+            {
+                shakeOffset = v;
+                element.style.translate = new Translate(v.x, v.y, 0);
+            },
+            new Vector3(6f, 4f, 0f),
+            duration,
+            10
+        ).OnComplete(() => shakeComplete = true);
+
+        while (!shakeComplete)
+        {
+            yield return null;
+        }
+
+        element.style.translate = new Translate(0, 0, 0);
+    }
+
+    // 8.2 (уточнено): фон слота ленты по редкости — переиспользует ту же палитру серый/синий/
+    // фиолетовый, что и .rarity-common/.rarity-rare/.rarity-epic (там — цвет текста, здесь —
+    // фон, поэтому отдельные CSS-классы, а не переиспользование тех же имён).
+    static string ChestReelBgClassFor(ItemTier tier) => tier switch
+    {
+        ItemTier.Common => "chest-reel-icon-common",
+        ItemTier.Rare => "chest-reel-icon-rare",
+        _ => "chest-reel-icon-epic"
+    };
 
     // Оригинальный план предполагал world-space ParticleSystem-префаб (chestBurstPrefab), но
     // GamePanelSettings использует ScreenSpaceOverlay (m_RenderMode: 0) — UI Toolkit-панель рисуется

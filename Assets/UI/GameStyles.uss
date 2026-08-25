@@ -289,6 +289,20 @@ Label, Button {
     -unity-background-scale-mode: scale-to-fit;
 }
 
+/* 8.2 (уточнено): фон слота ленты по редкости — та же палитра, что и .rarity-common/-rare/-epic
+   (там цвет текста, здесь фон, поэтому отдельные классы). */
+.chest-reel-icon-common {
+    background-color: rgb(180, 180, 180);
+}
+
+.chest-reel-icon-rare {
+    background-color: rgb(90, 150, 230);
+}
+
+.chest-reel-icon-epic {
+    background-color: rgb(190, 110, 230);
+}
+
 .merchant-offers-row {
     flex-direction: row;
     flex-wrap: wrap;
