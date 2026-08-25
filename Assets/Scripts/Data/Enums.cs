@@ -82,3 +82,12 @@ public enum MonsterGender
     Feminine,
     Neuter
 }
+
+// 2.8: 4 модификатора монстров (роллятся по формуле шанса/лимита в MonsterModifierCatalog).
+public enum MonsterModifierType
+{
+    Fast,
+    Big,
+    Armored,
+    Fierce
+}

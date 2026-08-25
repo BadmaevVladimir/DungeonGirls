@@ -128,6 +128,17 @@ public static class CombatantFactory
             runtime.MonsterPassiveCooldownTimer = 6f;
         }
 
+        // 2.8: модификаторы роллятся только для обычных монстров, не для босса (monsterLevel по
+        // умолчанию 1, а этаж-1 лимит = 0, так что для дефолтного вызова CreateMonsterCombatant(boss,
+        // floor) без monsterLevel это естественно даёт 0 модификаторов даже без явной проверки isBoss).
+        // Применяется ПОВЕРХ уже отмасштабированных по этажу (2.6) и уровню монстра (2.7) статов выше.
+        var rolledModifiers = MonsterModifierCatalog.RollModifiers(floorIndex, level);
+        foreach (var modifier in rolledModifiers)
+        {
+            MonsterModifierCatalog.ApplyToRuntime(runtime, modifier);
+            runtime.DisplayName = $"{MonsterModifierCatalog.AdjectiveFor(modifier, monster.gender)} {runtime.DisplayName}";
+        }
+
         return runtime;
     }
 

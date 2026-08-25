@@ -197,6 +197,23 @@ public static class PlayModeSmokeTest
 
         Info.Add("Проверки полей монстро-пассивок (2.4) выполнены.");
 
+        // 2.8: лимит модификаторов монстров по этажам, шанс по уровню, согласование рода прилагательных.
+        Check(MonsterModifierCatalog.ModifierCapForFloor(1) == 0, "2.8 лимит модификаторов этаж 1 = 0");
+        Check(MonsterModifierCatalog.ModifierCapForFloor(2) == 1 && MonsterModifierCatalog.ModifierCapForFloor(5) == 1, "2.8 лимит модификаторов этажи 2-5 = 1");
+        Check(MonsterModifierCatalog.ModifierCapForFloor(6) == 2 && MonsterModifierCatalog.ModifierCapForFloor(9) == 2, "2.8 лимит модификаторов этажи 6-9 = 2");
+        Check(MonsterModifierCatalog.ModifierCapForFloor(10) == 4, "2.8 лимит модификаторов этаж 10 = 4 (весь каталог)");
+
+        Check(MonsterModifierCatalog.RollChancePercentForLevel(1) == 0f, "2.8 шанс модификатора ур.1 монстра = 0%");
+        Check(MonsterModifierCatalog.RollChancePercentForLevel(4) == 30f, "2.8 шанс модификатора ур.4 монстра = 30%");
+
+        Check(MonsterModifierCatalog.AdjectiveFor(MonsterModifierType.Big, MonsterGender.Feminine) == "Большая", "2.8 согласование рода: Большая Слизь");
+        Check(MonsterModifierCatalog.AdjectiveFor(MonsterModifierType.Fast, MonsterGender.Masculine) == "Быстрый", "2.8 согласование рода: Быстрый Скелет");
+
+        var rollsOnFloor1 = MonsterModifierCatalog.RollModifiers(1, 4);
+        Check(rollsOnFloor1.Count == 0, $"2.8 этаж 1 никогда не даёт модификаторов даже при ур.4: получено {rollsOnFloor1.Count}");
+
+        Info.Add("Проверки монстро-модификаторов (2.8) выполнены.");
+
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
     }
 
