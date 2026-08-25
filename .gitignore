@@ -104,3 +104,6 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Superpowers subagent-driven-development scratch workspace (ledgers, briefs, review packages)
+/.superpowers/
