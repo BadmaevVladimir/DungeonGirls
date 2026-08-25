@@ -555,9 +555,12 @@ public class RunFlowController : MonoBehaviour
             enemyListContainer.Add(box);
         }
 
-        // 7.2: крупные спрайты на "земле" сцены боя, отдельно от карточек имени/HP выше.
+        // 7.2/10.6: крупные спрайты на "земле" сцены боя, отдельно от карточек имени/HP выше.
         // Размер уменьшается при нескольких одновременных врагах (4.1: 1-3 в обычной комнате),
         // чтобы ряд помещался на экране, не выходя за рамки сцены.
+        float stageFloorGap = GetStageFloorGapFromBottom();
+        playerStageSprite.style.marginBottom = stageFloorGap;
+
         enemyStageRow.Clear();
         int enemyCount = combatManager.Enemies.Count;
         float enemySpriteSize = enemyCount switch
@@ -577,12 +580,62 @@ public class RunFlowController : MonoBehaviour
             }
             enemySprite.style.width = enemySpriteSize;
             enemySprite.style.height = enemySpriteSize;
+            enemySprite.style.marginBottom = stageFloorGap;
             enemyStageRow.Add(enemySprite);
         }
 
         bool ready = combatManager.IsActiveSkillReady;
         activeSkillButton.SetEnabled(!autoModeToggle.value && ready);
         activeSkillButton.text = ready ? "Активный навык (готов)" : $"Активный навык ({combatManager.ActiveSkillCooldownRemaining:F1}с)";
+    }
+
+    // Баг (2026-08-26): фон боя (Dungeon.png, 1536x1024) рендерится через ScaleAndCrop — на
+    // экранах шире исходного соотношения (16:9-21:9 против 3:2 фона, платформа PC standalone)
+    // кроп идёт по центру, и линия пола на фоне (~77.8% высоты исходного изображения, найдено
+    // измерением пикселей — ряд ~797 из 1024) смещается относительно НИЖНЕГО края контейнера тем
+    // сильнее, чем шире экран. Статичный процент в USS не может угнаться за этим на всём диапазоне
+    // 16:9-21:9 (в 16:9 пол оказывается на ~17% высоты от низа, в 21:9 — уже на ~6%), поэтому
+    // пересчитывается здесь по формуле "cover"-кропа при каждом обновлении боевого UI и
+    // применяется как отступ снизу (margin-bottom) к спрайтам поверх их обычного
+    // align-items: flex-end позиционирования (влево/вправо не меняется, только высота "ступней").
+    const float combatBackgroundImageWidth = 1536f;
+    const float combatBackgroundImageHeight = 1024f;
+    const float combatBackgroundFloorRowFromTop = 797f;
+
+    float GetStageFloorGapFromBottom()
+    {
+        float boxWidth = combatPanel.resolvedStyle.width;
+        float boxHeight = combatPanel.resolvedStyle.height;
+        if (boxWidth <= 0f || boxHeight <= 0f)
+        {
+            // Первый кадр после ShowOnly(combatPanel) — Yoga-layout ещё не посчитан
+            // (resolvedStyle временно 0x0). Само-корректируется на следующем кадре.
+            return 0f;
+        }
+
+        float imageAspect = combatBackgroundImageWidth / combatBackgroundImageHeight;
+        float boxAspect = boxWidth / boxHeight;
+
+        float scale;
+        float cropTop;
+        if (boxAspect > imageAspect)
+        {
+            // Контейнер шире фона (типичный случай 16:9-21:9 против 3:2) — фон растягивается по
+            // ширине контейнера, высота обрезается сверху и снизу поровну (центр-кроп).
+            scale = boxWidth / combatBackgroundImageWidth;
+            float scaledHeight = combatBackgroundImageHeight * scale;
+            cropTop = (scaledHeight - boxHeight) / 2f;
+        }
+        else
+        {
+            // Контейнер уже фона (не целевой диапазон платформы, но не должен ломаться) — кроп по
+            // высоте, вертикального кропа нет вовсе.
+            scale = boxHeight / combatBackgroundImageHeight;
+            cropTop = 0f;
+        }
+
+        float floorFromTop = combatBackgroundFloorRowFromTop * scale - cropTop;
+        return Mathf.Max(0f, boxHeight - floorFromTop);
     }
 
     // ==================== Ловушка (5.5) и квесты TryOrSkip (5.4) — общий попап ====================
@@ -965,6 +1018,9 @@ public class RunFlowController : MonoBehaviour
         var reward = rewardManager.CalculateRewards(floorNumber, isBoss, characterManager.Level, luckLevel, currencyBonus, noCurrency, goldenTouchLevel);
 
         ShowOnly(rewardPanel);
+        // Баг (2026-08-26): описание награды из прошлой комнаты оставалось видимым поверх новой
+        // анимации сундука (текст очищался только после ChestRevealFlow) — очищаем сразу, до тряски.
+        rewardText.text = string.Empty;
         yield return ChestRevealFlow(reward);
 
         characterManager.AddCurrency(reward.Currency); // счётчик валюты — начисление происходит здесь,

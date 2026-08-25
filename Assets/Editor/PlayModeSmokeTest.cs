@@ -367,6 +367,35 @@ public static class PlayModeSmokeTest
         float chestTargetLeft = chestViewportCenter - chestIconWidth / 2f - chestWinningIndex * chestIconWidth;
         Check(chestTargetLeft == 160f - 32f - 21 * 64f, $"8.2 расчёт целевой позиции ленты сундука: {chestTargetLeft} (ожидалось {160f - 32f - 21 * 64f})");
 
+        // Баг (2026-08-26): та же формула "cover"-кропа, что и в RunFlowController.GetStageFloorGapFromBottom
+        // (дублируется здесь, как и формула ленты сундука выше) — проверяет, что отступ пола от низа
+        // контейнера действительно уменьшается на более широких соотношениях сторон (16:9 -> 21:9),
+        // а не остаётся статичным процентом, который не может угнаться за кропом на всём диапазоне.
+        const float bgImgW = 1536f, bgImgH = 1024f, bgFloorRow = 797f;
+        float FloorGap(float boxW, float boxH)
+        {
+            float imgAspect = bgImgW / bgImgH;
+            float boxAspect = boxW / boxH;
+            float scale, cropTop;
+            if (boxAspect > imgAspect)
+            {
+                scale = boxW / bgImgW;
+                cropTop = (bgImgH * scale - boxH) / 2f;
+            }
+            else
+            {
+                scale = boxH / bgImgH;
+                cropTop = 0f;
+            }
+            return Mathf.Max(0f, boxH - (bgFloorRow * scale - cropTop));
+        }
+
+        float floorGap16x9 = FloorGap(1600f, 900f);
+        float floorGap21x9 = FloorGap(2100f, 900f);
+        Check(floorGap16x9 / 900f > 0.15f && floorGap16x9 / 900f < 0.19f, $"7.2/10.6 отступ пола на 16:9: {floorGap16x9:F1}px ({floorGap16x9 / 900f:P1} высоты, ожидалось ~16.7%)");
+        Check(floorGap21x9 / 900f > 0.04f && floorGap21x9 / 900f < 0.08f, $"7.2/10.6 отступ пола на 21:9: {floorGap21x9:F1}px ({floorGap21x9 / 900f:P1} высоты, ожидалось ~6.25%)");
+        Check(floorGap21x9 < floorGap16x9, $"7.2/10.6 отступ пола уменьшается на более широких экранах: 16:9={floorGap16x9:F1}px, 21:9={floorGap21x9:F1}px");
+
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
     }
 
