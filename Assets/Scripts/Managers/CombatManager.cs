@@ -82,7 +82,11 @@ public class CombatManager : MonoBehaviour
             ResetAttackTimers(enemy);
         }
 
-        Player.ActiveSkillCooldownTimer = 0f;
+        // 4.3 (НОВОЕ): активный навык уходит в полный кулдаун сразу при старте боя, а не в 0 —
+        // без этого навык (например "3 быстрые атаки") часто срабатывал мгновенно и сносил
+        // противника до того, как игрок успевал его увидеть. Обычные атаки оружием (ResetAttackTimers
+        // выше) это правило не затрагивает — они по-прежнему начинаются сразу по своей скорости атаки.
+        Player.ActiveSkillCooldownTimer = activeSkillCooldownSeconds;
         Player.Target = GetDefaultTarget();
 
         Log($"[Combat] Бой начался: {Player.DisplayName} (HP {Player.CurrentHP:F1}) против {Enemies.Count} противников.");

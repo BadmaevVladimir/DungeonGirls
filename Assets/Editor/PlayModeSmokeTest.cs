@@ -543,6 +543,25 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(combatManagerGO);
 
+        // 4.3 (НОВОЕ 2026-08-26): активный навык уходит в полный кулдаун сразу при старте боя,
+        // а не в 0 — иначе "3 быстрые атаки" срабатывали мгновенно и сносили противника до того,
+        // как игрок успевал его увидеть. Обычные атаки оружием это не затрагивает.
+        var skillCooldownGO = new GameObject("SmokeTest_ActiveSkillCooldown");
+        var skillCooldownCombatManager = skillCooldownGO.AddComponent<CombatManager>();
+        skillCooldownCombatManager.ConfigureUniqueActiveSkill(3, 1f, 12f, true);
+
+        var skillCooldownPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
+        skillCooldownPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 5f, DamageMax = 5f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var skillCooldownEnemy = new CombatantRuntime { IsPlayer = false, MaxHP = 100f, CurrentHP = 100f, DisplayName = "TestDummy" };
+        skillCooldownEnemy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+
+        skillCooldownCombatManager.StartCombat(skillCooldownPlayer, new List<CombatantRuntime> { skillCooldownEnemy });
+        Check(!skillCooldownCombatManager.IsActiveSkillReady, "4.3 активный навык НЕ готов сразу при старте боя");
+        Check(skillCooldownCombatManager.ActiveSkillCooldownRemaining == 12f, $"4.3 активный навык уходит в полный кулдаун при старте боя: {skillCooldownCombatManager.ActiveSkillCooldownRemaining} (ожидалось 12)");
+        Check(!skillCooldownCombatManager.TryActivateUniqueActiveSkill(), "4.3 навык нельзя активировать вручную сразу при старте боя");
+
+        UnityEngine.Object.DestroyImmediate(skillCooldownGO);
+
         // 1, п.3: основной пассив наставника ("Магнум Опус") — постоянный бонус к маг. урону — через реальный CombatManager.
         var mentorTestGO = new GameObject("SmokeTest_MentorCombat");
         var mentorTestCombatManager = mentorTestGO.AddComponent<CombatManager>();
