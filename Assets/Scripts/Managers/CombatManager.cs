@@ -14,6 +14,14 @@ public class CombatManager : MonoBehaviour
     // "Карманник" (2.4): (жертва, украденный % текущей валюты забега).
     public event System.Action<CombatantRuntime, float> MonsterStoleCurrency;
 
+    // 4.7: визуальный фидбэк боя. (цель, урон по HP [0, если полностью заблокировано], крит?,
+    // заблокировано?) — единая точка для всплывающих цифр урона и тряски спрайта цели.
+    public event System.Action<CombatantRuntime, float, bool, bool> HitResolved;
+
+    // 4.7: (участник, активировавший навык, название навыка) — для баннера активации навыка.
+    // Архитектурно не привязано к игроку — на будущее, если у монстров появятся активные навыки.
+    public event System.Action<CombatantRuntime, string> ActiveSkillActivated;
+
     void Log(string message)
     {
         Debug.Log(message);
@@ -26,17 +34,19 @@ public class CombatManager : MonoBehaviour
     int activeSkillHitCount;
     float activeSkillDamageMultiplierPerHit;
     float activeSkillCooldownSeconds;
+    string activeSkillName;
     bool activeSkillAutoMode = true;
 
     public bool IsActiveSkillConfigured { get; private set; }
     public float ActiveSkillCooldownRemaining => Player != null ? Mathf.Max(0f, Player.ActiveSkillCooldownTimer) : 0f;
     public bool IsActiveSkillReady => Player != null && Player.IsAlive && Player.ActiveSkillCooldownTimer <= 0f;
 
-    public void ConfigureUniqueActiveSkill(int hitCount, float damageMultiplierPerHit, float cooldownSeconds, bool autoMode)
+    public void ConfigureUniqueActiveSkill(int hitCount, float damageMultiplierPerHit, float cooldownSeconds, bool autoMode, string skillName)
     {
         activeSkillHitCount = hitCount;
         activeSkillDamageMultiplierPerHit = damageMultiplierPerHit;
         activeSkillCooldownSeconds = cooldownSeconds;
+        activeSkillName = skillName;
         activeSkillAutoMode = autoMode;
         IsActiveSkillConfigured = true;
     }
@@ -54,6 +64,8 @@ public class CombatManager : MonoBehaviour
         {
             return false;
         }
+
+        ActiveSkillActivated?.Invoke(Player, activeSkillName);
 
         var weapon = Player.Weapons[0];
         for (int i = 0; i < activeSkillHitCount; i++)
@@ -339,6 +351,11 @@ public class CombatManager : MonoBehaviour
         {
             Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: {result.DamageToHP:F1} урона по HP (осталось {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
         }
+
+        // 4.7: единая точка для всплывающих цифр урона и тряски спрайта цели — покрывает обычные
+        // атаки оружием и каждый отдельный удар активного навыка (цикл в TryActivateUniqueActiveSkill
+        // вызывает ResolveAttack по разу на удар, так что события уже приходят по одному, не суммарно).
+        HitResolved?.Invoke(target, result.DamageToHP, isCrit, result.WasBlocked);
 
         // "Вампиризм" (3.10, Кровавый меч): при крите восстанавливает атакующему часть урона крита здоровьем.
         if (isCrit && weapon.VampirismLevel > 0)

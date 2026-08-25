@@ -434,7 +434,7 @@ public class RunFlowController : MonoBehaviour
 
         int activeLevel = characterManager.Progress.UniqueActiveLevel;
         float activeMultiplier = activeLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f };
-        combatManager.ConfigureUniqueActiveSkill(3, activeMultiplier, jenniferCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value);
+        combatManager.ConfigureUniqueActiveSkill(3, activeMultiplier, jenniferCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value, jenniferCharacter.uniqueActiveSkill.skillName);
 
         combatManager.LogMessage += OnCombatLog;
         combatManager.MonsterStoleCurrency += OnMonsterStoleCurrency;

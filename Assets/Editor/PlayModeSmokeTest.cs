@@ -577,7 +577,7 @@ public static class PlayModeSmokeTest
         // как игрок успевал его увидеть. Обычные атаки оружием это не затрагивает.
         var skillCooldownGO = new GameObject("SmokeTest_ActiveSkillCooldown");
         var skillCooldownCombatManager = skillCooldownGO.AddComponent<CombatManager>();
-        skillCooldownCombatManager.ConfigureUniqueActiveSkill(3, 1f, 12f, true);
+        skillCooldownCombatManager.ConfigureUniqueActiveSkill(3, 1f, 12f, true, "TestSkill");
 
         var skillCooldownPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
         skillCooldownPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 5f, DamageMax = 5f, DamageType = DamageType.Physical, AttackSpeed = 1f });
