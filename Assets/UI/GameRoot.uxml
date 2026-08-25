@@ -75,6 +75,7 @@
                 <ui:Label text="Бой" class="panel-title" />
                 <ui:VisualElement class="combat-top-row">
                     <ui:VisualElement name="PlayerBox" class="combatant-box">
+                        <ui:Image name="PlayerPortraitImage" class="combatant-portrait" scale-mode="ScaleToFit" />
                         <ui:Label name="PlayerNameLabel" text="Дженифер" class="combatant-name" />
                         <ui:VisualElement class="hp-bar-bg">
                             <ui:VisualElement name="PlayerHpFill" class="hp-bar-fill hp-bar-fill-player" style="width: 100%;" />

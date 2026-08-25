@@ -15,7 +15,8 @@ public static class CombatantFactory
         var runtime = new CombatantRuntime
         {
             DisplayName = character.characterName,
-            IsPlayer = true
+            IsPlayer = true,
+            Sprite = character.portrait
         };
 
         int levelIndex = Mathf.Max(level, 1);
@@ -95,6 +96,7 @@ public static class CombatantFactory
         {
             DisplayName = monster.monsterName,
             IsPlayer = false,
+            Sprite = monster.sprite,
             MaxHP = hp,
             PhysicalDefenseMax = armor,
             PhysicalDefenseCurrent = armor,

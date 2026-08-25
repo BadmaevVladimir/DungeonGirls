@@ -61,6 +61,7 @@ public class RunFlowController : MonoBehaviour
     VisualElement rewardPanel;
 
     // --- Бой ---
+    Image playerPortraitImage;
     Label playerNameLabel;
     VisualElement playerHpFill;
     Label playerHpText;
@@ -183,6 +184,7 @@ public class RunFlowController : MonoBehaviour
         rewardPanel = root.Q<VisualElement>("RewardPanel");
         itemComparePanel = root.Q<VisualElement>("ItemComparePanel");
 
+        playerPortraitImage = root.Q<Image>("PlayerPortraitImage");
         playerNameLabel = root.Q<Label>("PlayerNameLabel");
         playerHpFill = root.Q<VisualElement>("PlayerHpFill");
         playerHpText = root.Q<Label>("PlayerHpText");
@@ -504,6 +506,7 @@ public class RunFlowController : MonoBehaviour
         ShowOnly(combatPanel);
 
         var player = combatManager.Player;
+        playerPortraitImage.sprite = player.Sprite;
         playerNameLabel.text = $"{player.DisplayName} (ур. {characterManager.Level})";
         float playerHpPercent = player.MaxHP > 0f ? Mathf.Clamp01(player.CurrentHP / player.MaxHP) * 100f : 0f;
         playerHpFill.style.width = new Length(playerHpPercent, LengthUnit.Percent);
@@ -520,6 +523,10 @@ public class RunFlowController : MonoBehaviour
             {
                 box.AddToClassList("combatant-box-target");
             }
+
+            var portrait = new Image { sprite = enemy.Sprite };
+            portrait.AddToClassList("combatant-portrait");
+            box.Add(portrait);
 
             var nameLabel = new Label(enemy.IsAlive ? enemy.DisplayName : $"{enemy.DisplayName} (погиб)");
             nameLabel.AddToClassList("combatant-name");

@@ -14,6 +14,10 @@ public class CombatantRuntime
     public string DisplayName;
     public bool IsPlayer;
 
+    // 10.6: пиксель-арт спрайт персонажа/монстра (CharacterData.portrait / MonsterData.sprite),
+    // для рендера в бою (CombatPanel). Может быть null (например, у Monster_Boss — арт ещё не готов).
+    public Sprite Sprite;
+
     public float MaxHP;
     public float CurrentHP;
 

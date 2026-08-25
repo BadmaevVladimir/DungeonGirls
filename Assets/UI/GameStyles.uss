@@ -191,6 +191,13 @@ Label, Button {
     -unity-font-style: bold;
 }
 
+.combatant-portrait {
+    width: 48px;
+    height: 48px;
+    align-self: center;
+    margin-bottom: 4px;
+}
+
 .hp-bar-bg {
     height: 14px;
     background-color: rgb(60, 20, 20);

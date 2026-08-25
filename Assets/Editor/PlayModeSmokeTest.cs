@@ -179,6 +179,27 @@ public static class PlayModeSmokeTest
             $"2.6 броня Скелета на этаже 10: {floor10Skeleton.PhysicalDefenseMax:F2} (ожидалось ~28.1, было бы ~850+ со старым x1.8)");
         UnityEngine.Object.DestroyImmediate(skeletonBase);
 
+        // Баг #8 (2026-08-26): CombatantFactory должен копировать CharacterData.portrait /
+        // MonsterData.sprite в CombatantRuntime.Sprite, иначе бою нечего рендерить в PlayerBox/
+        // enemy-боксах, даже если сами ui:Image-элементы существуют и спрайт назначен в ассете.
+        var portraitTexture = new Texture2D(1, 1);
+        var portraitSprite = Sprite.Create(portraitTexture, new Rect(0f, 0f, 1f, 1f), Vector2.zero);
+
+        var spriteCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        spriteCharacter.portrait = portraitSprite;
+        var playerRuntimeForSprite = CombatantFactory.CreatePlayerCombatant(spriteCharacter, 1);
+        Check(playerRuntimeForSprite.Sprite == portraitSprite, "10.6 CombatantFactory копирует CharacterData.portrait в CombatantRuntime.Sprite (игрок)");
+        UnityEngine.Object.DestroyImmediate(spriteCharacter);
+
+        var spriteMonster = ScriptableObject.CreateInstance<MonsterData>();
+        spriteMonster.sprite = portraitSprite;
+        var monsterRuntimeForSprite = CombatantFactory.CreateMonsterCombatant(spriteMonster, 1);
+        Check(monsterRuntimeForSprite.Sprite == portraitSprite, "10.6 CombatantFactory копирует MonsterData.sprite в CombatantRuntime.Sprite (монстр)");
+        UnityEngine.Object.DestroyImmediate(spriteMonster);
+
+        UnityEngine.Object.DestroyImmediate(portraitSprite);
+        UnityEngine.Object.DestroyImmediate(portraitTexture);
+
         // 3.6: потолок уровня персонажа и опыт
         Check(RunCharacterProgress.MaxCharacterLevel == 15, $"3.6 потолок уровня: {RunCharacterProgress.MaxCharacterLevel} (ожидалось 15)");
 
@@ -372,6 +393,12 @@ public static class PlayModeSmokeTest
         // image/sprite post-OnEnable(), not a confirmation of the abandoned src= hypothesis.
         var combatBackground = root.Q<UnityEngine.UIElements.Image>("CombatBackground");
         Check(combatBackground != null, "CombatBackground ui:Image найден в CombatPanel");
+
+        // Баг #8 (2026-08-26): спрайты Дженифер/моба не отображались в бою — CombatantRuntime не
+        // нёс Sprite вообще (ни PlayerBox, ни динамически строящиеся enemy-боксы не имели ui:Image).
+        // Регрессионная защита на сам UI-элемент; проверка что CombatantFactory реально копирует
+        // спрайт — в RunPureLogicChecks ниже (это не рендерится и не требует сцены).
+        RequireElement(root, "PlayerPortraitImage");
         if (combatBackground != null)
         {
             Check(combatBackground.image != null || combatBackground.sprite != null,
