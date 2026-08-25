@@ -714,7 +714,7 @@ public class RunFlowController : MonoBehaviour
         foreach (var option in options)
         {
             string description = option.Description;
-            string cardText = string.IsNullOrEmpty(description) ? option.ToString() : $"{option}\n{description}";
+            string cardText = string.IsNullOrWhiteSpace(description) ? option.ToString() : $"{option}\n{description}";
             var btn = new Button { text = cardText };
             btn.AddToClassList("choice-card");
             levelUpCardsContainer.Add(btn);
