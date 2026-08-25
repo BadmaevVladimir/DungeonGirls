@@ -4,6 +4,7 @@ using UnityEngine;
 public class CharacterData : ScriptableObject
 {
     public string characterName;
+    public Sprite portrait; // 10.6: пиксель-арт портрет персонажа (64x64).
     public CharacterClass characterClass;
 
     public int baseHealth;

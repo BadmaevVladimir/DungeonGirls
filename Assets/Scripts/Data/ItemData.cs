@@ -4,6 +4,7 @@ using UnityEngine;
 public class ItemData : ScriptableObject
 {
     public string itemName;
+    public Sprite icon; // 10.6: пиксель-арт иконка предмета (64x64), общая для всех тиров архетипа.
     public EquipmentSlot slot;
     public WeaponSubtype weaponSubtype = WeaponSubtype.None;
     public ItemTier tier;

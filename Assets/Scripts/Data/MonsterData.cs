@@ -4,6 +4,7 @@ using UnityEngine;
 public class MonsterData : ScriptableObject
 {
     public string monsterName;
+    public Sprite sprite; // 10.6: пиксель-арт спрайт монстра (64x64).
     public bool isBoss;
 
     public float hp;
