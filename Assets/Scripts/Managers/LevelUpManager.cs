@@ -72,6 +72,7 @@ public class LevelUpManager : MonoBehaviour
             upgradeCandidates.Add(new LevelUpOption
             {
                 Type = LevelUpOptionType.UpgradeUniqueActive,
+                ActiveSkill = progress.Character.uniqueActiveSkill,
                 ResultingLevel = progress.UniqueActiveLevel + 1
             });
         }

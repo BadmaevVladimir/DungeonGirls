@@ -296,6 +296,21 @@ public static class PlayModeSmokeTest
         Check(bonusManyCopies.PassiveLevelBonus == 4, $"3.5 кламп бонуса пассивки на 4 (макс. ур. 5): {bonusManyCopies.PassiveLevelBonus}");
         Check(bonusManyCopies.ActiveLevelBonus == 2, $"3.5 кламп бонуса активки на 2 (макс. ур. 3): {bonusManyCopies.ActiveLevelBonus}");
 
+        // 7.2: LevelUpOption.Description берётся из effectDescription (пассивка/активка).
+        var descTestSkill = ScriptableObject.CreateInstance<PassiveSkillData>();
+        descTestSkill.skillName = "ТестНавык";
+        descTestSkill.effectDescription = "Тестовое описание эффекта.";
+        var descTestOption = new LevelUpOption { Type = LevelUpOptionType.NewPassiveSkill, Skill = descTestSkill, ResultingLevel = 1 };
+        Check(descTestOption.Description == "Тестовое описание эффекта.", $"7.2 LevelUpOption.Description (пассивка): '{descTestOption.Description}'");
+        UnityEngine.Object.DestroyImmediate(descTestSkill);
+
+        var descTestActiveSkill = ScriptableObject.CreateInstance<ActiveSkillData>();
+        descTestActiveSkill.skillName = "ТестАктивка";
+        descTestActiveSkill.effectDescription = "Тестовое описание активного навыка.";
+        var descTestActiveOption = new LevelUpOption { Type = LevelUpOptionType.UpgradeUniqueActive, ActiveSkill = descTestActiveSkill, ResultingLevel = 2 };
+        Check(descTestActiveOption.Description == "Тестовое описание активного навыка.", $"7.2 LevelUpOption.Description (активка): '{descTestActiveOption.Description}'");
+        UnityEngine.Object.DestroyImmediate(descTestActiveSkill);
+
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
     }
 
