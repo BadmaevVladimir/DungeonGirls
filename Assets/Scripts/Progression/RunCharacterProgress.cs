@@ -53,8 +53,10 @@ public class RunCharacterProgress
     // если maxLevel ассета персонажа когда-то станет отличаться от 5/3 (защита от рассинхрона данных).
     public void ApplyGachaStartingBonus(GachaCopyBonusCalculator.GachaBonus bonus)
     {
-        UniquePassiveLevel = Mathf.Min(Character.uniquePassiveSkill.maxLevel, 1 + bonus.PassiveLevelBonus);
-        UniqueActiveLevel = Mathf.Min(Character.uniqueActiveSkill.maxLevel, 1 + bonus.ActiveLevelBonus);
+        int passiveMaxLevel = Character.uniquePassiveSkill != null ? Character.uniquePassiveSkill.maxLevel : 1;
+        int activeMaxLevel = Character.uniqueActiveSkill != null ? Character.uniqueActiveSkill.maxLevel : 1;
+        UniquePassiveLevel = Mathf.Min(passiveMaxLevel, 1 + bonus.PassiveLevelBonus);
+        UniqueActiveLevel = Mathf.Min(activeMaxLevel, 1 + bonus.ActiveLevelBonus);
     }
 
     // 3.6: опыт до следующего уровня = текущий уровень x 25.

@@ -22,7 +22,8 @@ public class EquipmentManager : MonoBehaviour
             return result;
         }
 
-        // 3.5: +1 уровень снаряжения за каждую копию персонажа сверх первой (1-я копия — базовое владение).
+        // 3.5: бонусные копии персонажа расходуются по циклу из 4 шагов (снаряжение → пассивка → снаряжение → активка),
+        // поэтому уровень снаряжения растёт не за каждую лишнюю копию, а за 2 из каждых 4 (см. GachaCopyBonusCalculator).
         int bonus = BuildingCatalog.ForgeStartingEquipmentBonus(forgeLevel) + GachaCopyBonusCalculator.CalculateBonus(copyCount).GearLevelBonus;
 
         foreach (var baseItem in character.startingEquipment)
