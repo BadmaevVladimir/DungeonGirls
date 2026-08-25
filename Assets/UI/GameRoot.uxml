@@ -72,10 +72,15 @@
                 <!-- src="project://database/..." does not resolve at runtime (confirmed via PlayModeSmokeTest);
                      sprite is assigned in code by RunFlowController.combatBackgroundSprite instead. -->
                 <ui:Image name="CombatBackground" class="combat-background" scale-mode="ScaleAndCrop" />
+                <!-- 7.2 (обновлено): классическая JRPG-раскладка — крупные спрайты персонажа/монстров
+                     живут отдельно на "земле" сцены боя, а не внутри карточек имени/HP ниже. -->
+                <ui:VisualElement name="CombatStage" class="combat-stage">
+                    <ui:Image name="PlayerStageSprite" class="stage-sprite" scale-mode="ScaleToFit" />
+                    <ui:VisualElement name="EnemyStageRow" class="enemy-stage-row" />
+                </ui:VisualElement>
                 <ui:Label text="Бой" class="panel-title" />
                 <ui:VisualElement class="combat-top-row">
                     <ui:VisualElement name="PlayerBox" class="combatant-box">
-                        <ui:Image name="PlayerPortraitImage" class="combatant-portrait" scale-mode="ScaleToFit" />
                         <ui:Label name="PlayerNameLabel" text="Дженифер" class="combatant-name" />
                         <ui:VisualElement class="hp-bar-bg">
                             <ui:VisualElement name="PlayerHpFill" class="hp-bar-fill hp-bar-fill-player" style="width: 100%;" />

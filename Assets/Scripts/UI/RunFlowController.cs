@@ -61,7 +61,8 @@ public class RunFlowController : MonoBehaviour
     VisualElement rewardPanel;
 
     // --- Бой ---
-    Image playerPortraitImage;
+    Image playerStageSprite;
+    VisualElement enemyStageRow;
     Label playerNameLabel;
     VisualElement playerHpFill;
     Label playerHpText;
@@ -184,7 +185,8 @@ public class RunFlowController : MonoBehaviour
         rewardPanel = root.Q<VisualElement>("RewardPanel");
         itemComparePanel = root.Q<VisualElement>("ItemComparePanel");
 
-        playerPortraitImage = root.Q<Image>("PlayerPortraitImage");
+        playerStageSprite = root.Q<Image>("PlayerStageSprite");
+        enemyStageRow = root.Q<VisualElement>("EnemyStageRow");
         playerNameLabel = root.Q<Label>("PlayerNameLabel");
         playerHpFill = root.Q<VisualElement>("PlayerHpFill");
         playerHpText = root.Q<Label>("PlayerHpText");
@@ -506,7 +508,7 @@ public class RunFlowController : MonoBehaviour
         ShowOnly(combatPanel);
 
         var player = combatManager.Player;
-        playerPortraitImage.sprite = player.Sprite;
+        playerStageSprite.sprite = player.Sprite;
         playerNameLabel.text = $"{player.DisplayName} (ур. {characterManager.Level})";
         float playerHpPercent = player.MaxHP > 0f ? Mathf.Clamp01(player.CurrentHP / player.MaxHP) * 100f : 0f;
         playerHpFill.style.width = new Length(playerHpPercent, LengthUnit.Percent);
@@ -523,10 +525,6 @@ public class RunFlowController : MonoBehaviour
             {
                 box.AddToClassList("combatant-box-target");
             }
-
-            var portrait = new Image { sprite = enemy.Sprite };
-            portrait.AddToClassList("combatant-portrait");
-            box.Add(portrait);
 
             var nameLabel = new Label(enemy.IsAlive ? enemy.DisplayName : $"{enemy.DisplayName} (погиб)");
             nameLabel.AddToClassList("combatant-name");
@@ -555,6 +553,31 @@ public class RunFlowController : MonoBehaviour
             }
 
             enemyListContainer.Add(box);
+        }
+
+        // 7.2: крупные спрайты на "земле" сцены боя, отдельно от карточек имени/HP выше.
+        // Размер уменьшается при нескольких одновременных врагах (4.1: 1-3 в обычной комнате),
+        // чтобы ряд помещался на экране, не выходя за рамки сцены.
+        enemyStageRow.Clear();
+        int enemyCount = combatManager.Enemies.Count;
+        float enemySpriteSize = enemyCount switch
+        {
+            <= 1 => 384f,
+            2 => 260f,
+            _ => 190f
+        };
+        foreach (var enemy in combatManager.Enemies)
+        {
+            var enemySprite = new Image { sprite = enemy.Sprite };
+            enemySprite.AddToClassList("stage-sprite");
+            enemySprite.AddToClassList("enemy-stage-sprite");
+            if (!enemy.IsAlive)
+            {
+                enemySprite.AddToClassList("enemy-stage-sprite-dead");
+            }
+            enemySprite.style.width = enemySpriteSize;
+            enemySprite.style.height = enemySpriteSize;
+            enemyStageRow.Add(enemySprite);
         }
 
         bool ready = combatManager.IsActiveSkillReady;

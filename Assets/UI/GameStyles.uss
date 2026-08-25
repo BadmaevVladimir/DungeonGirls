@@ -191,11 +191,35 @@ Label, Button {
     -unity-font-style: bold;
 }
 
-.combatant-portrait {
-    width: 48px;
-    height: 48px;
-    align-self: center;
-    margin-bottom: 4px;
+.combat-stage {
+    position: absolute;
+    left: -16px;
+    top: -16px;
+    right: -16px;
+    bottom: -16px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 32px;
+}
+
+.stage-sprite {
+    width: 384px;
+    height: 384px;
+}
+
+.enemy-stage-row {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-end;
+}
+
+.enemy-stage-sprite {
+    margin-left: 12px;
+}
+
+.enemy-stage-sprite-dead {
+    opacity: 0.4;
 }
 
 .hp-bar-bg {

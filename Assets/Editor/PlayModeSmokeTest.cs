@@ -394,11 +394,12 @@ public static class PlayModeSmokeTest
         var combatBackground = root.Q<UnityEngine.UIElements.Image>("CombatBackground");
         Check(combatBackground != null, "CombatBackground ui:Image найден в CombatPanel");
 
-        // Баг #8 (2026-08-26): спрайты Дженифер/моба не отображались в бою — CombatantRuntime не
-        // нёс Sprite вообще (ни PlayerBox, ни динамически строящиеся enemy-боксы не имели ui:Image).
-        // Регрессионная защита на сам UI-элемент; проверка что CombatantFactory реально копирует
-        // спрайт — в RunPureLogicChecks ниже (это не рендерится и не требует сцены).
-        RequireElement(root, "PlayerPortraitImage");
+        // 7.2 (обновлено): крупные спрайты персонажа/монстров живут на "земле" сцены боя
+        // (CombatStage), а не внутри карточек имени/HP — регрессионная защита на эти UI-элементы.
+        // Проверка что CombatantFactory реально копирует спрайт — в RunPureLogicChecks ниже.
+        RequireElement(root, "CombatStage");
+        RequireElement(root, "PlayerStageSprite");
+        RequireElement(root, "EnemyStageRow");
         if (combatBackground != null)
         {
             Check(combatBackground.image != null || combatBackground.sprite != null,
