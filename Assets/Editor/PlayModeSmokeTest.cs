@@ -440,6 +440,48 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(combatManagerGO);
 
+        // 1, п.3: основной пассив наставника ("Магнум Опус") — постоянный бонус к маг. урону — через реальный CombatManager.
+        var mentorTestGO = new GameObject("SmokeTest_MentorCombat");
+        var mentorTestCombatManager = mentorTestGO.AddComponent<CombatManager>();
+
+        var mentorTestPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, MentorMagicDamageBonusPercent = 10f };
+        mentorTestPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Magical, AttackSpeed = 1f });
+        var mentorTestDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, MagicShieldMax = 0f };
+
+        mentorTestCombatManager.StartCombat(mentorTestPlayer, new List<CombatantRuntime> { mentorTestDummy });
+        mentorTestCombatManager.Tick(1.01f);
+        // 10 базового урона * 1.10 (Магнум Опус) = 11, весь урон должен пройти по HP (0 маг. щита у болвана).
+        Check(mentorTestDummy.CurrentHP <= 989f && mentorTestDummy.CurrentHP >= 988f,
+            $"1/п.3 Магнум Опус +10% маг. урона применяется: HP болвана = {mentorTestDummy.CurrentHP} (ожидалось ~989, т.е. 1000-11)");
+        UnityEngine.Object.DestroyImmediate(mentorTestGO);
+
+        // Пул наставника сливается с общим/классовым пулом левел-апа.
+        var levelUpManagerGO = new GameObject("SmokeTest_MentorPool");
+        var testLevelUpManager = levelUpManagerGO.AddComponent<LevelUpManager>();
+        var fakeMentorSkill = ScriptableObject.CreateInstance<PassiveSkillData>();
+        fakeMentorSkill.skillName = "ТестНавыкНаставника";
+        fakeMentorSkill.maxLevel = 5;
+        testLevelUpManager.MentorSkillPool = new List<PassiveSkillData> { fakeMentorSkill };
+        testLevelUpManager.GeneralSkillPool = new List<PassiveSkillData>();
+        testLevelUpManager.WarriorSkillPool = new List<PassiveSkillData>();
+
+        var fakeCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        fakeCharacter.characterClass = CharacterClass.Warrior;
+        fakeCharacter.uniquePassiveSkill = ScriptableObject.CreateInstance<PassiveSkillData>();
+        fakeCharacter.uniquePassiveSkill.maxLevel = 5;
+        fakeCharacter.uniqueActiveSkill = ScriptableObject.CreateInstance<ActiveSkillData>();
+        fakeCharacter.uniqueActiveSkill.maxLevel = 3;
+        var fakeProgress = new RunCharacterProgress(fakeCharacter);
+
+        var mentorOptions = testLevelUpManager.GenerateLevelUpOptions(fakeProgress);
+        Check(mentorOptions.Exists(o => o.Skill == fakeMentorSkill), "3.5/1п.3 навык из пула наставника попадает в варианты левел-апа");
+
+        UnityEngine.Object.DestroyImmediate(levelUpManagerGO);
+        UnityEngine.Object.DestroyImmediate(fakeMentorSkill);
+        UnityEngine.Object.DestroyImmediate(fakeCharacter.uniquePassiveSkill);
+        UnityEngine.Object.DestroyImmediate(fakeCharacter.uniqueActiveSkill);
+        UnityEngine.Object.DestroyImmediate(fakeCharacter);
+
         Info.Add("Play Mode проверки хаба/зданий/гачи/сейва/BeginRun выполнены.");
     }
 

@@ -580,6 +580,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RunFlowController
   uiDocument: {fileID: 702948515}
   jenniferCharacter: {fileID: 11400000, guid: fc548e39806d27b4ca5fa23e3fa061de, type: 2}
+  mentorData: {fileID: 11400000, guid: dee6087c29ec44d185823fad0e8f2815, type: 2}
   generalSkillPool:
   - {fileID: 11400000, guid: be6c014fb2b1b894da8d4c25e8372b30, type: 2}
   - {fileID: 11400000, guid: c21c1624557c7134bacd0d18968f1dee, type: 2}

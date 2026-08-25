@@ -1,6 +1,7 @@
 public enum CharacterClass
 {
-    Warrior
+    Warrior,
+    Mage
 }
 
 public enum DamageType

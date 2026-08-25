@@ -14,6 +14,7 @@ public class RunFlowController : MonoBehaviour
 
     [Header("Контент (Фаза 2)")]
     [SerializeField] CharacterData jenniferCharacter;
+    [SerializeField] MentorData mentorData;
     [SerializeField] List<PassiveSkillData> generalSkillPool;
     [SerializeField] List<PassiveSkillData> warriorSkillPool;
     [SerializeField] List<MonsterData> regularMonsterPool;
@@ -214,6 +215,21 @@ public class RunFlowController : MonoBehaviour
         levelUpManager.WarriorSkillPool = warriorSkillPool;
 
         characterManager.BeginRun(jenniferCharacter, equipmentManager, saveManager);
+
+        // 1, п.3: наставник передаёт свой основной пассив (постоянный бонус) + свои остальные
+        // навыки в общий пул левел-апа (см. design note в плане Task 3).
+        characterManager.Progress.MentorMagicDamageBonusPercent = mentorData != null ? mentorData.mainPassiveMagicDamageBonusPercent : 0f;
+        characterManager.RefreshCombatStats(); // применить бонус к уже собранному Combatant
+
+        levelUpManager.MentorSkillPool = mentorData != null && mentorData.otherKnownSkills != null
+            ? new List<PassiveSkillData>(mentorData.otherKnownSkills)
+            : new List<PassiveSkillData>();
+
+        if (mentorData != null)
+        {
+            LogEvent($"[Наставник] {mentorData.mentorName} передаёт «{(mentorData.mainPassiveSkill != null ? mentorData.mainPassiveSkill.skillName : "?")}»: +{mentorData.mainPassiveMagicDamageBonusPercent:F0}% магического урона.");
+        }
+
         campManager.BeginRun();
         dungeonManager.SetRunState(RunState.RunSetup);
         dungeonManager.GenerateDungeon();

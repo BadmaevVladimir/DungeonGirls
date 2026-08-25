@@ -300,6 +300,12 @@ public class CombatManager : MonoBehaviour
 
         float damage = Random.Range(weapon.DamageMin, weapon.DamageMax) * damageMultiplier;
 
+        // 1, п.3: постоянный бонус к магическому урону от основного пассивного навыка наставника ("Магнум Опус").
+        if (attacker.IsPlayer && weapon.DamageType == DamageType.Magical && attacker.MentorMagicDamageBonusPercent > 0f)
+        {
+            damage *= 1f + attacker.MentorMagicDamageBonusPercent / 100f;
+        }
+
         // "Несгибаемый": пока на атакующем есть активный дебафф, его урон увеличен.
         if (attacker.SkillUnyieldingLevel > 0 && attacker.HasActiveDebuff)
         {

@@ -7,6 +7,9 @@ public class LevelUpManager : MonoBehaviour
     // Пулы навыков заполняются извне (позже — из Инспектора/загрузчика контента; сейчас — тестовым прогоном).
     public List<PassiveSkillData> GeneralSkillPool = new List<PassiveSkillData>();
     public List<PassiveSkillData> WarriorSkillPool = new List<PassiveSkillData>();
+    // 1, п.3 / 3.5: навыки наставника (кроме его основного, не левелящегося пассива) конкурируют
+    // за те же 5 слотов, что общие/классовые навыки — см. design note в плане Task 3.
+    public List<PassiveSkillData> MentorSkillPool = new List<PassiveSkillData>();
 
     const int OptionsPerWindow = 3;
     const float UpgradeExistingChance = 0.5f; // 3.5: шанс варианта-апгрейда уже известного навыка (черновое значение)
@@ -21,7 +24,7 @@ public class LevelUpManager : MonoBehaviour
     // за те же слоты). UI пока нет — вызывающая сторона получает список и выбирает программно.
     public List<LevelUpOption> GenerateLevelUpOptions(RunCharacterProgress progress)
     {
-        var pool = GeneralSkillPool.Concat(GetClassPool(progress.Character.characterClass)).ToList();
+        var pool = GeneralSkillPool.Concat(GetClassPool(progress.Character.characterClass)).Concat(MentorSkillPool).ToList();
 
         var newCandidates = new List<LevelUpOption>();
         foreach (var skill in pool)

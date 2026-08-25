@@ -186,6 +186,7 @@ public static class CombatantFactory
         runtime.SkillThornsLevel = progress.GetSkillLevel(SkillEffectMap.Thorns);
         runtime.SkillUnyieldingLevel = progress.GetSkillLevel(SkillEffectMap.Unyielding);
         runtime.SkillBleedLevel = progress.GetSkillLevel(SkillEffectMap.Bleed);
+        runtime.MentorMagicDamageBonusPercent = progress.MentorMagicDamageBonusPercent;
     }
 
     static float SumShieldMaxDefenseBonus(ItemData[] items)

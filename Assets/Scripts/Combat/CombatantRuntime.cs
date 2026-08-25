@@ -45,6 +45,9 @@ public class CombatantRuntime
     public int SkillUnyieldingLevel;
     public int SkillBleedLevel;
 
+    // 1, п.3: постоянный бонус к магическому урону от основного пассивного навыка наставника ("Магнум Опус").
+    public float MentorMagicDamageBonusPercent;
+
     // Суммарный бонус к шансу крита от предметов (оружие/кольца/аксессуары), уже с учётом уровня предмета.
     public float CritChanceBonusFromItems;
 

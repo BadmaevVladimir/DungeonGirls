@@ -18,6 +18,10 @@ public class RunCharacterProgress
     public int UniqueActiveLevel = 1;
     public int NextActiveSkillCheckpoint = 5; // 3.5: апгрейд активного навыка становится доступен на уровнях 5, 10, 15...
 
+    // 1, п.3: постоянный бонус к магическому урону от основного пассивного навыка наставника
+    // ("Магнум Опус"). Не левелится — прикладной прямой процент, см. design note в плане Task 3.
+    public float MentorMagicDamageBonusPercent;
+
     public RunCharacterProgress(CharacterData character)
     {
         Character = character;
