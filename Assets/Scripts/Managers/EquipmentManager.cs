@@ -23,7 +23,7 @@ public class EquipmentManager : MonoBehaviour
         }
 
         // 3.5: +1 уровень снаряжения за каждую копию персонажа сверх первой (1-я копия — базовое владение).
-        int bonus = BuildingCatalog.ForgeStartingEquipmentBonus(forgeLevel) + Mathf.Max(0, copyCount - 1);
+        int bonus = BuildingCatalog.ForgeStartingEquipmentBonus(forgeLevel) + GachaCopyBonusCalculator.CalculateBonus(copyCount).GearLevelBonus;
 
         foreach (var baseItem in character.startingEquipment)
         {

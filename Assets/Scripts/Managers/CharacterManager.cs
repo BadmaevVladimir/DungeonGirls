@@ -47,6 +47,7 @@ public class CharacterManager : MonoBehaviour
             int forgeLevel = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Forge) : 0;
             int copyCount = saveManager != null ? saveManager.GetCharacterCopies(character.characterName) : 0;
             EquippedItems = equipmentManager.GetEffectiveStartingEquipment(character, forgeLevel, copyCount);
+            Progress.ApplyGachaStartingBonus(GachaCopyBonusCalculator.CalculateBonus(copyCount));
         }
         else
         {

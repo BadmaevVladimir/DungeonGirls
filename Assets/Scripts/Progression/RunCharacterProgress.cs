@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 // Рантайм-прогресс персонажа внутри одного забега: уровень, опыт, известные навыки.
 public class RunCharacterProgress
@@ -40,6 +41,16 @@ public class RunCharacterProgress
         }
 
         return 0;
+    }
+
+    // 3.5: применяет бонус стартового уровня уникальных пассивного/активного навыков от лишних копий
+    // гачи (см. GachaCopyBonusCalculator). Клампится потолком уровня навыка (5 пассивный / 3 активный,
+    // см. 3.1) — CalculateBonus уже клампит сам бонус, но Min() здесь на итоговом уровне на случай,
+    // если maxLevel ассета персонажа когда-то станет отличаться от 5/3 (защита от рассинхрона данных).
+    public void ApplyGachaStartingBonus(GachaCopyBonusCalculator.GachaBonus bonus)
+    {
+        UniquePassiveLevel = Mathf.Min(Character.uniquePassiveSkill.maxLevel, 1 + bonus.PassiveLevelBonus);
+        UniqueActiveLevel = Mathf.Min(Character.uniqueActiveSkill.maxLevel, 1 + bonus.ActiveLevelBonus);
     }
 
     // 3.6: опыт до следующего уровня = текущий уровень x 25.

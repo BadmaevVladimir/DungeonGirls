@@ -272,6 +272,30 @@ public static class PlayModeSmokeTest
 
         Info.Add("Проверки фильтра пула монстров по этажам (2.4) выполнены.");
 
+        // 3.5: 4-шаговый цикл бонусов от лишних копий гачи (снаряжение -> пассивка -> снаряжение -> активка).
+        var bonus1Copy = GachaCopyBonusCalculator.CalculateBonus(1); // базовое владение, 0 лишних копий
+        Check(bonus1Copy.GearLevelBonus == 0 && bonus1Copy.PassiveLevelBonus == 0 && bonus1Copy.ActiveLevelBonus == 0, "3.5 1 копия = 0 бонуса");
+
+        var bonus2Copies = GachaCopyBonusCalculator.CalculateBonus(2); // 1-я лишняя -> +1 снаряжение
+        Check(bonus2Copies.GearLevelBonus == 1 && bonus2Copies.PassiveLevelBonus == 0 && bonus2Copies.ActiveLevelBonus == 0, "3.5 2 копии = +1 снаряжение");
+
+        var bonus3Copies = GachaCopyBonusCalculator.CalculateBonus(3); // 2-я лишняя -> +1 пассивка
+        Check(bonus3Copies.GearLevelBonus == 1 && bonus3Copies.PassiveLevelBonus == 1 && bonus3Copies.ActiveLevelBonus == 0, "3.5 3 копии = +1 снаряжение, +1 пассивка");
+
+        var bonus4Copies = GachaCopyBonusCalculator.CalculateBonus(4); // 3-я лишняя -> +1 снаряжение (итого 2)
+        Check(bonus4Copies.GearLevelBonus == 2 && bonus4Copies.PassiveLevelBonus == 1 && bonus4Copies.ActiveLevelBonus == 0, "3.5 4 копии = +2 снаряжение, +1 пассивка");
+
+        var bonus5Copies = GachaCopyBonusCalculator.CalculateBonus(5); // 4-я лишняя -> +1 активка
+        Check(bonus5Copies.GearLevelBonus == 2 && bonus5Copies.PassiveLevelBonus == 1 && bonus5Copies.ActiveLevelBonus == 1, "3.5 5 копий = +2 снаряжение, +1 пассивка, +1 активка");
+
+        var bonus6Copies = GachaCopyBonusCalculator.CalculateBonus(6); // 5-я лишняя -> новый цикл, +1 снаряжение (итого 3)
+        Check(bonus6Copies.GearLevelBonus == 3 && bonus6Copies.PassiveLevelBonus == 1 && bonus6Copies.ActiveLevelBonus == 1, "3.5 6 копий = +3 снаряжение (новый цикл начался)");
+
+        // Клампы: 17 лишних копий пассивки было бы >4 без клампа (17/4 = 4 полных цикла проходят шаг 1 4 раза -> ровно 4, границу проверим бонусом побольше).
+        var bonusManyCopies = GachaCopyBonusCalculator.CalculateBonus(1 + 4 * 10); // 40 лишних копий -> 10 полных циклов -> 10 пассивки без клампа
+        Check(bonusManyCopies.PassiveLevelBonus == 4, $"3.5 кламп бонуса пассивки на 4 (макс. ур. 5): {bonusManyCopies.PassiveLevelBonus}");
+        Check(bonusManyCopies.ActiveLevelBonus == 2, $"3.5 кламп бонуса активки на 2 (макс. ур. 3): {bonusManyCopies.ActiveLevelBonus}");
+
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
     }
 
