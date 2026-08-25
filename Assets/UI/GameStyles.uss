@@ -221,6 +221,39 @@ Label, Button {
     justify-content: space-between;
 }
 
+.chest-reveal-container {
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.chest-sprite {
+    width: 64px;
+    height: 64px;
+    -unity-background-scale-mode: scale-to-fit;
+    margin-bottom: 8px;
+}
+
+.chest-reel-viewport {
+    width: 320px;
+    height: 64px;
+    overflow: hidden;
+    background-color: rgb(20, 20, 24);
+    border-radius: 4px;
+}
+
+.chest-reel-strip {
+    flex-direction: row;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.chest-reel-icon {
+    width: 64px;
+    height: 64px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
 .merchant-offers-row {
     flex-direction: row;
     flex-wrap: wrap;

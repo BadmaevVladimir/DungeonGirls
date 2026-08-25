@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -106,6 +107,19 @@ public class RunFlowController : MonoBehaviour
     Label rewardText;
     Button rewardContinueButton;
 
+    // --- Открытие сундука (8.2): лента из иконок предметов, сундук открывается визуально ---
+    VisualElement chestRevealContainer;
+    Image chestSpriteImage;
+    VisualElement chestReelViewport;
+    VisualElement chestReelStrip;
+    Button chestSkipButton;
+
+    // Хэнд-вайринг в Assets/Scenes/SampleScene.unity YAML — тот же паттерн, что и mentorData/
+    // combatBackgroundSprite выше (в проекте нет папки Resources/).
+    [SerializeField] Texture2D chestClosedTexture;
+    [SerializeField] Texture2D chestOpenTexture;
+    [SerializeField] GameObject chestBurstPrefab;
+
     // --- Сравнение предмета (3.4, "Без инвентаря") ---
     VisualElement itemComparePanel;
     Label newItemName;
@@ -207,6 +221,12 @@ public class RunFlowController : MonoBehaviour
 
         rewardText = root.Q<Label>("RewardText");
         rewardContinueButton = root.Q<Button>("RewardContinueButton");
+
+        chestRevealContainer = root.Q<VisualElement>("ChestRevealContainer");
+        chestSpriteImage = root.Q<Image>("ChestSpriteImage");
+        chestReelViewport = root.Q<VisualElement>("ChestReelViewport");
+        chestReelStrip = root.Q<VisualElement>("ChestReelStrip");
+        chestSkipButton = root.Q<Button>("ChestSkipButton");
 
         newItemName = root.Q<Label>("NewItemName");
         newItemStats = root.Q<Label>("NewItemStats");
@@ -914,9 +934,13 @@ public class RunFlowController : MonoBehaviour
 
         int goldenTouchLevel = characterManager.Combatant.ItemGoldenTouchLevel;
         var reward = rewardManager.CalculateRewards(floorNumber, isBoss, characterManager.Level, luckLevel, currencyBonus, noCurrency, goldenTouchLevel);
-        characterManager.AddCurrency(reward.Currency);
 
         ShowOnly(rewardPanel);
+        yield return ChestRevealFlow(reward);
+
+        characterManager.AddCurrency(reward.Currency); // счётчик валюты — начисление происходит здесь,
+            // ПОСЛЕ ленты (не до), чтобы RunCurrency в rewardText ниже уже отражал начисленную сумму —
+            // порядок сознательно переставлен относительно исходного кода (было до ShowOnly).
         rewardText.text = $"Получено: {reward.Currency} монет забега, {RarityLabel(reward.ItemRarity)} предмет" +
             (reward.BonusReward ? "\n+ дополнительная награда (Удача)" : string.Empty) +
             $"\nВсего валюты забега: {characterManager.RunCurrency}";
@@ -929,6 +953,86 @@ public class RunFlowController : MonoBehaviour
         {
             yield return ItemCompareFlow(reward.Item);
         }
+    }
+
+    // 8.2/10.6: рулетка иконок предметов, открывающийся сундук, скип, вспышка на приземлении.
+    IEnumerator ChestRevealFlow(ChestReward reward)
+    {
+        chestRevealContainer.style.display = DisplayStyle.Flex;
+        chestSpriteImage.image = chestClosedTexture;
+        chestReelStrip.Clear();
+
+        // 8.2: лента из ~20 иконок предметов, взятых из пула каталога (те же иконки, что уже
+        // назначены в Task 2) — случайный подбор с повторами, если в каталоге меньше 20 предметов.
+        var pool = rewardManager.itemCatalog != null ? rewardManager.itemCatalog.items : null;
+        const int reelLength = 20;
+        const float iconWidth = 64f;
+
+        if (pool == null || pool.Length == 0)
+        {
+            // Пустой каталог — деградируем на мгновенный переход к итогу без ленты, не зависаем.
+            chestRevealContainer.style.display = DisplayStyle.None;
+            yield break;
+        }
+
+        Sprite winningIcon = reward.Item != null ? reward.Item.icon : pool[0].icon;
+        for (int i = 0; i < reelLength; i++)
+        {
+            Sprite iconSprite = i == reelLength - 2 ? winningIcon : pool[Random.Range(0, pool.Length)].icon;
+            var icon = new Image { sprite = iconSprite };
+            icon.AddToClassList("chest-reel-icon");
+            chestReelStrip.Add(icon);
+        }
+
+        // Стартовая позиция: первая иконка уже видна в центре viewport (виден "текущий" слот).
+        float viewportCenter = chestReelViewport.resolvedStyle.width / 2f;
+        chestReelStrip.style.left = viewportCenter - iconWidth / 2f;
+
+        bool skipped = false;
+        void OnSkip() => skipped = true;
+        chestSkipButton.clicked += OnSkip;
+
+        // Целевая позиция: предпоследняя иконка (индекс reelLength-2, гарантированно выигрышная)
+        // должна оказаться под центром viewport — это и есть "указатель"/точка приземления ленты.
+        float targetLeft = viewportCenter - iconWidth / 2f - (reelLength - 2) * iconWidth;
+        float tweenDuration = 4f; // середина диапазона 3-5 сек из ГДД 8.2
+
+        bool tweenComplete = false;
+        var tween = DG.Tweening.DOTween.To(
+            () => chestReelStrip.style.left.value.value,
+            x => chestReelStrip.style.left = x,
+            targetLeft,
+            tweenDuration
+        ).SetEase(DG.Tweening.Ease.OutCubic).OnComplete(() => tweenComplete = true);
+
+        chestSpriteImage.image = chestOpenTexture; // сундук открывается в момент начала прокрутки (10.6)
+
+        while (!tweenComplete && !skipped)
+        {
+            yield return null;
+        }
+
+        if (skipped)
+        {
+            tween.Kill();
+            chestReelStrip.style.left = targetLeft;
+        }
+
+        chestSkipButton.clicked -= OnSkip;
+
+        // Вспышка/burst на приземлении — инстанцируем префаб один раз; ParticleSystem.main.duration=0.6s,
+        // loop=false (Step 2), но сам GameObject не самоуничтожается без явного Destroy — таймер надёжнее,
+        // чем полагаться на настройки partikла. Позиция — мировая точка спрайта сундука.
+        if (chestBurstPrefab != null)
+        {
+            var burstPosition = chestSpriteImage.worldTransform.GetPosition();
+            var burstInstance = Instantiate(chestBurstPrefab, burstPosition, Quaternion.identity);
+            Destroy(burstInstance, 1f);
+        }
+
+        yield return new WaitForSeconds(0.3f); // короткая пауза на "приземление" перед итоговым текстом
+
+        chestRevealContainer.style.display = DisplayStyle.None;
     }
 
     // ==================== Сравнение предмета (3.4, "Без инвентаря") ====================

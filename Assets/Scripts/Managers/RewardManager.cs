@@ -36,7 +36,7 @@ public class MerchantOffer
 
 public class RewardManager : MonoBehaviour
 {
-    [SerializeField] ItemCatalogData itemCatalog;
+    [SerializeField] internal ItemCatalogData itemCatalog;
 
     // 8.2: валюта забега = 10 x номер этажа, ±20% разброс; сундук босса = x5 от базовой суммы.
     public int CalculateCurrencyReward(int floorNumber, bool isBoss)

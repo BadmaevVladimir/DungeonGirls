@@ -132,6 +132,15 @@
 
             <ui:VisualElement name="RewardPanel" class="panel hidden">
                 <ui:Label text="Награда" class="panel-title" />
+
+                <ui:VisualElement name="ChestRevealContainer" class="chest-reveal-container">
+                    <ui:Image name="ChestSpriteImage" class="chest-sprite" />
+                    <ui:VisualElement name="ChestReelViewport" class="chest-reel-viewport">
+                        <ui:VisualElement name="ChestReelStrip" class="chest-reel-strip" />
+                    </ui:VisualElement>
+                    <ui:Button name="ChestSkipButton" text="Пропустить" class="button-secondary" />
+                </ui:VisualElement>
+
                 <ui:Label name="RewardText" text="" class="body-label" />
                 <ui:Button name="RewardContinueButton" text="Продолжить" class="button-primary" />
             </ui:VisualElement>
