@@ -363,17 +363,30 @@ public static class PlayModeSmokeTest
         RequireElement(root, "MerchantOffersContainer");
         RequireElement(root, "MerchantCurrencyLabel");
 
-        // Task 3 (GDD 10.6): CombatBackground ui:Image's UXML src="project://database/..." must resolve
-        // at runtime to a non-null texture -- confirms the Sprite-typed asset (forced by Task 1's
-        // TextureImportSettingsProcessor) is usable directly via ui:Image's src attribute, without needing
-        // a code-side [SerializeField] Texture2D fallback.
+        // Task 3 (GDD 10.6): the UXML src="project://database/..." approach on CombatBackground's
+        // ui:Image did NOT resolve at runtime (confirmed during Task 3 -- Image.image/.sprite stayed
+        // null in Play Mode), so the src attribute was dropped from the UXML entirely and replaced with
+        // a scene-wired [SerializeField] Sprite combatBackgroundSprite assigned onto CombatBackground.sprite
+        // in RunFlowController.CacheElements(). This check is a regression guard on THAT scene wiring --
+        // it confirms the live UIDocument's CombatBackground element actually ends up with a non-null
+        // image/sprite post-OnEnable(), not a confirmation of the abandoned src= hypothesis.
         var combatBackground = root.Q<UnityEngine.UIElements.Image>("CombatBackground");
         Check(combatBackground != null, "CombatBackground ui:Image найден в CombatPanel");
         if (combatBackground != null)
         {
             Check(combatBackground.image != null || combatBackground.sprite != null,
-                $"CombatBackground.image/.sprite резолвится из src (image={(combatBackground.image != null)}, sprite={(combatBackground.sprite != null)})");
+                $"CombatBackground.image/.sprite резолвится из сцен-вайринга (image={(combatBackground.image != null)}, sprite={(combatBackground.sprite != null)})");
         }
+
+        // Финальный ревью, находка #4: пять UI-элементов открытия сундука (8.2) не имели никакого
+        // регрессионного покрытия -- если будущий рефакторинг GameRoot.uxml переименует один из них,
+        // CacheElements()'s root.Q<...>("Name") тихо вернёт null и уронит ChestRevealFlow NRE-ом в рантайме.
+        // Тот же паттерн RequireElement, что и для CombatBackground/MainMenuScreen/... выше.
+        RequireElement(root, "ChestRevealContainer");
+        RequireElement(root, "ChestSpriteImage");
+        RequireElement(root, "ChestReelViewport");
+        RequireElement(root, "ChestReelStrip");
+        RequireElement(root, "ChestSkipButton");
 
         if (mainMenuScreen == null || buildingsScreen == null || gachaScreen == null) return;
 

@@ -156,10 +156,14 @@ Label, Button {
 
 .combat-background {
     position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    /* Absolutely-positioned children resolve left/top/right/bottom against the parent's PADDING box
+       in Yoga, not its border box. CombatPanel is a .panel (padding: 16px), so 0 here would leave a
+       16px gap of panel background showing on all four sides. Offset by -16px (negative of .panel's
+       padding) so this fills the panel's actual border box instead. */
+    left: -16px;
+    top: -16px;
+    right: -16px;
+    bottom: -16px;
     border-radius: 6px; /* matches .panel's border-radius so corners don't show a background square poking out */
 }
 

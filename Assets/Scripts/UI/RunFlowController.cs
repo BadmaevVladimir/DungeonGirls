@@ -118,7 +118,6 @@ public class RunFlowController : MonoBehaviour
     // combatBackgroundSprite выше (в проекте нет папки Resources/).
     [SerializeField] Texture2D chestClosedTexture;
     [SerializeField] Texture2D chestOpenTexture;
-    [SerializeField] GameObject chestBurstPrefab;
 
     // --- Сравнение предмета (3.4, "Без инвентаря") ---
     VisualElement itemComparePanel;
@@ -984,6 +983,12 @@ public class RunFlowController : MonoBehaviour
             chestReelStrip.Add(icon);
         }
 
+        // ChestRevealContainer живёт внутри RewardPanel, который тоже переключается на display:flex
+        // только что (в ShowRewardChestFlow, тем же кадром) — до этого момента Yoga-layout для него
+        // не считался, поэтому resolvedStyle.width ещё вернул бы 0. Ждём один кадр, чтобы layout
+        // успел посчитаться и viewport реально получил заданные в USS 320px.
+        yield return null;
+
         // Стартовая позиция: первая иконка уже видна в центре viewport (виден "текущий" слот).
         float viewportCenter = chestReelViewport.resolvedStyle.width / 2f;
         chestReelStrip.style.left = viewportCenter - iconWidth / 2f;
@@ -1020,19 +1025,71 @@ public class RunFlowController : MonoBehaviour
 
         chestSkipButton.clicked -= OnSkip;
 
-        // Вспышка/burst на приземлении — инстанцируем префаб один раз; ParticleSystem.main.duration=0.6s,
-        // loop=false (Step 2), но сам GameObject не самоуничтожается без явного Destroy — таймер надёжнее,
-        // чем полагаться на настройки partikла. Позиция — мировая точка спрайта сундука.
-        if (chestBurstPrefab != null)
-        {
-            var burstPosition = chestSpriteImage.worldTransform.GetPosition();
-            var burstInstance = Instantiate(chestBurstPrefab, burstPosition, Quaternion.identity);
-            Destroy(burstInstance, 1f);
-        }
+        // Вспышка/burst на приземлении (финальный ревью, замена world-space ParticleSystem — см.
+        // SpawnChestBurst): UI Toolkit-нативные "искры" внутри chestRevealContainer.
+        SpawnChestBurst(chestSpriteImage, chestRevealContainer);
 
         yield return new WaitForSeconds(0.3f); // короткая пауза на "приземление" перед итоговым текстом
 
         chestRevealContainer.style.display = DisplayStyle.None;
+    }
+
+    // Оригинальный план предполагал world-space ParticleSystem-префаб (chestBurstPrefab), но
+    // GamePanelSettings использует ScreenSpaceOverlay (m_RenderMode: 0) — UI Toolkit-панель рисуется
+    // поверх всей сцены, и world-space ParticleSystem физически не мог оказаться поверх UI, к тому же
+    // VisualElement.worldTransform.GetPosition() отдаёт panel-space пиксели, а не мировые координаты
+    // (финальный ревью, находка #3). Заменено на несколько маленьких VisualElement-"искр", которые
+    // разлетаются от центра приземлившейся иконки сундука и гаснут — тот же DOTween, что уже
+    // используется для прокрутки ленты выше.
+    void SpawnChestBurst(VisualElement anchor, VisualElement container)
+    {
+        const int burstCount = 8;
+        const float burstDistance = 48f;
+        const float burstDuration = 0.5f;
+        const float dotSize = 8f;
+        var burstColor = new Color(1f, 217f / 255f, 51f / 255f, 1f); // ~#FFD933, план: rgba(255, 217, 51, 1)
+
+        // anchor — прямой потомок container (ChestSpriteImage внутри ChestRevealContainer), поэтому
+        // anchor.layout уже в системе координат container.
+        float centerX = anchor.layout.x + anchor.layout.width / 2f;
+        float centerY = anchor.layout.y + anchor.layout.height / 2f;
+
+        for (int i = 0; i < burstCount; i++)
+        {
+            var dot = new VisualElement();
+            dot.style.position = Position.Absolute;
+            dot.style.width = dotSize;
+            dot.style.height = dotSize;
+            dot.style.borderTopLeftRadius = dotSize / 2f;
+            dot.style.borderTopRightRadius = dotSize / 2f;
+            dot.style.borderBottomLeftRadius = dotSize / 2f;
+            dot.style.borderBottomRightRadius = dotSize / 2f;
+            dot.style.backgroundColor = burstColor;
+            dot.style.left = centerX - dotSize / 2f;
+            dot.style.top = centerY - dotSize / 2f;
+            container.Add(dot);
+
+            float angle = i / (float)burstCount * Mathf.PI * 2f + Random.Range(-0.2f, 0.2f);
+            float dx = Mathf.Cos(angle) * burstDistance;
+            float dy = Mathf.Sin(angle) * burstDistance;
+
+            float progress = 0f;
+            DG.Tweening.DOTween.To(() => progress, x => progress = x, 1f, burstDuration)
+                .SetEase(DG.Tweening.Ease.OutCubic)
+                .OnUpdate(() =>
+                {
+                    dot.style.left = centerX - dotSize / 2f + dx * progress;
+                    dot.style.top = centerY - dotSize / 2f + dy * progress;
+                    dot.style.opacity = 1f - progress;
+                })
+                .OnComplete(() =>
+                {
+                    if (dot.parent != null)
+                    {
+                        dot.RemoveFromHierarchy();
+                    }
+                });
+        }
     }
 
     // ==================== Сравнение предмета (3.4, "Без инвентаря") ====================
