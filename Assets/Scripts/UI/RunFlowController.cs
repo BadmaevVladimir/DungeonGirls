@@ -797,7 +797,9 @@ public class RunFlowController : MonoBehaviour
                     var originalPriceLabel = new Label($"{offer.OriginalPrice} монет");
                     originalPriceLabel.AddToClassList("merchant-offer-price-original");
                     card.Add(originalPriceLabel);
-                    card.Add(new Label("СКИДКА!") { });
+                    var discountTag = new Label("СКИДКА!");
+                    discountTag.AddToClassList("merchant-offer-discount-tag");
+                    card.Add(discountTag);
                 }
 
                 var priceLabel = new Label($"{offer.Price} монет");
