@@ -73,3 +73,12 @@ public enum BonusStatType
     WeaponDamageFlat,
     EvasionPercent
 }
+
+// 2.8: род существительного-названия монстра на русском, нужен для согласования прилагательного
+// модификатора ("Быстрый Скелет" vs "Большая Слизь" vs, гипотетически, "Быстрое Существо").
+public enum MonsterGender
+{
+    Masculine,
+    Feminine,
+    Neuter
+}

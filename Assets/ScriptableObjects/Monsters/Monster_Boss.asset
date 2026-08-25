@@ -22,3 +22,5 @@ MonoBehaviour:
   physicalDefense: 12
   magicDefense: 0
   passiveSkill: {fileID: 0}
+  gender: 0
+  minFloorTier: 1
