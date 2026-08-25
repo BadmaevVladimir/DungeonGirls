@@ -376,6 +376,7 @@ public class RunFlowController : MonoBehaviour
         combatManager.ConfigureUniqueActiveSkill(3, activeMultiplier, jenniferCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value);
 
         combatManager.LogMessage += OnCombatLog;
+        combatManager.MonsterStoleCurrency += OnMonsterStoleCurrency;
         ShowOnly(combatPanel);
         combatManager.StartCombat(characterManager.Combatant, enemies);
 
@@ -387,6 +388,7 @@ public class RunFlowController : MonoBehaviour
 
         UpdateCombatUI();
         combatManager.LogMessage -= OnCombatLog;
+        combatManager.MonsterStoleCurrency -= OnMonsterStoleCurrency;
 
         for (int i = 0; i < characterManager.Combatant.Weapons.Count && i < originalStats.Count; i++)
         {
@@ -412,6 +414,12 @@ public class RunFlowController : MonoBehaviour
     void OnCombatLog(string message)
     {
         LogEvent(message);
+    }
+
+    // "Карманник" (2.4): монстр украл часть текущей валюты забега у персонажа.
+    void OnMonsterStoleCurrency(CombatantRuntime victim, float percent)
+    {
+        characterManager.StealCurrencyPercent(percent);
     }
 
     // 7.2: общий персистентный лог забега — сюда пишутся боевые события (4.5), результаты

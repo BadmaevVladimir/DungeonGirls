@@ -101,6 +101,13 @@ public class CharacterManager : MonoBehaviour
         RunCurrency += amount;
     }
 
+    // "Карманник" (2.4): монстр ворует часть текущей валюты забега при попадании.
+    public void StealCurrencyPercent(float percent)
+    {
+        int stolen = Mathf.RoundToInt(RunCurrency * percent / 100f);
+        RunCurrency = Mathf.Max(0, RunCurrency - stolen);
+    }
+
     // 8.5: вызывать только когда персонаж пережил комнату (см. RunFlowController.RunLoop).
     public void MarkRoomCleared()
     {

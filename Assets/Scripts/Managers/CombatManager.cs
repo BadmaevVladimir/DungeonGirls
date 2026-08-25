@@ -11,6 +11,9 @@ public class CombatManager : MonoBehaviour
     // Позволяет UI подписаться на текстовый лог боя (7.2), не читая консоль Unity.
     public event System.Action<string> LogMessage;
 
+    // "Карманник" (2.4): (жертва, украденный % текущей валюты забега).
+    public event System.Action<CombatantRuntime, float> MonsterStoleCurrency;
+
     void Log(string message)
     {
         Debug.Log(message);
@@ -126,6 +129,8 @@ public class CombatManager : MonoBehaviour
             UpdateStatusEffects(enemy, deltaTime);
         }
 
+        TickMonsterPeriodicPassives(deltaTime); // "Тёмное исцеление" / "Двойной удар" (2.4)
+
         CheckCombatEnd();
         if (!IsCombatActive)
         {
@@ -228,6 +233,16 @@ public class CombatManager : MonoBehaviour
         }
 
         TickBleed(combatant, deltaTime);
+        TickPoison(combatant, deltaTime);
+
+        if (combatant.CritChanceDebuffTimer > 0f)
+        {
+            combatant.CritChanceDebuffTimer -= deltaTime;
+            if (combatant.CritChanceDebuffTimer <= 0f)
+            {
+                combatant.CritChanceDebuffPercent = 0f;
+            }
+        }
     }
 
     // 3.9 "Кровотечение": тикает раз в секунду, не зависит от таймера атаки.
@@ -276,7 +291,7 @@ public class CombatManager : MonoBehaviour
 
         // "Уклонение" + пассивка предмета "Неуловимость" (3.10, Эфирный доспех) — складываются:
         // шанс полностью проигнорировать атаку (любого типа урона).
-        float evadeChancePercent = target.SkillEvasionLevel * 5f + target.ItemElusivenessLevel * 1f; // 5/10/15/20/25% + 1%/уровень предмета
+        float evadeChancePercent = target.SkillEvasionLevel * 5f + target.ItemElusivenessLevel * 1f + target.MonsterEvasionPercent; // 5/10/15/20/25% + 1%/уровень предмета + "Порхание" (2.4)
         if (evadeChancePercent > 0f && Random.value * 100f < evadeChancePercent)
         {
             Log($"[Combat] {target.DisplayName} уклоняется от атаки {attacker.DisplayName}.");
@@ -292,7 +307,8 @@ public class CombatManager : MonoBehaviour
         }
 
         // "Критические атаки" + бонус крита с предметов, суммарно клампится на 75% (8.6).
-        float critChancePercent = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems; // 10/20/30/40/50% за уровень навыка
+        float critChancePercent = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems - attacker.CritChanceDebuffPercent; // 10/20/30/40/50% за уровень навыка - "Оглушающий крик" (2.4)
+        critChancePercent = Mathf.Max(0f, critChancePercent);
         critChancePercent = BalanceClamps.ClampCritChancePercent(critChancePercent);
         bool isCrit = critChancePercent > 0f && Random.value * 100f < critChancePercent;
         if (isCrit)
@@ -394,6 +410,10 @@ public class CombatManager : MonoBehaviour
             ApplyBleed(target, attacker.SkillBleedLevel);
         }
 
+        // 2.4: пассивки монстров, срабатывающие ПРИ АТАКЕ (симметрично блоку выше, но для
+        // не-игрока — у игрока нет MonsterPassiveName).
+        ApplyMonsterPassiveOnAttack(attacker, target, result);
+
         if (!target.IsAlive)
         {
             Log($"[Combat] {target.DisplayName} погибает.");
@@ -467,6 +487,161 @@ public class CombatManager : MonoBehaviour
         {
             target.BleedTickAccumulator = 0f;
             Log($"[Combat] {target.DisplayName} получает кровотечение ({target.BleedDamagePerSecond:F1}/сек).");
+        }
+    }
+
+    // 2.4: пассивки монстров, срабатывающие ПРИ АТАКЕ (в отличие от периодических — см.
+    // TickMonsterPeriodicPassives). attacker всегда монстр здесь (у игрока нет MonsterPassiveName).
+    void ApplyMonsterPassiveOnAttack(CombatantRuntime attacker, CombatantRuntime target, DamageCalculator.DamageResult result)
+    {
+        if (attacker.IsPlayer || attacker.MonsterPassiveName == null)
+        {
+            return;
+        }
+
+        switch (attacker.MonsterPassiveName)
+        {
+            case MonsterSkillEffectMap.Pickpocket:
+                // "При попадании по здоровью персонажа с 20% шансом ворует 5% текущей валюты забега."
+                if (!result.WasBlocked && Random.value < 0.20f)
+                {
+                    MonsterStoleCurrency?.Invoke(target, 5f);
+                    Log($"[Combat] {attacker.DisplayName} обчищает карманы {target.DisplayName} (Карманник)!");
+                }
+                break;
+
+            case MonsterSkillEffectMap.Poison:
+                // "При попадании по здоровью накладывает яд (3 сек, 4 урона/сек, стакается до 3 раз)."
+                if (!result.WasBlocked)
+                {
+                    target.PoisonStacks = Mathf.Min(target.PoisonStacks + 1, 3);
+                    target.PoisonTimer = 3f;
+                    Log($"[Combat] {target.DisplayName} получает яд ({target.PoisonStacks}/3 стаков).");
+                }
+                break;
+
+            case MonsterSkillEffectMap.StunningScream:
+                // "15% шанс при атаке снизить шанс крита персонажа на 20% на 4 сек." — на атаке, не на попадании.
+                if (Random.value < 0.15f)
+                {
+                    target.CritChanceDebuffPercent = 20f;
+                    target.CritChanceDebuffTimer = 4f;
+                    Log($"[Combat] Оглушающий крик {attacker.DisplayName} снижает шанс крита {target.DisplayName}.");
+                }
+                break;
+
+            case MonsterSkillEffectMap.SlowCurse:
+                // "Если урон Колдуна проходит по здоровью персонажа, скорость атаки персонажа снижается
+                // на 30% на 3 секунды (не стакается, повторное попадание обновляет длительность)."
+                if (!result.WasBlocked)
+                {
+                    var existing = target.ActiveDebuffs.Find(d => d.Id == "warlock_slow");
+                    if (existing != null)
+                    {
+                        existing.RemainingTime = 3f;
+                    }
+                    else
+                    {
+                        target.ActiveDebuffs.Add(new ActiveDebuff { Id = "warlock_slow", RemainingTime = 3f, AttackSpeedMultiplier = 0.7f });
+                    }
+                    Log($"[Combat] Проклятие замедления {attacker.DisplayName} снижает скорость атаки {target.DisplayName} на 30% (3 сек).");
+                }
+                break;
+        }
+    }
+
+    // "Тёмное исцеление" / "Двойной удар": пассивки на собственном периодическом таймере, независимом
+    // от таймера атаки оружия (в отличие от обычных атак и мгновенных пассивок из ApplyMonsterPassiveOnAttack).
+    void TickMonsterPeriodicPassives(float deltaTime)
+    {
+        foreach (var enemy in Enemies)
+        {
+            if (!enemy.IsAlive || enemy.MonsterPassiveName == null)
+            {
+                continue;
+            }
+
+            if (enemy.MonsterPassiveName == MonsterSkillEffectMap.DarkHeal)
+            {
+                enemy.MonsterPassiveCooldownTimer -= deltaTime;
+                if (enemy.MonsterPassiveCooldownTimer <= 0f)
+                {
+                    enemy.MonsterPassiveCooldownTimer = 8f;
+                    var healTarget = PickDarkHealTarget(enemy);
+                    if (healTarget != null)
+                    {
+                        float healAmount = healTarget.MaxHP * 0.10f;
+                        healTarget.CurrentHP = Mathf.Min(healTarget.MaxHP, healTarget.CurrentHP + healAmount);
+                        Log($"[Combat] Тёмное исцеление {enemy.DisplayName} восстанавливает {healTarget.DisplayName} {healAmount:F1} HP.");
+                    }
+                }
+            }
+            else if (enemy.MonsterPassiveName == MonsterSkillEffectMap.DoubleStrike)
+            {
+                enemy.MonsterPassiveCooldownTimer -= deltaTime;
+                if (enemy.MonsterPassiveCooldownTimer <= 0f && enemy.Weapons.Count > 0)
+                {
+                    enemy.MonsterPassiveCooldownTimer = 6f;
+                    Log($"[Combat] {enemy.DisplayName} наносит двойной удар!");
+                    ResolveAttack(enemy, enemy.Weapons[0], 1.5f);
+                }
+            }
+        }
+    }
+
+    // "себе или ближайшему союзнику в комнате" — интерпретация: лечит того из (себя + живых союзников
+    // в Enemies), у кого сейчас наименьший % HP от максимума (ближе всех к смерти = приоритетная цель
+    // для лечения; при равенстве побеждает первый найденный в списке).
+    CombatantRuntime PickDarkHealTarget(CombatantRuntime healer)
+    {
+        CombatantRuntime best = healer;
+        float bestPercent = healer.MaxHP > 0f ? healer.CurrentHP / healer.MaxHP : 1f;
+
+        foreach (var other in Enemies)
+        {
+            if (other == healer || !other.IsAlive)
+            {
+                continue;
+            }
+
+            float percent = other.MaxHP > 0f ? other.CurrentHP / other.MaxHP : 1f;
+            if (percent < bestPercent)
+            {
+                best = other;
+                bestPercent = percent;
+            }
+        }
+
+        return best.CurrentHP < best.MaxHP ? best : null; // никто не ранен -> лечить некого
+    }
+
+    // "Яд": тикает раз в секунду, не зависит от таймера атаки; стаки истекают все разом по общему таймеру.
+    void TickPoison(CombatantRuntime target, float deltaTime)
+    {
+        if (target.PoisonStacks <= 0)
+        {
+            return;
+        }
+
+        target.PoisonTimer -= deltaTime;
+        target.PoisonTickAccumulator += deltaTime;
+
+        float damagePerSecond = target.PoisonStacks * 4f;
+        while (target.PoisonTickAccumulator >= 1f && target.PoisonStacks > 0 && target.IsAlive)
+        {
+            target.PoisonTickAccumulator -= 1f;
+            target.CurrentHP -= damagePerSecond;
+            Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от яда (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+
+            if (!target.IsAlive)
+            {
+                Log($"[Combat] {target.DisplayName} погибает от яда.");
+            }
+        }
+
+        if (target.PoisonTimer <= 0f)
+        {
+            target.PoisonStacks = 0;
         }
     }
 

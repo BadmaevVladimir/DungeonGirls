@@ -111,6 +111,23 @@ public static class CombatantFactory
             AttackSpeed = monster.attackSpeed
         });
 
+        // 2.4: пассивка монстра — некоторые пассивки требуют начального рантайм-состояния
+        // (флэт-бонус уклонения "Порхание", стартовый кулдаун периодических пассивок).
+        runtime.MonsterPassiveName = monster.passiveSkill != null ? monster.passiveSkill.skillName : null;
+
+        if (runtime.MonsterPassiveName == MonsterSkillEffectMap.Fluttering)
+        {
+            runtime.MonsterEvasionPercent = 20f;
+        }
+        else if (runtime.MonsterPassiveName == MonsterSkillEffectMap.DarkHeal)
+        {
+            runtime.MonsterPassiveCooldownTimer = 8f;
+        }
+        else if (runtime.MonsterPassiveName == MonsterSkillEffectMap.DoubleStrike)
+        {
+            runtime.MonsterPassiveCooldownTimer = 6f;
+        }
+
         return runtime;
     }
 

@@ -58,6 +58,29 @@ public class CombatantRuntime
 
     public List<ActiveDebuff> ActiveDebuffs = new List<ActiveDebuff>();
 
+    // 2.4/2.8: пассивка монстра (MonsterSkillEffectMap-константа из monster.passiveSkill.skillName),
+    // null = у монстра нет пассивки (например, Каменный страж).
+    public string MonsterPassiveName;
+
+    // "Порхание" (Летучая мышь): флэт-бонус к шансу уклонения ЭТОГО участника, складывается с
+    // SkillEvasionLevel/ItemElusivenessLevel в существующей формуле уклонения CombatManager.
+    public float MonsterEvasionPercent;
+
+    // "Оглушающий крик" (Гарпия): временный дебафф шанса крита ЭТОГО участника (обычно — игрока).
+    public float CritChanceDebuffPercent;
+    public float CritChanceDebuffTimer;
+
+    // "Яд" (Ядовитый паучок): стакается до 3, каждый стек 4 урона/сек, длительность 3 сек, обновляется
+    // при повторном наложении (не суммирует длительность). Структурно похоже на HasBleed/BleedTimer,
+    // но с явным счётчиком стаков вместо фиксированного урона.
+    public int PoisonStacks;
+    public float PoisonTimer;
+    public float PoisonTickAccumulator;
+
+    // "Тёмное исцеление" (Жрец тьмы) / "Двойной удар" (Рыцарь тьмы): периодические пассивки монстра,
+    // не привязанные к таймеру атаки оружия — тикают отдельно в CombatManager.TickMonsterPeriodicPassives.
+    public float MonsterPassiveCooldownTimer;
+
     // Состояние "Заморозки" (общий навык, см. 3.9).
     public int FreezeStacks;
     public float FreezeStackTimer;

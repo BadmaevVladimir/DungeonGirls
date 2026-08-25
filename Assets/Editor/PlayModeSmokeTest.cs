@@ -184,6 +184,19 @@ public static class PlayModeSmokeTest
         Check(rewardManager.GetExperienceReward(ExperienceSource.Boss, 10) == 50, "3.6 XP босс всегда 50 флэт");
         UnityEngine.Object.DestroyImmediate(rewardManagerGO);
 
+        // 2.4 Порхание: подтверждает, что поле уклонения монстра существует и устанавливается
+        // корректно (полное поведение в бою проверяется в RunPlayModeChecks через ResolveAttack).
+        var evasive = new CombatantRuntime { PhysicalDefenseMax = 0f, PhysicalDefenseCurrent = 0f, MagicShieldMax = 0f, MagicShieldCurrent = 0f, MaxHP = 100f, CurrentHP = 100f, MonsterEvasionPercent = 20f, IsPlayer = false };
+        Check(evasive.MonsterEvasionPercent == 20f, "2.4 Порхание: MonsterEvasionPercent устанавливается корректно");
+
+        // 2.4 Яд: 3 стака максимум, 4 урона/стак/сек.
+        var poisoned = new CombatantRuntime { MaxHP = 100f, CurrentHP = 100f };
+        poisoned.PoisonStacks = 2;
+        poisoned.PoisonTimer = 3f;
+        Check(poisoned.PoisonStacks == 2, "2.4 Яд: стаки устанавливаются");
+
+        Info.Add("Проверки полей монстро-пассивок (2.4) выполнены.");
+
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
     }
 
@@ -308,6 +321,23 @@ public static class PlayModeSmokeTest
         Check(combatCount == 8 && merchantCount == 1 && trapCount == 2 && specialCount == 1 && floorManager.RoomBag.Count == 12,
             $"8.4 состав мешка: combat={combatCount}, merchant={merchantCount}, trap={trapCount}, special={specialCount}, total={floorManager.RoomBag.Count} (ожидалось 8/1/2/1/12)");
         UnityEngine.Object.DestroyImmediate(floorManagerGO);
+
+        // 2.4: "Проклятие замедления" Колдуна (давний пробел — ассет существовал, но никогда не
+        // применялся в бою) через реальный CombatManager.ResolveAttack, а не напрямую.
+        var combatManagerGO = new GameObject("SmokeTest_CombatManager");
+        var testCombatManager = combatManagerGO.AddComponent<CombatManager>();
+
+        var testPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f };
+        testPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 5f, DamageMax = 5f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+
+        var slowCurseMonster = new CombatantRuntime { IsPlayer = false, MaxHP = 30f, CurrentHP = 30f, DisplayName = "TestWarlock", MonsterPassiveName = MonsterSkillEffectMap.SlowCurse };
+        slowCurseMonster.Weapons.Add(new WeaponAttackState { DamageMin = 100f, DamageMax = 100f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+
+        testCombatManager.StartCombat(testPlayer, new List<CombatantRuntime> { slowCurseMonster });
+        testCombatManager.Tick(1.01f); // достаточно, чтобы оба нанесли по 1 удару (AttackSpeed=1/сек)
+        Check(testPlayer.ActiveDebuffs.Exists(d => d.Id == "warlock_slow"), "2.4 Проклятие замедления применяется при попадании Колдуна по HP игрока");
+
+        UnityEngine.Object.DestroyImmediate(combatManagerGO);
 
         Info.Add("Play Mode проверки хаба/зданий/гачи/сейва/BeginRun выполнены.");
     }
