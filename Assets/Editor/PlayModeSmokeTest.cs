@@ -342,6 +342,18 @@ public static class PlayModeSmokeTest
         RequireElement(root, "MerchantOffersContainer");
         RequireElement(root, "MerchantCurrencyLabel");
 
+        // Task 3 (GDD 10.6): CombatBackground ui:Image's UXML src="project://database/..." must resolve
+        // at runtime to a non-null texture -- confirms the Sprite-typed asset (forced by Task 1's
+        // TextureImportSettingsProcessor) is usable directly via ui:Image's src attribute, without needing
+        // a code-side [SerializeField] Texture2D fallback.
+        var combatBackground = root.Q<UnityEngine.UIElements.Image>("CombatBackground");
+        Check(combatBackground != null, "CombatBackground ui:Image найден в CombatPanel");
+        if (combatBackground != null)
+        {
+            Check(combatBackground.image != null || combatBackground.sprite != null,
+                $"CombatBackground.image/.sprite резолвится из src (image={(combatBackground.image != null)}, sprite={(combatBackground.sprite != null)})");
+        }
+
         if (mainMenuScreen == null || buildingsScreen == null || gachaScreen == null) return;
 
         // --- Навигация хаба (7.1) ---

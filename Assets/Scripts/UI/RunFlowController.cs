@@ -19,6 +19,10 @@ public class RunFlowController : MonoBehaviour
     [SerializeField] List<PassiveSkillData> warriorSkillPool;
     [SerializeField] List<MonsterData> regularMonsterPool;
     [SerializeField] MonsterData bossData;
+    // UXML ui:Image's src="project://database/..." does not resolve at runtime (confirmed via
+    // PlayModeSmokeTest: Image.image/.sprite stayed null in Play Mode) — wired here in code instead,
+    // same pattern as mentorData above.
+    [SerializeField] Sprite combatBackgroundSprite;
 
     [Header("Менеджеры")]
     [SerializeField] DungeonManager dungeonManager;
@@ -47,6 +51,7 @@ public class RunFlowController : MonoBehaviour
 
     // --- Панели контент-área ---
     VisualElement combatPanel;
+    Image combatBackground;
     VisualElement eventPopup;
     VisualElement trapPopup;
     VisualElement levelUpPanel;
@@ -152,6 +157,11 @@ public class RunFlowController : MonoBehaviour
         roomProgressContainer = root.Q<VisualElement>("RoomProgressContainer");
 
         combatPanel = root.Q<VisualElement>("CombatPanel");
+        combatBackground = root.Q<Image>("CombatBackground");
+        if (combatBackground != null && combatBackgroundSprite != null)
+        {
+            combatBackground.sprite = combatBackgroundSprite;
+        }
         eventPopup = root.Q<VisualElement>("EventPopup");
         trapPopup = root.Q<VisualElement>("TrapPopup");
         levelUpPanel = root.Q<VisualElement>("LevelUpPanel");

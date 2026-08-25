@@ -69,6 +69,9 @@
         <ui:VisualElement name="ContentArea" class="content-area">
 
             <ui:VisualElement name="CombatPanel" class="panel hidden">
+                <!-- src="project://database/..." does not resolve at runtime (confirmed via PlayModeSmokeTest);
+                     sprite is assigned in code by RunFlowController.combatBackgroundSprite instead. -->
+                <ui:Image name="CombatBackground" class="combat-background" scale-mode="ScaleAndCrop" />
                 <ui:Label text="Бой" class="panel-title" />
                 <ui:VisualElement class="combat-top-row">
                     <ui:VisualElement name="PlayerBox" class="combatant-box">
