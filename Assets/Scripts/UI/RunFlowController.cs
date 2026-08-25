@@ -339,9 +339,18 @@ public class RunFlowController : MonoBehaviour
             // 2.7/8.4: уровень монстра растёт с позицией уже пройденных комнат этажа в мешке.
             int monsterLevel = 1 + floorManager.RoomsCompletedOnFloor / 3;
             int count = RollMonsterCount(characterManager.Level);
+
+            // 2.4: тиры суммируются — этаж 5 видит и тир-1, и тир-4 монстров, не только последний
+            // открытый тир (см. "черновое распределение по этажам").
+            var eligibleMonsters = regularMonsterPool.FindAll(m => m != null && m.minFloorTier <= dungeonManager.CurrentFloorNumber);
+            if (eligibleMonsters.Count == 0)
+            {
+                eligibleMonsters = regularMonsterPool;
+            }
+
             for (int i = 0; i < count; i++)
             {
-                var data = regularMonsterPool[Random.Range(0, regularMonsterPool.Count)];
+                var data = eligibleMonsters[Random.Range(0, eligibleMonsters.Count)];
                 enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber, monsterLevel));
             }
         }

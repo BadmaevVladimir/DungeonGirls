@@ -596,6 +596,13 @@ MonoBehaviour:
   - {fileID: 11400000, guid: f35a2b080da82d84f87fbfdc91ba709a, type: 2}
   - {fileID: 11400000, guid: ef5e1ca845e463a40b081d424fc21170, type: 2}
   - {fileID: 11400000, guid: ce8cd782e5642fc4ea4dd3af8559c974, type: 2}
+  - {fileID: 11400000, guid: b74ae0a8964d47c7a5104edda3424ef2, type: 2}
+  - {fileID: 11400000, guid: 7dcf6cac9af44c4b89eb14fab7c06e14, type: 2}
+  - {fileID: 11400000, guid: 291b688c82e547c387280b236bb71b69, type: 2}
+  - {fileID: 11400000, guid: 87a37a34149b41a1af1b80232bc5542c, type: 2}
+  - {fileID: 11400000, guid: 0105c35130fd4f859fa92c02b5ca96c1, type: 2}
+  - {fileID: 11400000, guid: 90e63274e361460d9c909197555449f8, type: 2}
+  - {fileID: 11400000, guid: 85ff6a2292584db9a4a26c5b7c3e2e8f, type: 2}
   bossData: {fileID: 11400000, guid: 5e45ae67fea08194381c1bc1e639783e, type: 2}
   dungeonManager: {fileID: 6340608}
   floorManager: {fileID: 6340607}

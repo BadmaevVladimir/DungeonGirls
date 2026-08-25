@@ -214,6 +214,22 @@ public static class PlayModeSmokeTest
 
         Info.Add("Проверки монстро-модификаторов (2.8) выполнены.");
 
+        // 2.4: фильтр пула монстров по minFloorTier — тиры суммируются, не заменяют друг друга.
+        var tier1 = ScriptableObject.CreateInstance<MonsterData>(); tier1.minFloorTier = 1;
+        var tier7 = ScriptableObject.CreateInstance<MonsterData>(); tier7.minFloorTier = 7;
+        var pool = new List<MonsterData> { tier1, tier7 };
+
+        var eligibleFloor3 = pool.FindAll(m => m.minFloorTier <= 3);
+        Check(eligibleFloor3.Count == 1 && eligibleFloor3[0] == tier1, "2.4 фильтр пула монстров: этаж 3 видит только тир-1");
+
+        var eligibleFloor7 = pool.FindAll(m => m.minFloorTier <= 7);
+        Check(eligibleFloor7.Count == 2, "2.4 фильтр пула монстров: этаж 7 видит тир-1 И тир-7 (суммируются)");
+
+        UnityEngine.Object.DestroyImmediate(tier1);
+        UnityEngine.Object.DestroyImmediate(tier7);
+
+        Info.Add("Проверки фильтра пула монстров по этажам (2.4) выполнены.");
+
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
     }
 
