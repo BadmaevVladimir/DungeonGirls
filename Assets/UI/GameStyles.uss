@@ -3,7 +3,7 @@
    только окно левел-апа, как явно предпочитает ГДД ("и желательно — во всём UI"). */
 Label, Button {
     -unity-text-outline-width: 1px;
-    -unity-text-outline-color: rgba(0, 0, 0, 0.75);
+    -unity-text-outline-color: rgba(255, 255, 255, 0.75);
 }
 
 .full-screen {
