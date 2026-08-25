@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Monster_Warlock
   m_EditorClassIdentifier: Assembly-CSharp::MonsterData
   monsterName: "\u041A\u043E\u043B\u0434\u0443\u043D"
+  sprite: {fileID: 21300000, guid: 87fb8250aa204804896c0a98cd777517, type: 3}
   isBoss: 0
   hp: 30
   damageMin: 13

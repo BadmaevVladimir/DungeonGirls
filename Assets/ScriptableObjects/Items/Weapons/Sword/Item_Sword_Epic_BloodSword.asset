@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Item_Sword_Epic_BloodSword
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u041A\u0440\u043E\u0432\u0430\u0432\u044B\u0439 \u043C\u0435\u0447"
+  icon: {fileID: 21300000, guid: f1d2de9561d8c23428df0925d699ac83, type: 3}
   slot: 3
   weaponSubtype: 1
   tier: 2

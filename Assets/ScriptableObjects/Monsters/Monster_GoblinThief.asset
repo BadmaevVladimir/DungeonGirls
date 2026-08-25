@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 37c73bb7b20f0774db1d325b77fd4879, type: 3}
   m_Name: Monster_GoblinThief
   m_EditorClassIdentifier: Assembly-CSharp::MonsterData
-  monsterName: Гоблин-вор
+  monsterName: "\u0413\u043E\u0431\u043B\u0438\u043D-\u0432\u043E\u0440"
+  sprite: {fileID: 21300000, guid: c84fa91e8ec496340bbee9b0bb504903, type: 3}
   isBoss: 0
   hp: 35
   damageMin: 8

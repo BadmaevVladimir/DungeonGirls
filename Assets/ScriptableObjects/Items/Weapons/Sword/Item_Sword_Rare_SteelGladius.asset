@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Item_Sword_Rare_SteelGladius
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u0421\u0442\u0430\u043B\u044C\u043D\u043E\u0439 \u0433\u043B\u0430\u0434\u0438\u0443\u0441"
+  icon: {fileID: 21300000, guid: f1d2de9561d8c23428df0925d699ac83, type: 3}
   slot: 3
   weaponSubtype: 1
   tier: 1

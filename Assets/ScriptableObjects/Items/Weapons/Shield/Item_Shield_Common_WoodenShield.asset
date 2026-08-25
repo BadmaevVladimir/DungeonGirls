@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Item_Shield_Common_WoodenShield
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u0414\u0435\u0440\u0435\u0432\u044F\u043D\u043D\u044B\u0439 \u0449\u0438\u0442"
+  icon: {fileID: 21300000, guid: 3122b9d3d0e22c64ba579de464038c11, type: 3}
   slot: 3
   weaponSubtype: 5
   tier: 0

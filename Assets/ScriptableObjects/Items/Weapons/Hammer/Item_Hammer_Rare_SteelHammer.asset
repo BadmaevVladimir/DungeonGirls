@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Item_Hammer_Rare_SteelHammer
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u0421\u0442\u0430\u043B\u044C\u043D\u043E\u0439 \u043C\u043E\u043B\u043E\u0442"
+  icon: {fileID: 21300000, guid: 154dee8981c57d646a5ce3e1be973c22, type: 3}
   slot: 3
   weaponSubtype: 4
   tier: 1

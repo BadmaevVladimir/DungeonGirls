@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Item_Armor_Epic_EtherealArmor
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u042D\u0444\u0438\u0440\u043D\u044B\u0439 \u0434\u043E\u0441\u043F\u0435\u0445"
+  icon: {fileID: 21300000, guid: ce63b572890ce114bb01ca6ec0d5500f, type: 3}
   slot: 1
   weaponSubtype: 0
   tier: 2

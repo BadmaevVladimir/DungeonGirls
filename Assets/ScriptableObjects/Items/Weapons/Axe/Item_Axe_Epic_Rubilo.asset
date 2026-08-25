@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Item_Axe_Epic_Rubilo
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u0420\u0443\u0431\u0438\u043B\u043E"
+  icon: {fileID: 21300000, guid: 03e7d4583c5af7b40bee4c08dd53d81d, type: 3}
   slot: 3
   weaponSubtype: 2
   tier: 2

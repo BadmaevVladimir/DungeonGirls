@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 37c73bb7b20f0774db1d325b77fd4879, type: 3}
   m_Name: Monster_Bat
   m_EditorClassIdentifier: Assembly-CSharp::MonsterData
-  monsterName: Летучая мышь
+  monsterName: "\u041B\u0435\u0442\u0443\u0447\u0430\u044F \u043C\u044B\u0448\u044C"
+  sprite: {fileID: 21300000, guid: 3fc9cf41b65035341a3608a61e595116, type: 3}
   isBoss: 0
   hp: 20
   damageMin: 5

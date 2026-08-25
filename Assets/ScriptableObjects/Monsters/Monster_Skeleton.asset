@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Monster_Skeleton
   m_EditorClassIdentifier: Assembly-CSharp::MonsterData
   monsterName: "\u0421\u043A\u0435\u043B\u0435\u0442"
+  sprite: {fileID: 21300000, guid: 2b116f7996d762f4a9df99b3928027d6, type: 3}
   isBoss: 0
   hp: 40
   damageMin: 10
