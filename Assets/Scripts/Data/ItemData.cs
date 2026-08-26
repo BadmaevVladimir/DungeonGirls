@@ -7,6 +7,12 @@ public class ItemData : ScriptableObject
     public Sprite icon; // 10.6: пиксель-арт иконка предмета (64x64), общая для всех тиров архетипа.
     public EquipmentSlot slot;
     public WeaponSubtype weaponSubtype = WeaponSubtype.None;
+
+    // 3.11: двуручное оружие (Варвар) занимает ОБА слота оружия/рук как единый предмет — при
+    // экипировке заменяет оба текущих предмета в слотах рук одновременно (исключение из обычной
+    // независимой логики слотов 3.4, см. CharacterManager.EquipItem). Only one variant exists today
+    // (Двуручный топор, weaponSubtype = TwoHandedAxe) but the GDD explicitly leaves room for more.
+    public bool isTwoHanded;
     public ItemTier tier;
     public int itemLevel = 1;
     public CharacterClass[] allowedClasses;

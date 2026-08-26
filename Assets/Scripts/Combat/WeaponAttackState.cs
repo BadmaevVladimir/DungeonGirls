@@ -22,4 +22,9 @@ public class WeaponAttackState
     // "Против бронированных целей урон считается на +N больше" — добавляется к урону этого
     // оружия перед проверкой брони в DamageCalculator (см. CombatManager.ResolveAttack).
     public float ArmorPenetrationFlat;
+
+    // 3.11 (Клинок, Зазубренный клинок/Моменто Мори): игнорирует N% ТЕКУЩЕЙ брони цели при расчёте
+    // пробития этим конкретным оружием (см. DamageCalculator.ApplyPhysicalDamage armorIgnorePercent
+    // param) — отличается от ArmorPenetrationFlat (Топор/Молот, флэт-добавка к урону).
+    public float ArmorIgnorePercent;
 }

@@ -1,7 +1,9 @@
 public enum CharacterClass
 {
     Warrior,
-    Mage
+    Mage,
+    Rogue,
+    Barbarian
 }
 
 public enum DamageType
@@ -27,7 +29,9 @@ public enum WeaponSubtype
     Axe,
     Spear,
     Hammer,
-    Shield
+    Shield,
+    Blade,
+    TwoHandedAxe
 }
 
 public enum ItemTier
@@ -72,7 +76,8 @@ public enum BonusStatType
     MaxPhysicalDefenseFlat,
     MagicShieldFlat,
     WeaponDamageFlat,
-    EvasionPercent
+    EvasionPercent,
+    ArmorIgnorePercent
 }
 
 // 2.8: род существительного-названия монстра на русском, нужен для согласования прилагательного

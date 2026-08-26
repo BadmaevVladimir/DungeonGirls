@@ -110,9 +110,75 @@ public class CombatantRuntime
     public float BleedTimer;
     public float BleedTickAccumulator;
 
+    // 3.11 (Плут) — "Скрытность": булево состояние + таймер, длительность всегда 3с (StealthStatus).
+    // Персонаж начинает бой БЕЗ Скрытности (не устанавливается здесь, только объявлено — StartCombat
+    // в CombatManager не трогает эти поля, они остаются false/0 по умолчанию у нового CombatantRuntime).
+    public bool IsStealthed;
+    public float StealthTimer;
+
+    // 3.11 (Плут, классовые навыки) — уровни известны только игроку, копируются в
+    // CombatantFactory.ApplyCharacterSkills так же, как остальные Skill*Level поля.
+    public int SkillEyeForAnEyeLevel; // "В глаз"
+    public int SkillPoisonedBladeLevel; // "Отравленный клинок"
+    public int SkillByAThreadLevel; // "На волоске"
+    public int SkillEliminationLevel; // "Устранение" — переопределяет крит-множитель, см. CritDamageMultiplierPercent
+    public int SkillSlipAwayLevel; // "Ускользание"
+    public int UniqueShadowLevel; // пассивка "Тень" (только Плут)
+
+    // 3.11 (Плут) — "Отравленный клинок" накладывает СВОЙ яд на цель, отдельная сущность от
+    // монстрового PoisonStacks/PoisonTimer (Ядовитый паучок, 2.4) — не суммируются, тикают независимо.
+    public int RoguePoisonStacksOnTarget; // хранится на ЦЕЛИ (симметрично PoisonStacks у монстров)
+    public float RoguePoisonTimer;
+    public float RoguePoisonTickAccumulator;
+
+    // 3.11 (Устранение) — переопределяет базовый крит-множитель 150% (см. CombatManager.ResolveAttack
+    // `damage *= 1.5f`), null = нет навыка, используется база. Аналогичный паттерн для Barbarian ниже.
+    public float? CritDamageMultiplierOverridePercent;
+
+    // 3.11 (Дымовая граната) — счётчик гарантированных критов от активного навыка, отдельно от
+    // IsStealthed (Скрытность может обновляться другими источниками во время того же окна).
+    public int SmokeBombGuaranteedCritsRemaining;
+
+    // 3.11 (Варвар) — классовые навыки, копируются так же, как Rogue-поля выше.
+    public int SkillStubbornnessLevel; // "Упёртость"
+    public int SkillFrenzyLevel; // "Остервенелость" — общий индекс X (0.7/0.75/0.8/0.9/1.0) для 3 навыков
+    public int SkillCombatRegenLevel; // "Боевая регенерация"
+    public int SkillIntimidationLevel; // "Запугивание"
+    public int SkillSuperstitionLevel; // "Суеверность"
+    public int UniqueChampionOfTheTribeLevel; // пассивка "Чемпион племени"
+
+    // 3.11 (Боевая регенерация) — счётчик полученных ударов по HP, сбрасывается при срабатывании.
+    public int HitsTakenSinceLastRegen;
+
+    // 3.11 (Берсерк) — ручной тумблер, не кулдаун-навык. Уровень 0 = навык не изучен = тумблер
+    // недоступен (UI должен это учитывать так же, как ActiveSkillButton.SetEnabled для обычных
+    // активок, см. RunFlowController).
+    public int UniqueBerserkLevel;
+    public bool IsBerserkActive;
+    public float BerserkTickAccumulator;
+
+    // 3.11 (Часть 2, "% сопротивления урону") — общая механика, применяется в DamageCalculator ДО
+    // брони/щита. Суммируется, если несколько источников одного типа (сейчас только один источник на
+    // тип у Варвара — Суеверность даёт магическое, Берсерк даёт физическое — но поле уже суммируемое
+    // на будущее). Кламп на 100% — см. DamageCalculator.
+    public float PhysicalResistancePercent;
+    public float MagicalResistancePercent;
+
+    // 3.11 (Чемпион племени, Варвар) — крит-шанс ВСЕГДА равен Rage×X%, полностью заменяя обычную
+    // формулу; остальные источники крит-шанса конвертируются 1%→+2% крит-урона вместо суммирования в
+    // шанс. true только если навык изучен (уровень > 0).
+    public bool CritChanceReplacedByRage;
+
     public bool IsAlive => CurrentHP > 0f;
 
     public bool HasActiveDebuff => ActiveDebuffs.Count > 0 || IsFrozen || FreezeStacks > 0;
+
+    // 3.11 (Варвар) — "Ярость" = % недостающего HP, ПЕРЕСЧИТЫВАЕТСЯ динамически (не хранимое поле).
+    // Флэт-бонусы (Пояс титана) добавляются здесь же поверх формулы — могут увести Rage выше 100%.
+    public float RageFlatBonusPercent;
+    public float Rage => MaxHP > 0f
+        ? Mathf.Max(0f, (1f - Mathf.Clamp01(CurrentHP / MaxHP)) * 100f + RageFlatBonusPercent)
+        : 0f;
 
     // Дебаффы скорости атаки (проклятие Колдуна и т.п.) и стаки заморозки действуют на персонажа
     // целиком, поэтому одинаково множат скорость атаки каждого из его оружий.
