@@ -633,6 +633,23 @@ public static class PlayModeSmokeTest
         UnityEngine.Object.DestroyImmediate(fakeCharacter.uniqueActiveSkill);
         UnityEngine.Object.DestroyImmediate(fakeCharacter);
 
+        // 4.7: список баф/дебаф-строк для UI боя — чистая функция, тестируем напрямую на вручную
+        // собранном CombatantRuntime (не требует боевого цикла/CombatManager).
+        var statusTestCombatant = new CombatantRuntime { FreezeStacks = 3, PoisonStacks = 2, HasBleed = true, CritChanceDebuffPercent = 20f, FreezeImmune = true };
+        statusTestCombatant.ActiveDebuffs.Add(new ActiveDebuff { Id = "warlock_slow", RemainingTime = 3f });
+        var statusEffects = CombatantStatusEffects.GetActiveEffects(statusTestCombatant);
+        Check(statusEffects.Exists(e => e.label == "Заморозка ×3" && !e.isBuff), "4.7 список статусов: стаки заморозки");
+        Check(statusEffects.Exists(e => e.label == "Иммунитет к заморозке" && e.isBuff), "4.7 список статусов: иммунитет к заморозке — бафф");
+        Check(statusEffects.Exists(e => e.label == "Яд ×2" && !e.isBuff), "4.7 список статусов: стаки яда");
+        Check(statusEffects.Exists(e => e.label == "Кровотечение" && !e.isBuff), "4.7 список статусов: кровотечение");
+        Check(statusEffects.Exists(e => e.label == "Оглушающий крик" && !e.isBuff), "4.7 список статусов: крит-дебафф Гарпии");
+        Check(statusEffects.Exists(e => e.label == "Проклятие замедления" && !e.isBuff), "4.7 список статусов: именованный ActiveDebuff по Id");
+
+        var frozenTestCombatant = new CombatantRuntime { IsFrozen = true, FreezeStacks = 5 };
+        var frozenEffects = CombatantStatusEffects.GetActiveEffects(frozenTestCombatant);
+        Check(frozenEffects.Exists(e => e.label == "Заморожен"), "4.7 список статусов: 'Заморожен' вместо стаков, когда уже заморожен");
+        Check(!frozenEffects.Exists(e => e.label.StartsWith("Заморозка ×")), "4.7 список статусов: не показывает стаки одновременно с 'Заморожен'");
+
         Info.Add("Play Mode проверки хаба/зданий/гачи/сейва/BeginRun выполнены.");
     }
 
