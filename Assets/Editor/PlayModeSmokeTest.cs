@@ -141,6 +141,24 @@ public static class PlayModeSmokeTest
         Check(!normalPierceResult.WasBlocked && normalPierceResult.DamageToHP == 2f && normalPierceTarget.PhysicalDefenseCurrent == 9f,
             $"3.3 обычное пробитие (урон=12, броня=10): DamageToHP={normalPierceResult.DamageToHP}, Defense={normalPierceTarget.PhysicalDefenseCurrent} (ожидалось 2/9)");
 
+        // 3.11 Часть 2 (НОВОЕ): % сопротивления урону — первый шаг, до брони/щита.
+        var resistPhysicalTarget = new CombatantRuntime { PhysicalDefenseMax = 10f, PhysicalDefenseCurrent = 10f, MaxHP = 100f, CurrentHP = 100f, PhysicalResistancePercent = 50f };
+        var resistPhysicalResult = DamageCalculator.ApplyDamage(resistPhysicalTarget, 12f, DamageType.Physical); // 12 * 0.5 = 6 -> < 10 брони -> износ (>=5), не пробитие
+        Check(resistPhysicalResult.WasBlocked && resistPhysicalTarget.PhysicalDefenseCurrent == 9f,
+            $"3.11 физ. сопротивление 50% снижает урон ДО брони: WasBlocked={resistPhysicalResult.WasBlocked}, Defense={resistPhysicalTarget.PhysicalDefenseCurrent} (ожидалось true/9, т.е. 12->6, износ не пробитие)");
+
+        var resistMagicalTarget = new CombatantRuntime { MagicShieldMax = 10f, MagicShieldCurrent = 10f, MaxHP = 100f, CurrentHP = 100f, MagicalResistancePercent = 50f };
+        var resistMagicalResult = DamageCalculator.ApplyDamage(resistMagicalTarget, 12f, DamageType.Magical); // 12 * 0.5 = 6, полностью гасится щитом (10)
+        Check(resistMagicalResult.WasBlocked && resistMagicalTarget.MagicShieldCurrent == 4f,
+            $"3.11 маг. сопротивление 50% снижает урон ДО маг.щита: WasBlocked={resistMagicalResult.WasBlocked}, Shield={resistMagicalTarget.MagicShieldCurrent} (ожидалось true/4, т.е. 12->6, щит 10-6=4)");
+
+        // armorIgnorePercent (Клинок): снижает ЭФФЕКТИВНУЮ броню для проверки, но абсолютная деградация
+        // (-1/-2) остаётся по правилам 3.3 без изменений.
+        var armorIgnoreTarget = new CombatantRuntime { PhysicalDefenseMax = 10f, PhysicalDefenseCurrent = 10f, MaxHP = 100f, CurrentHP = 100f };
+        var armorIgnoreResult = DamageCalculator.ApplyDamage(armorIgnoreTarget, 6f, DamageType.Physical, armorIgnorePercent: 50f); // эфф. броня 5, урон 6 >= 5 -> обычное пробитие
+        Check(!armorIgnoreResult.WasBlocked && armorIgnoreResult.DamageToHP == 1f && armorIgnoreTarget.PhysicalDefenseCurrent == 9f,
+            $"3.11 armorIgnorePercent 50% (Клинок): WasBlocked={armorIgnoreResult.WasBlocked}, DamageToHP={armorIgnoreResult.DamageToHP}, Defense={armorIgnoreTarget.PhysicalDefenseCurrent} (ожидалось false/1/9)");
+
         // 3.2: диапазон урона [floor(base*0.8); ceil(base*1.2)].
         DamageCalculator.ComputeDamageRange(6f, out float dmgMin, out float dmgMax);
         Check(dmgMin == 4f && dmgMax == 8f, $"3.2 диапазон урона (база 6): min={dmgMin}, max={dmgMax} (ожидалось 4/8)");

@@ -350,7 +350,7 @@ public class CombatManager : MonoBehaviour
         // раньше игнорировалось. "Против бронированных целей урон считается на +N больше" — флэт-
         // бонус к урону только для целей ПРОБИТИЯ брони, добавляется прямо перед проверкой брони.
         float armorPenetrationDamage = weapon.DamageType == DamageType.Physical ? weapon.ArmorPenetrationFlat : 0f;
-        var result = DamageCalculator.ApplyDamage(target, damage + armorPenetrationDamage, weapon.DamageType);
+        var result = DamageCalculator.ApplyDamage(target, damage + armorPenetrationDamage, weapon.DamageType, weapon.ArmorIgnorePercent);
 
         if (result.WasBlocked)
         {

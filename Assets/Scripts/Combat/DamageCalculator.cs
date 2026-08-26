@@ -24,11 +24,17 @@ public static class DamageCalculator
     // броня=10, урон=12 — обычное пробитие, −1; урон=22 (≥20=2×10) — полное пробитие, −2.
     // Причина: без этого часть боёв могла затягиваться навечно (высокая броня вырабатывалась
     // только по 1 за удар). Считается редким случаем на практике.
-    public static DamageResult ApplyPhysicalDamage(CombatantRuntime target, float incomingDamage)
+    // 3.11 Часть 2 (НОВОЕ): armorIgnorePercent — только для Клинка (Зазубренный/Моменто Мори,
+    // см. WeaponAttackState.ArmorIgnorePercent) — снижает ЭФФЕКТИВНУЮ броню для целей проверки
+    // блок/пробитие/износ, но НЕ влияет на то, сколько единиц брони теряется при пробитии (те
+    // правила остаются про АБСОЛЮТНУЮ броню, не эффективную).
+    public static DamageResult ApplyPhysicalDamage(CombatantRuntime target, float incomingDamage, float armorIgnorePercent = 0f)
     {
-        if (incomingDamage < target.PhysicalDefenseCurrent)
+        float effectiveDefense = target.PhysicalDefenseCurrent * (1f - Mathf.Clamp01(armorIgnorePercent / 100f));
+
+        if (incomingDamage < effectiveDefense)
         {
-            bool armorWorn = incomingDamage >= target.PhysicalDefenseCurrent * 0.5f;
+            bool armorWorn = incomingDamage >= effectiveDefense * 0.5f;
             if (armorWorn)
             {
                 target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - 1f);
@@ -37,8 +43,8 @@ public static class DamageCalculator
             return new DamageResult { DamageToHP = 0f, WasBlocked = true, ArmorWornOnBlock = armorWorn };
         }
 
-        float remainder = incomingDamage - target.PhysicalDefenseCurrent;
-        float armorLoss = incomingDamage >= target.PhysicalDefenseCurrent * 2f ? 2f : 1f;
+        float remainder = incomingDamage - effectiveDefense;
+        float armorLoss = incomingDamage >= effectiveDefense * 2f ? 2f : 1f;
         target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - armorLoss);
         target.CurrentHP -= remainder;
 
@@ -72,10 +78,16 @@ public static class DamageCalculator
         max = Mathf.Ceil(baseDamage * 1.2f);
     }
 
-    public static DamageResult ApplyDamage(CombatantRuntime target, float incomingDamage, DamageType damageType)
+    // 3.11 Часть 2 (НОВОЕ): "% сопротивления урону" — общий множитель, первый шаг в цепочке расчёта,
+    // ДО брони/щита. Суммируется по всем источникам одного типа урона, клампится на 100% (0 урона
+    // дальше по цепочке, а не отрицательный урон).
+    public static DamageResult ApplyDamage(CombatantRuntime target, float incomingDamage, DamageType damageType, float armorIgnorePercent = 0f)
     {
+        float resistancePercent = damageType == DamageType.Physical ? target.PhysicalResistancePercent : target.MagicalResistancePercent;
+        float damageAfterResistance = incomingDamage * (1f - Mathf.Clamp01(resistancePercent / 100f));
+
         return damageType == DamageType.Physical
-            ? ApplyPhysicalDamage(target, incomingDamage)
-            : ApplyMagicalDamage(target, incomingDamage);
+            ? ApplyPhysicalDamage(target, damageAfterResistance, armorIgnorePercent)
+            : ApplyMagicalDamage(target, damageAfterResistance);
     }
 }
