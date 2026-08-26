@@ -62,7 +62,23 @@ public class RunFlowController : MonoBehaviour
 
     // --- Бой ---
     Image playerStageSprite;
+    VisualElement playerStageWrapper;
+    Label playerStatusLabel;
     VisualElement enemyStageRow;
+    Label skillActivationBanner;
+    Coroutine skillBannerCoroutine;
+
+    // 4.7: персистентные per-fight элементы врагов (не пересобираются каждый кадр — иначе любой
+    // анимированный дочерний элемент, вроде всплывающей цифры урона, уничтожался бы ~16мс спустя).
+    class EnemyStageEntry
+    {
+        public CombatantRuntime Combatant;
+        public VisualElement Wrapper;
+        public Image Sprite;
+        public Label StatusLabel;
+    }
+    readonly List<EnemyStageEntry> enemyStageEntries = new List<EnemyStageEntry>();
+
     Label playerNameLabel;
     VisualElement playerHpFill;
     Label playerHpText;
@@ -186,7 +202,13 @@ public class RunFlowController : MonoBehaviour
         itemComparePanel = root.Q<VisualElement>("ItemComparePanel");
 
         playerStageSprite = root.Q<Image>("PlayerStageSprite");
+        playerStageWrapper = root.Q<VisualElement>("PlayerStageWrapper");
+        playerStatusLabel = new Label();
+        playerStatusLabel.AddToClassList("stage-status-label");
+        playerStatusLabel.enableRichText = true;
+        playerStageWrapper.Add(playerStatusLabel);
         enemyStageRow = root.Q<VisualElement>("EnemyStageRow");
+        skillActivationBanner = root.Q<Label>("SkillActivationBanner");
         playerNameLabel = root.Q<Label>("PlayerNameLabel");
         playerHpFill = root.Q<VisualElement>("PlayerHpFill");
         playerHpText = root.Q<Label>("PlayerHpText");
@@ -438,8 +460,11 @@ public class RunFlowController : MonoBehaviour
 
         combatManager.LogMessage += OnCombatLog;
         combatManager.MonsterStoleCurrency += OnMonsterStoleCurrency;
+        combatManager.HitResolved += OnHitResolved;
+        combatManager.ActiveSkillActivated += OnActiveSkillActivated;
         ShowOnly(combatPanel);
         combatManager.StartCombat(characterManager.Combatant, enemies);
+        BuildEnemyStageEntries(enemies);
 
         while (combatManager.IsCombatActive)
         {
@@ -450,6 +475,8 @@ public class RunFlowController : MonoBehaviour
         UpdateCombatUI();
         combatManager.LogMessage -= OnCombatLog;
         combatManager.MonsterStoleCurrency -= OnMonsterStoleCurrency;
+        combatManager.HitResolved -= OnHitResolved;
+        combatManager.ActiveSkillActivated -= OnActiveSkillActivated;
 
         for (int i = 0; i < characterManager.Combatant.Weapons.Count && i < originalStats.Count; i++)
         {
@@ -556,37 +583,187 @@ public class RunFlowController : MonoBehaviour
         }
 
         // 7.2/10.6: крупные спрайты на "земле" сцены боя, отдельно от карточек имени/HP выше.
-        // Размер уменьшается при нескольких одновременных врагах (4.1: 1-3 в обычной комнате),
-        // чтобы ряд помещался на экране, не выходя за рамки сцены.
+        // Персистентные элементы (построены один раз в BuildEnemyStageEntries) — тут только
+        // обновление состояния кадр к кадру, без Clear()/пересоздания (иначе анимации на
+        // дочерних элементах, вроде всплывающих цифр урона, уничтожались бы каждый тик).
         float stageFloorGap = GetStageFloorGapFromBottom();
-        playerStageSprite.style.marginBottom = stageFloorGap;
+        playerStageWrapper.style.marginBottom = stageFloorGap;
+        UpdateStatusLabel(playerStatusLabel, player);
 
+        foreach (var entry in enemyStageEntries)
+        {
+            entry.Wrapper.style.marginBottom = stageFloorGap;
+            entry.Sprite.EnableInClassList("enemy-stage-sprite-dead", !entry.Combatant.IsAlive);
+            UpdateStatusLabel(entry.StatusLabel, entry.Combatant);
+        }
+
+        bool ready = combatManager.IsActiveSkillReady;
+        activeSkillButton.SetEnabled(!autoModeToggle.value && ready);
+        activeSkillButton.text = ready ? "Активный навык (готов)" : $"Активный навык ({combatManager.ActiveSkillCooldownRemaining:F1}с)";
+    }
+
+    // 4.7: строится один раз при старте боя (список противников не меняется в процессе боя,
+    // только их IsAlive) — размер спрайта зависит от количества (4.1: 1-3 в обычной комнате).
+    void BuildEnemyStageEntries(List<CombatantRuntime> enemies)
+    {
         enemyStageRow.Clear();
-        int enemyCount = combatManager.Enemies.Count;
+        enemyStageEntries.Clear();
+
+        int enemyCount = enemies.Count;
         float enemySpriteSize = enemyCount switch
         {
             <= 1 => 384f,
             2 => 260f,
             _ => 190f
         };
-        foreach (var enemy in combatManager.Enemies)
+
+        foreach (var enemy in enemies)
         {
-            var enemySprite = new Image { sprite = enemy.Sprite };
-            enemySprite.AddToClassList("stage-sprite");
-            enemySprite.AddToClassList("enemy-stage-sprite");
-            if (!enemy.IsAlive)
-            {
-                enemySprite.AddToClassList("enemy-stage-sprite-dead");
-            }
-            enemySprite.style.width = enemySpriteSize;
-            enemySprite.style.height = enemySpriteSize;
-            enemySprite.style.marginBottom = stageFloorGap;
-            enemyStageRow.Add(enemySprite);
+            var wrapper = new VisualElement();
+            wrapper.AddToClassList("enemy-stage-sprite-wrapper");
+            wrapper.style.width = enemySpriteSize;
+            wrapper.style.height = enemySpriteSize;
+
+            var sprite = new Image { sprite = enemy.Sprite };
+            sprite.AddToClassList("stage-sprite");
+            sprite.AddToClassList("enemy-stage-sprite");
+            wrapper.Add(sprite);
+
+            var statusLabel = new Label();
+            statusLabel.AddToClassList("stage-status-label");
+            statusLabel.enableRichText = true;
+            wrapper.Add(statusLabel);
+
+            enemyStageRow.Add(wrapper);
+            enemyStageEntries.Add(new EnemyStageEntry { Combatant = enemy, Wrapper = wrapper, Sprite = sprite, StatusLabel = statusLabel });
+        }
+    }
+
+    // 4.7: пастельные (не насыщенные) баф/дебафф-подписи — rich-text цвет прямо в тексте лейбла,
+    // отдельного лейбла на строку не нужно.
+    void UpdateStatusLabel(Label label, CombatantRuntime combatant)
+    {
+        var effects = CombatantStatusEffects.GetActiveEffects(combatant);
+        if (effects.Count == 0)
+        {
+            label.text = string.Empty;
+            return;
         }
 
-        bool ready = combatManager.IsActiveSkillReady;
-        activeSkillButton.SetEnabled(!autoModeToggle.value && ready);
-        activeSkillButton.text = ready ? "Активный навык (готов)" : $"Активный навык ({combatManager.ActiveSkillCooldownRemaining:F1}с)";
+        label.text = string.Join("\n", effects.ConvertAll(e => $"<color={(e.isBuff ? "#A8E6A1" : "#E6A1A1")}>{e.label}</color>"));
+    }
+
+    VisualElement FindStageWrapper(CombatantRuntime combatant)
+    {
+        if (combatant == combatManager.Player)
+        {
+            return playerStageWrapper;
+        }
+
+        foreach (var entry in enemyStageEntries)
+        {
+            if (entry.Combatant == combatant)
+            {
+                return entry.Wrapper;
+            }
+        }
+
+        return null;
+    }
+
+    // 4.7: единая точка подписки на CombatManager.HitResolved — всплывающая цифра урона + тряска
+    // спрайта цели (тряска пропускается при полном блоке, см. GDD 4.7).
+    void OnHitResolved(CombatantRuntime target, float damageToHP, bool isCrit, bool wasBlocked)
+    {
+        var wrapper = FindStageWrapper(target);
+        if (wrapper == null)
+        {
+            return;
+        }
+
+        string text = wasBlocked ? "БЛОК" : damageToHP.ToString("F0");
+        var label = new Label(text);
+        label.AddToClassList("floating-combat-text");
+        if (isCrit)
+        {
+            label.AddToClassList("floating-combat-text-crit");
+        }
+        else if (wasBlocked)
+        {
+            label.AddToClassList("floating-combat-text-block");
+        }
+        wrapper.Add(label);
+        StartCoroutine(FloatAndFadeOut(label));
+
+        if (!wasBlocked)
+        {
+            StartCoroutine(ShakeElement(wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
+        }
+    }
+
+    IEnumerator FloatAndFadeOut(VisualElement label)
+    {
+        const float duration = 0.8f;
+        const float riseDistance = 40f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.Clamp01(elapsed / duration);
+            label.style.translate = new Translate(Length.Percent(-50), -riseDistance * progress, 0);
+            label.style.opacity = 1f - progress;
+            yield return null;
+        }
+
+        if (label.parent != null)
+        {
+            label.RemoveFromHierarchy();
+        }
+    }
+
+    // 4.7: баннер активации уникального активного навыка — общий на всю боевую сцену, не
+    // per-combatant. ~1.15с (fade in 0.15 / hold 0.85 / fade out 0.15), в пределах ГДД 1-1.2с.
+    void OnActiveSkillActivated(CombatantRuntime user, string skillName)
+    {
+        if (skillBannerCoroutine != null)
+        {
+            StopCoroutine(skillBannerCoroutine);
+        }
+        skillBannerCoroutine = StartCoroutine(ShowSkillBanner(skillName));
+    }
+
+    IEnumerator ShowSkillBanner(string skillName)
+    {
+        const float fadeIn = 0.15f;
+        const float hold = 0.85f;
+        const float fadeOut = 0.15f;
+
+        skillActivationBanner.RemoveFromClassList("hidden");
+        skillActivationBanner.text = skillName;
+
+        float elapsed = 0f;
+        while (elapsed < fadeIn)
+        {
+            elapsed += Time.deltaTime;
+            skillActivationBanner.style.opacity = Mathf.Clamp01(elapsed / fadeIn);
+            yield return null;
+        }
+        skillActivationBanner.style.opacity = 1f;
+
+        yield return new WaitForSeconds(hold);
+
+        elapsed = 0f;
+        while (elapsed < fadeOut)
+        {
+            elapsed += Time.deltaTime;
+            skillActivationBanner.style.opacity = 1f - Mathf.Clamp01(elapsed / fadeOut);
+            yield return null;
+        }
+
+        skillActivationBanner.style.opacity = 0f;
+        skillActivationBanner.AddToClassList("hidden");
+        skillBannerCoroutine = null;
     }
 
     // Баг (2026-08-26): фон боя (Dungeon.png, 1536x1024) рендерится через ScaleAndCrop — на
@@ -1144,6 +1321,13 @@ public class RunFlowController : MonoBehaviour
     // transform.DOPunchPosition из DOTween для GameObject здесь неприменим).
     IEnumerator ShakeChest(VisualElement element, float duration)
     {
+        yield return ShakeElement(element, duration, new Vector3(6f, 4f, 0f), 10);
+    }
+
+    // 4.7: обобщённый хелпер тряски (сундук ~1с/6-4px, попадание в бою ~0.2с/меньшая амплитуда) —
+    // единый DOTween.Punch по style.translate, параметризованный длительностью/амплитудой/вибрато.
+    IEnumerator ShakeElement(VisualElement element, float duration, Vector3 amplitude, int vibrato)
+    {
         Vector3 shakeOffset = Vector3.zero;
         bool shakeComplete = false;
         DG.Tweening.DOTween.Punch(
@@ -1153,9 +1337,9 @@ public class RunFlowController : MonoBehaviour
                 shakeOffset = v;
                 element.style.translate = new Translate(v.x, v.y, 0);
             },
-            new Vector3(6f, 4f, 0f),
+            amplitude,
             duration,
-            10
+            vibrato
         ).OnComplete(() => shakeComplete = true);
 
         while (!shakeComplete)

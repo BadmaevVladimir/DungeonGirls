@@ -75,8 +75,11 @@
                 <!-- 7.2 (обновлено): классическая JRPG-раскладка — крупные спрайты персонажа/монстров
                      живут отдельно на "земле" сцены боя, а не внутри карточек имени/HP ниже. -->
                 <ui:VisualElement name="CombatStage" class="combat-stage">
-                    <ui:Image name="PlayerStageSprite" class="stage-sprite" scale-mode="ScaleToFit" />
+                    <ui:VisualElement name="PlayerStageWrapper" class="stage-sprite-wrapper">
+                        <ui:Image name="PlayerStageSprite" class="stage-sprite" scale-mode="ScaleToFit" />
+                    </ui:VisualElement>
                     <ui:VisualElement name="EnemyStageRow" class="enemy-stage-row" />
+                    <ui:Label name="SkillActivationBanner" class="skill-activation-banner hidden" />
                 </ui:VisualElement>
                 <ui:Label text="Бой" class="panel-title" />
                 <ui:VisualElement class="combat-top-row">

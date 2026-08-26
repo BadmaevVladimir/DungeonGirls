@@ -208,18 +208,81 @@ Label, Button {
     height: 384px;
 }
 
+/* 4.7: обёртка над спрайтом бойца — сам спрайт остаётся обычным flow-элементом (на нём же
+   держится marginBottom для anchoring на линии пола), а всплывающие цифры урона и подпись
+   баф/дебафф — position:absolute поверх/под ним, не влияя на Yoga-размер обёртки. */
+.stage-sprite-wrapper {
+    position: relative;
+    align-items: center;
+}
+
 .enemy-stage-row {
     flex-direction: row;
     align-items: flex-end;
     justify-content: flex-end;
 }
 
-.enemy-stage-sprite {
+.enemy-stage-sprite-wrapper {
+    position: relative;
+    align-items: center;
     margin-left: 12px;
+}
+
+.enemy-stage-sprite {
+    width: 100%;
+    height: 100%;
 }
 
 .enemy-stage-sprite-dead {
     opacity: 0.4;
+}
+
+/* 4.7: всплывающие цифры урона — спавнятся над головой бойца и улетают вверх с затуханием. */
+.floating-combat-text {
+    position: absolute;
+    left: 50%;
+    top: 10%;
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: rgb(230, 230, 230);
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.75);
+}
+
+.floating-combat-text-crit {
+    font-size: 28px;
+    color: rgb(255, 165, 40);
+}
+
+.floating-combat-text-block {
+    font-size: 16px;
+    color: rgb(190, 190, 190);
+}
+
+/* 4.7: список баффов/дебаффов участника боя — под спрайтом, пастельные (не насыщенные) цвета. */
+.stage-status-label {
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    translate: -50% 0;
+    font-size: 10px;
+    -unity-text-align: upper-center;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.75);
+    white-space: normal;
+}
+
+/* 4.7: баннер активации уникального активного навыка — общий на весь бой, верх-центр сцены. */
+.skill-activation-banner {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    translate: -50% 0;
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: rgb(255, 217, 51);
+    -unity-text-outline-width: 1.5px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.8);
 }
 
 .hp-bar-bg {
