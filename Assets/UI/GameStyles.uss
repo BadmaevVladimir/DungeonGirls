@@ -1,9 +1,11 @@
-/* 7.2 [НОВОЕ]: весь текст UI должен иметь обводку/тень для читаемости поверх произвольного фона.
-   Type-селекторы (Label, Button) покрывают весь проект разом — хаб/здания/гача/забег — а не
-   только окно левел-апа, как явно предпочитает ГДД ("и желательно — во всём UI"). */
+/* 7.2 [ОБНОВЛЕНО]: весь текст UI должен иметь обводку/тень для читаемости поверх произвольного
+   фона. Type-селекторы (Label, Button) покрывают весь проект разом — хаб/здания/гача/забег — а не
+   только окно левел-апа, как явно предпочитает ГДД ("и желательно — во всём UI"). Обводка сменена
+   со светлой на тёмную (светлая обводка на светлом тексте почти не давала контраста, наоборот
+   смазывала буквы) — стандартный игровой приём "светлый текст + тёмный контур". */
 Label, Button {
-    -unity-text-outline-width: 0.5px;
-    -unity-text-outline-color: rgba(255, 255, 255, 0.75);
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
 }
 
 .full-screen {
@@ -259,16 +261,23 @@ Label, Button {
     color: rgb(190, 190, 190);
 }
 
-/* 4.7: список баффов/дебаффов участника боя — под спрайтом, пастельные (не насыщенные) цвета. */
+/* 4.7 [ОБНОВЛЕНО]: список баффов/дебаффов участника боя — под спрайтом. Прошлая пастель почти не
+   читалась на тёмном каменном фоне сцены (низкий контраст) — цвета (заданы прямо в тексте лейбла,
+   см. RunFlowController.UpdateStatusLabel) сделаны средне-насыщенными, плюс тёмная подложка-пилюля
+   под всем блоком гарантирует читаемость независимо от фона позади. Пустой список скрывается
+   целиком кодом (EnableInClassList("hidden", ...)), чтобы пустая пилюля не висела зря. */
 .stage-status-label {
     position: absolute;
     bottom: -4px;
     left: 50%;
     translate: -50% 0;
     font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background-color: rgba(10, 10, 14, 0.55);
     -unity-text-align: upper-center;
     -unity-text-outline-width: 1px;
-    -unity-text-outline-color: rgba(0, 0, 0, 0.75);
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
     white-space: normal;
 }
 
@@ -317,6 +326,42 @@ Label, Button {
 .item-compare-row {
     flex-direction: row;
     justify-content: space-between;
+}
+
+/* 7.2/8.2 [НОВОЕ]: презентация награды модальным окном поверх текущей сцены (обычно боя) —
+   сцена позади не исчезает, а темнеет под скримом, журнал забега (вне ContentArea) остаётся
+   поверх. Инсеты -16px компенсируют padding: 16px у .content-area (тот же приём, что и у
+   .combat-stage/.combat-background выше — покрыть реальный border box контейнера, а не оставить
+   рамку фона по краям). Fade/scale появления и исчезания анимируются кодом (RunFlowController). */
+.reward-overlay {
+    position: absolute;
+    left: -16px;
+    top: -16px;
+    right: -16px;
+    bottom: -16px;
+    align-items: center;
+    justify-content: center;
+}
+
+.reward-scrim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.72);
+}
+
+.reward-modal-card {
+    background-color: rgb(32, 30, 34);
+    border-radius: 10px;
+    border-width: 2px;
+    border-color: rgb(184, 142, 62);
+    padding: 20px;
+    min-width: 360px;
+    max-width: 480px;
+    align-items: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
 }
 
 .chest-reveal-container {

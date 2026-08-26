@@ -121,7 +121,9 @@ public class RunFlowController : MonoBehaviour
     Label merchantCurrencyLabel;
     VisualElement merchantOffersContainer;
 
-    // --- Награда ---
+    // --- Награда (7.2/8.2: модальное окно поверх текущей сцены, не отдельная ShowOnly-панель) ---
+    VisualElement rewardScrim;
+    VisualElement rewardModalCard;
     Label rewardText;
     Button rewardContinueButton;
 
@@ -244,6 +246,8 @@ public class RunFlowController : MonoBehaviour
         merchantCurrencyLabel = root.Q<Label>("MerchantCurrencyLabel");
         merchantOffersContainer = root.Q<VisualElement>("MerchantOffersContainer");
 
+        rewardScrim = root.Q<VisualElement>("RewardScrim");
+        rewardModalCard = root.Q<VisualElement>("RewardModalCard");
         rewardText = root.Q<Label>("RewardText");
         rewardContinueButton = root.Q<Button>("RewardContinueButton");
 
@@ -490,6 +494,10 @@ public class RunFlowController : MonoBehaviour
             yield break;
         }
 
+        // 8.2 (НОВОЕ): короткая пауза после победного удара — игрок успевает увидеть последний
+        // эффект/всплывающее число урона (см. 4.7) до того, как сцена начнёт темнеть под награду.
+        yield return new WaitForSeconds(0.45f);
+
         var levelsGained = characterManager.GrantExperience(rewardManager, isBoss ? ExperienceSource.Boss : ExperienceSource.CombatRoom, dungeonManager.CurrentFloorNumber);
         foreach (var _ in levelsGained)
         {
@@ -639,18 +647,20 @@ public class RunFlowController : MonoBehaviour
         }
     }
 
-    // 4.7: пастельные (не насыщенные) баф/дебафф-подписи — rich-text цвет прямо в тексте лейбла,
-    // отдельного лейбла на строку не нужно.
+    // 4.7 [ОБНОВЛЕНО]: средне-насыщенные (не пастель, не кислотные) баф/дебафф-подписи — rich-text
+    // цвет прямо в тексте лейбла, отдельного лейбла на строку не нужно. Пилюля-подложка (см. USS
+    // .stage-status-label) скрывается целиком, когда эффектов нет — иначе висела бы пустой фон.
     void UpdateStatusLabel(Label label, CombatantRuntime combatant)
     {
         var effects = CombatantStatusEffects.GetActiveEffects(combatant);
+        label.EnableInClassList("hidden", effects.Count == 0);
         if (effects.Count == 0)
         {
             label.text = string.Empty;
             return;
         }
 
-        label.text = string.Join("\n", effects.ConvertAll(e => $"<color={(e.isBuff ? "#A8E6A1" : "#E6A1A1")}>{e.label}</color>"));
+        label.text = string.Join("\n", effects.ConvertAll(e => $"<color={(e.isBuff ? "#7CD66B" : "#E2645F")}>{e.label}</color>"));
     }
 
     VisualElement FindStageWrapper(CombatantRuntime combatant)
@@ -682,23 +692,37 @@ public class RunFlowController : MonoBehaviour
         }
 
         string text = wasBlocked ? "БЛОК" : damageToHP.ToString("F0");
+        StartCoroutine(SpawnFloatingCombatText(wrapper, text, isCrit, wasBlocked));
+
+        if (!wasBlocked)
+        {
+            StartCoroutine(ShakeElement(wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
+        }
+    }
+
+    // 4.7 (НОВОЕ): небольшой случайный горизонтальный разброс точки появления + небольшая
+    // вариация времени появления — иначе несколько одновременных чисел (от пары монстров сразу,
+    // от "3 быстрых атак") сливаются в одну нечитаемую массу.
+    IEnumerator SpawnFloatingCombatText(VisualElement wrapper, string text, bool isCrit, bool isBlock)
+    {
+        yield return new WaitForSeconds(Random.Range(0f, 0.12f));
+
         var label = new Label(text);
         label.AddToClassList("floating-combat-text");
         if (isCrit)
         {
             label.AddToClassList("floating-combat-text-crit");
         }
-        else if (wasBlocked)
+        else if (isBlock)
         {
             label.AddToClassList("floating-combat-text-block");
         }
-        wrapper.Add(label);
-        StartCoroutine(FloatAndFadeOut(label));
 
-        if (!wasBlocked)
-        {
-            StartCoroutine(ShakeElement(wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
-        }
+        float horizontalJitterPercent = Random.Range(-14f, 14f);
+        label.style.left = new Length(50f + horizontalJitterPercent, LengthUnit.Percent);
+
+        wrapper.Add(label);
+        yield return FloatAndFadeOut(label);
     }
 
     IEnumerator FloatAndFadeOut(VisualElement label)
@@ -1194,7 +1218,9 @@ public class RunFlowController : MonoBehaviour
         int goldenTouchLevel = characterManager.Combatant.ItemGoldenTouchLevel;
         var reward = rewardManager.CalculateRewards(floorNumber, isBoss, characterManager.Level, luckLevel, currencyBonus, noCurrency, goldenTouchLevel);
 
-        ShowOnly(rewardPanel);
+        // 7.2/8.2 (НОВОЕ): модальное окно поверх текущей сцены — не ShowOnly, сцена позади (обычно
+        // бой) остаётся видна затемнённой, а не скрывается целиком.
+        yield return ShowRewardOverlay();
         // Баг (2026-08-26): описание награды из прошлой комнаты оставалось видимым поверх новой
         // анимации сундука (текст очищался только после ChestRevealFlow) — очищаем сразу, до тряски.
         rewardText.text = string.Empty;
@@ -1210,11 +1236,60 @@ public class RunFlowController : MonoBehaviour
         LogEvent($"[Награда] +{reward.Currency} валюты забега, {RarityLabel(reward.ItemRarity)} предмет{(reward.Item != null ? $" ({reward.Item.itemName})" : string.Empty)}{(reward.BonusReward ? ", + доп. награда (Удача)" : string.Empty)}.");
 
         yield return WaitForClick(rewardContinueButton);
+        yield return HideRewardOverlay();
 
         if (reward.Item != null)
         {
             yield return ItemCompareFlow(reward.Item);
         }
+    }
+
+    // 7.2/8.2 (НОВОЕ): скрим темнеет + модальная карточка появляется scale(0.9→1)+fade за ~0.3с —
+    // мягкое появление вместо резкого хлопка. RewardPanel сознательно не участвует в ShowOnly() —
+    // сцена позади (обычно бой) должна остаться видна затемнённой, а не исчезнуть.
+    IEnumerator ShowRewardOverlay()
+    {
+        const float duration = 0.3f;
+
+        rewardPanel.RemoveFromClassList("hidden");
+        rewardScrim.style.opacity = 0f;
+        rewardModalCard.style.opacity = 0f;
+        rewardModalCard.style.scale = new Scale(new Vector3(0.9f, 0.9f, 1f));
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.Clamp01(elapsed / duration);
+            rewardScrim.style.opacity = progress;
+            rewardModalCard.style.opacity = progress;
+            float scale = Mathf.Lerp(0.9f, 1f, progress);
+            rewardModalCard.style.scale = new Scale(new Vector3(scale, scale, 1f));
+            yield return null;
+        }
+
+        rewardScrim.style.opacity = 1f;
+        rewardModalCard.style.opacity = 1f;
+        rewardModalCard.style.scale = new Scale(Vector3.one);
+    }
+
+    IEnumerator HideRewardOverlay()
+    {
+        const float duration = 0.25f;
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = 1f - Mathf.Clamp01(elapsed / duration);
+            rewardScrim.style.opacity = progress;
+            rewardModalCard.style.opacity = progress;
+            yield return null;
+        }
+
+        rewardScrim.style.opacity = 0f;
+        rewardModalCard.style.opacity = 0f;
+        rewardPanel.AddToClassList("hidden");
     }
 
     // Число дополнительных "шумовых" иконок с каждого края ленты сверх видимых 20 слотов (8.2:
@@ -1576,7 +1651,11 @@ public class RunFlowController : MonoBehaviour
 
     void ShowOnly(VisualElement panelToShow)
     {
-        foreach (var panel in new[] { combatPanel, eventPopup, trapPopup, levelUpPanel, campPanel, merchantPanel, rewardPanel, itemComparePanel })
+        // RewardPanel (7.2/8.2) сознательно исключён — это не ShowOnly-переключаемая панель, а
+        // модальный оверлей поверх текущей сцены, видимостью которого управляют
+        // ShowRewardOverlay/HideRewardOverlay через класс "hidden", а не через style.display
+        // отсюда (иначе инлайновый display:none из этого метода забивал бы класс насовсем).
+        foreach (var panel in new[] { combatPanel, eventPopup, trapPopup, levelUpPanel, campPanel, merchantPanel, itemComparePanel })
         {
             panel.style.display = panel == panelToShow ? DisplayStyle.Flex : DisplayStyle.None;
         }
