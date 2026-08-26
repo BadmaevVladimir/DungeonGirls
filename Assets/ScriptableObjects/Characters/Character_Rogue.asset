@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1703b22eba2c29499f4fd300e671827, type: 3}
+  m_Name: Character_Rogue
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterData
+  characterName: "\u041F\u043B\u0443\u0442"
+  portrait: {fileID: 0}
+  characterClass: 2
+  baseHealth: 15
+  healthPerLevel: 15
+  uniquePassiveSkill: {fileID: 11400000, guid: fff0ceda1fdf1aa4c8ae8de0c5829c7f, type: 2}
+  uniqueActiveSkill: {fileID: 11400000, guid: a00c08f6ebd234e49b0ad7911e227980, type: 2}
+  startingEquipment:
+  - {fileID: 11400000, guid: f88efc33d99d1e14e9336c81de7cc0c8, type: 2}
+  - {fileID: 11400000, guid: 5688a6c85aa6f964f9594042f2242da0, type: 2}
+  - {fileID: 11400000, guid: 11d398a42648ce443b4b088c57deb4e3, type: 2}

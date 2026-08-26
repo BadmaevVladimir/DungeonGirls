@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c350a74c997f174b95013c19748ea00, type: 3}
+  m_Name: Item_TwoHandedAxe_Epic_Headsplitter
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemName: "\u0413\u043E\u043B\u043E\u0432\u043E\u0440\u0443\u0431"
+  icon: {fileID: 0}
+  slot: 3
+  weaponSubtype: 7
+  isTwoHanded: 1
+  tier: 2
+  itemLevel: 1
+  allowedClasses: 03000000
+  baseDamage: 44
+  damageType: 0
+  attackSpeed: 0.7
+  physicalDefense: 0
+  maxPhysicalDefenseBonus: 0
+  magicShieldBonus: 0
+  hpBonus: 0
+  rageBonusFlatPercent: 0
+  bonusStat:
+    type: 1
+    baseValue: 1.5
+  passiveSkill: {fileID: 11400000, guid: 33ad5d74eaca68b459f8a3bdfeb5311d, type: 2}

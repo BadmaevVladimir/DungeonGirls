@@ -356,6 +356,12 @@ public static class CombatantFactory
                 maxPhysicalDefenseBonus += item.EffectiveMaxDefenseBonus;
             }
 
+            // 3.11: маг. щит как ОСНОВНОЙ стат предмета (Капюшон/Кожанка Плута) — суммируется
+            // безусловно и независимо от BonusStatType.MagicShieldFlat ниже: у предмета может быть
+            // и то, и другое. У всех существующих предметов magicShieldBonus = 0, так что для них
+            // эта строка — no-op.
+            magicShield += item.MagicShieldEffective;
+
             if (item.bonusStat != null)
             {
                 float scaledBonus = item.bonusStat.baseValue * item.itemLevel;

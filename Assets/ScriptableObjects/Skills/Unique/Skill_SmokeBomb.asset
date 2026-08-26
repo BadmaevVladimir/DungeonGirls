@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 503f7c5e21a37e64fb68ef9f023b5215, type: 3}
+  m_Name: Skill_SmokeBomb
+  m_EditorClassIdentifier: Assembly-CSharp::ActiveSkillData
+  skillName: "\u0414\u044B\u043C\u043E\u0432\u0430\u044F \u0433\u0440\u0430\u043D\u0430\u0442\u0430"
+  effectDescription: "\u041A\u0414 10\u0441. \u0414\u0430\u0451\u0442 \u0421\u043A\u0440\u044B\u0442\u043D\u043E\u0441\u0442\u044C
+    \u043D\u0430 3\u0441. \u041F\u0435\u0440\u0432\u044B\u0435 N \u043E\u0431\u044B\u0447\u043D\u044B\u0445
+    \u0430\u0442\u0430\u043A \u2014 \u0433\u0430\u0440\u0430\u043D\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439
+    \u043A\u0440\u0438\u0442: 1\u0443\u0440=1, 2\u0443\u0440=2, 3\u0443\u0440=3."
+  maxLevel: 3
+  cooldownSeconds: 10
+  targetType: 0

@@ -47,7 +47,11 @@ public enum SkillCategory
     WarriorClass,
     Unique,
     ItemPassive,
-    MonsterPassive
+    MonsterPassive,
+    // 3.11: классовые пулы новых классов. Дописаны В КОНЕЦ намеренно — значения существующих
+    // элементов не сдвигаются, уже сериализованные ассеты не ломаются.
+    RogueClass,
+    BarbarianClass
 }
 
 public enum ActiveSkillTargetType

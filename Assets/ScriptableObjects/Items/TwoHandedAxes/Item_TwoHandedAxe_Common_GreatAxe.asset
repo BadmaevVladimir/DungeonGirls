@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c350a74c997f174b95013c19748ea00, type: 3}
+  m_Name: Item_TwoHandedAxe_Common_GreatAxe
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemName: "\u0414\u0432\u0443\u0440\u0443\u0447\u043D\u044B\u0439 \u0442\u043E\u043F\u043E\u0440"
+  icon: {fileID: 0}
+  slot: 3
+  weaponSubtype: 7
+  isTwoHanded: 1
+  tier: 0
+  itemLevel: 1
+  allowedClasses: 03000000
+  baseDamage: 20
+  damageType: 0
+  attackSpeed: 0.7
+  physicalDefense: 0
+  maxPhysicalDefenseBonus: 0
+  magicShieldBonus: 0
+  hpBonus: 0
+  rageBonusFlatPercent: 0
+  bonusStat:
+    type: 0
+    baseValue: 0
+  passiveSkill: {fileID: 0}

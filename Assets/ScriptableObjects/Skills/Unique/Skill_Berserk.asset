@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 503f7c5e21a37e64fb68ef9f023b5215, type: 3}
+  m_Name: Skill_Berserk
+  m_EditorClassIdentifier: Assembly-CSharp::ActiveSkillData
+  skillName: "\u0411\u0435\u0440\u0441\u0435\u0440\u043A"
+  effectDescription: "\u0420\u0443\u0447\u043D\u043E\u0439 \u0442\u0443\u043C\u0431\u043B\u0435\u0440.
+    \u0410\u043A\u0442\u0438\u0432\u0435\u043D: -1%HP/\u0441\u0435\u043A (\u043C\u0438\u043D.
+    1 HP), \u0444\u0438\u0437. \u0441\u043E\u043F\u0440\u043E\u0442\u0438\u0432\u043B\u0435\u043D\u0438\u0435
+    1\u0443\u0440=10%, 2\u0443\u0440=20%, 3\u0443\u0440=30%."
+  maxLevel: 3
+  cooldownSeconds: 0
+  targetType: 0
