@@ -7,9 +7,11 @@ public class CampManager : MonoBehaviour
 
     public int RationsRemaining { get; private set; }
 
-    public void BeginRun()
+    // 8.1 (ФИКС): Таверна ур.1/3 добавляет +5/+10 рационов сверх дунжевого бонуса — раньше
+    // RationsRemaining всегда сбрасывался на захардкоженные 5 вне зависимости от здания.
+    public void BeginRun(int tavernLevel = 0)
     {
-        RationsRemaining = StartingRations;
+        RationsRemaining = StartingRations + BuildingCatalog.TavernRationsBonus(tavernLevel);
     }
 
     public bool CanCamp => RationsRemaining > 0;
@@ -27,16 +29,22 @@ public class CampManager : MonoBehaviour
         RationsRemaining = Mathf.Max(0, RationsRemaining - 1);
 
         var combatant = characterManager.Combatant;
-        float healPercent = 0.5f * healMultiplier;
+        // 8.1 (ФИКС): Таверна ур.2/4 добавляет +10/+20 процентных пункта к базовым 50% (итого +30%
+        // на ур.4+) — раньше только базовые 50% × healMultiplier (событийный бонус/штраф) считались,
+        // здание не читалось вовсе.
+        float basePercent = 0.5f + BuildingCatalog.TavernCampHealBonusPercent(characterManager.TavernLevelThisRun) / 100f;
+        float healPercent = basePercent * healMultiplier;
         float hpBefore = combatant.CurrentHP;
         combatant.CurrentHP = Mathf.Min(combatant.MaxHP, combatant.CurrentHP + combatant.MaxHP * healPercent);
 
         float armorRestored = 0f;
         int fieldRepairLevel = characterManager.Progress.UniquePassiveLevel;
-        // "Ремонт" (3.10, Молот кузнеца): +1% за уровень предмета, складывается с "Полевым ремонтом".
+        // "Ремонт" (3.10, Молот кузнеца): +1% за уровень предмета, складывается с "Полевым ремонтом"
+        // и бонусом Кузницы ур.5 (8.1, ФИКС — раньше здание не читалось здесь вовсе).
         float itemRepairPercent = combatant.ItemRepairLevel * 1f;
         float fieldRepairPercent = fieldRepairLevel > 0 ? fieldRepairLevel * 10f : 0f; // "Полевой ремонт": 10/20/30/40/50%
-        float totalRepairPercent = fieldRepairPercent + itemRepairPercent;
+        float forgeRepairPercent = BuildingCatalog.ForgeCampArmorRestorePercent(characterManager.ForgeLevelThisRun);
+        float totalRepairPercent = fieldRepairPercent + itemRepairPercent + forgeRepairPercent;
         if (totalRepairPercent > 0f)
         {
             float clampedPercent = BalanceClamps.ClampArmorRestorePercent(totalRepairPercent);

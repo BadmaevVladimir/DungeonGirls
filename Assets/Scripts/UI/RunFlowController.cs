@@ -289,7 +289,7 @@ public class RunFlowController : MonoBehaviour
             LogEvent($"[Наставник] {mentorData.mentorName} передаёт «{(mentorData.mainPassiveSkill != null ? mentorData.mainPassiveSkill.skillName : "?")}»: +{mentorData.mainPassiveMagicDamageBonusPercent:F0}% магического урона.");
         }
 
-        campManager.BeginRun();
+        campManager.BeginRun(characterManager.TavernLevelThisRun);
         dungeonManager.SetRunState(RunState.RunSetup);
         dungeonManager.GenerateDungeon();
         dungeonManager.SetRunState(RunState.InFloor);

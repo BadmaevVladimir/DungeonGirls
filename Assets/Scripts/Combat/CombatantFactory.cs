@@ -10,7 +10,10 @@ public static class CombatantFactory
     // equipment == null: используется character.startingEquipment (стартовый лоадаут); иначе —
     // переданный список текущего снаряжения персонажа за забег (3.4, после эквипа новых предметов).
     // tavernLevel: 8.1 — Таверна ур.1 добавляет флэт-урон ко всем атакам оружия персонажа.
-    public static CombatantRuntime CreatePlayerCombatant(CharacterData character, int level, RunCharacterProgress progress = null, IReadOnlyList<ItemData> equipment = null, int tavernLevel = 0)
+    // forgeLevel/templeLevel: 8.1 (ФИКС) — Кузница ур.2/4 (+10/+20 брони), Храм ур.1/3
+    // (+10/+20 маг. щита). Раньше эти два здания не читались за пределами стартового снаряжения
+    // (Кузница) вовсе; см. BuildingCatalog.ForgeArmorBonus/TempleMagicShieldBonus.
+    public static CombatantRuntime CreatePlayerCombatant(CharacterData character, int level, RunCharacterProgress progress = null, IReadOnlyList<ItemData> equipment = null, int tavernLevel = 0, int forgeLevel = 0, int templeLevel = 0)
     {
         var runtime = new CombatantRuntime
         {
@@ -39,15 +42,22 @@ public static class CombatantFactory
             out int elusivenessLevel,
             out int goldenTouchLevel,
             out int toughSoleLevel,
-            out int repairLevel);
+            out int repairLevel,
+            out float flatHPBonus,
+            out float attackSpeedBonusPercent,
+            out float damageBonusPercent,
+            out float evasionBonusPercent);
 
         runtime.Weapons = weapons;
 
-        runtime.PhysicalDefenseMax = physicalDefense + maxPhysicalDefenseBonus;
+        runtime.MaxHP += flatHPBonus; // 3.10 (ФИКС): BonusStatType.FlatHP (кольца/аксессуары/броня)
+        runtime.CurrentHP = runtime.MaxHP;
+
+        runtime.PhysicalDefenseMax = physicalDefense + maxPhysicalDefenseBonus + BuildingCatalog.ForgeArmorBonus(forgeLevel);
         runtime.PhysicalDefenseCurrent = runtime.PhysicalDefenseMax;
 
-        runtime.MagicShieldMax = magicShield;
-        runtime.MagicShieldCurrent = magicShield;
+        runtime.MagicShieldMax = magicShield + BuildingCatalog.TempleMagicShieldBonus(templeLevel);
+        runtime.MagicShieldCurrent = runtime.MagicShieldMax;
 
         runtime.CritChanceBonusFromItems = critChanceBonus;
 
@@ -55,6 +65,10 @@ public static class CombatantFactory
         runtime.ItemGoldenTouchLevel = goldenTouchLevel;
         runtime.ItemToughSoleLevel = toughSoleLevel;
         runtime.ItemRepairLevel = repairLevel;
+
+        runtime.ItemAttackSpeedBonusPercent = attackSpeedBonusPercent;
+        runtime.ItemDamageBonusPercent = damageBonusPercent;
+        runtime.ItemEvasionBonusPercent = evasionBonusPercent;
 
         if (progress != null)
         {
@@ -229,7 +243,11 @@ public static class CombatantFactory
         out int elusivenessLevel,
         out int goldenTouchLevel,
         out int toughSoleLevel,
-        out int repairLevel)
+        out int repairLevel,
+        out float flatHPBonus,
+        out float attackSpeedBonusPercent,
+        out float damageBonusPercent,
+        out float evasionBonusPercent)
     {
         weapons = new List<WeaponAttackState>();
         physicalDefense = 0f;
@@ -240,10 +258,26 @@ public static class CombatantFactory
         goldenTouchLevel = 0;
         toughSoleLevel = 0;
         repairLevel = 0;
+        flatHPBonus = 0f;
+        attackSpeedBonusPercent = 0f;
+        damageBonusPercent = 0f;
+        evasionBonusPercent = 0f;
 
         if (items == null)
         {
             return;
+        }
+
+        // 3.10 (ФИКС): BonusStatType.WeaponDamageFlat (например Кольцо силы/Амулет мощи) — флэт-бонус
+        // урона оружия, суммируется по ВСЕМУ снаряжению до сборки weaponов, добавляется каждому
+        // оружию ниже (та же точка, что и tavernFlatDamage — оба флэт-бонуса ДО диапазона/брони).
+        float weaponDamageFlatBonus = 0f;
+        foreach (var item in items)
+        {
+            if (item != null && item.bonusStat != null && item.bonusStat.type == BonusStatType.WeaponDamageFlat)
+            {
+                weaponDamageFlatBonus += item.bonusStat.baseValue * item.itemLevel;
+            }
         }
 
         var realWeaponItems = new List<ItemData>();
@@ -277,11 +311,17 @@ public static class CombatantFactory
             }
 
             itemDamage += tavernFlatDamage; // 8.1: флэт-бонус Таверны, независимо от Кузницы
+            itemDamage += weaponDamageFlatBonus; // 3.10 (ФИКС): BonusStatType.WeaponDamageFlat
 
             // 3.2: фиксированный урон -> диапазон [ПОЛ(база×0.8); ОКРУГЛВВЕРХ(база×1.2)].
             DamageCalculator.ComputeDamageRange(itemDamage, out float damageMin, out float damageMax);
 
             string passiveName = item.passiveSkill != null ? item.passiveSkill.skillName : null;
+            // 3.10 (ФИКС): BonusStatType.ArmorPenetrationFlat ("Пробивание", Топор/Молот редкого+
+            // тира) раньше молча игнорировался — привязан к конкретному оружию, не суммируется.
+            float armorPenetrationFlat = item.bonusStat != null && item.bonusStat.type == BonusStatType.ArmorPenetrationFlat
+                ? item.bonusStat.baseValue * item.itemLevel
+                : 0f;
             weapons.Add(new WeaponAttackState
             {
                 DamageMin = damageMin,
@@ -290,7 +330,8 @@ public static class CombatantFactory
                 AttackSpeed = item.attackSpeed,
                 VampirismLevel = passiveName == SkillEffectMap.Vampirism ? item.itemLevel : 0,
                 ArmorBreakLevel = passiveName == SkillEffectMap.ArmorBreak ? item.itemLevel : 0,
-                PiercingLevel = passiveName == SkillEffectMap.Piercing ? item.itemLevel : 0
+                PiercingLevel = passiveName == SkillEffectMap.Piercing ? item.itemLevel : 0,
+                ArmorPenetrationFlat = armorPenetrationFlat
             });
 
             if (passiveName == SkillEffectMap.Repair)
@@ -315,14 +356,36 @@ public static class CombatantFactory
                 maxPhysicalDefenseBonus += item.EffectiveMaxDefenseBonus;
             }
 
-            if (item.bonusStat != null && item.bonusStat.type == BonusStatType.MagicShieldFlat)
+            if (item.bonusStat != null)
             {
-                magicShield += item.bonusStat.baseValue * item.itemLevel;
-            }
-
-            if (item.bonusStat != null && item.bonusStat.type == BonusStatType.CritChancePercent)
-            {
-                critChanceBonus += item.bonusStat.baseValue * item.itemLevel;
+                float scaledBonus = item.bonusStat.baseValue * item.itemLevel;
+                switch (item.bonusStat.type)
+                {
+                    case BonusStatType.MagicShieldFlat:
+                        magicShield += scaledBonus;
+                        break;
+                    case BonusStatType.CritChancePercent:
+                        critChanceBonus += scaledBonus;
+                        break;
+                    // 3.10 (ФИКС): следующие 5 типов раньше не имели ветки здесь вовсе и молча
+                    // игнорировались — затрагивает почти все кольца/аксессуары и часть Редких/
+                    // Эпических шлемов/сапог/оружия (см. Assets/ScriptableObjects/Items).
+                    case BonusStatType.MaxPhysicalDefenseFlat: // Кольцо/Амулет брони
+                        maxPhysicalDefenseBonus += scaledBonus;
+                        break;
+                    case BonusStatType.FlatHP: // Кольцо здоровья/Амулет живучести/HP-броня/HP-молот
+                        flatHPBonus += scaledBonus;
+                        break;
+                    case BonusStatType.AttackSpeedPercent: // Кольцо/Амулет скорости, сапоги/копья
+                        attackSpeedBonusPercent += scaledBonus;
+                        break;
+                    case BonusStatType.DamagePercent: // Стальной шлем/Корона Мидаса
+                        damageBonusPercent += scaledBonus;
+                        break;
+                    case BonusStatType.EvasionPercent: // Кольцо ловкости/Амулет проворства
+                        evasionBonusPercent += scaledBonus;
+                        break;
+                }
             }
 
             string passiveName = item.passiveSkill != null ? item.passiveSkill.skillName : null;

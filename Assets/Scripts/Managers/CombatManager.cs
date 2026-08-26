@@ -305,9 +305,10 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        // "Уклонение" + пассивка предмета "Неуловимость" (3.10, Эфирный доспех) — складываются:
+        // "Уклонение" + пассивка предмета "Неуловимость" (3.10, Эфирный доспех) + бонусный стат
+        // EvasionPercent (3.10 ФИКС, Кольцо ловкости/Амулет проворства — раньше игнорировался) — складываются:
         // шанс полностью проигнорировать атаку (любого типа урона).
-        float evadeChancePercent = target.SkillEvasionLevel * 5f + target.ItemElusivenessLevel * 1f + target.MonsterEvasionPercent; // 5/10/15/20/25% + 1%/уровень предмета + "Порхание" (2.4)
+        float evadeChancePercent = target.SkillEvasionLevel * 5f + target.ItemElusivenessLevel * 1f + target.MonsterEvasionPercent + target.ItemEvasionBonusPercent; // 5/10/15/20/25% + 1%/уровень предмета + "Порхание" (2.4)
         if (evadeChancePercent > 0f && Random.value * 100f < evadeChancePercent)
         {
             Log($"[Combat] {target.DisplayName} уклоняется от атаки {attacker.DisplayName}.");
@@ -328,6 +329,13 @@ public class CombatManager : MonoBehaviour
             damage *= 1f + attacker.SkillUnyieldingLevel * 0.05f; // 5/10/15/20/25%
         }
 
+        // 3.10 (ФИКС): бонусный стат DamagePercent (Стальной шлем/Корона Мидаса) — раньше
+        // игнорировался, не был подключён нигде.
+        if (attacker.ItemDamageBonusPercent > 0f)
+        {
+            damage *= 1f + attacker.ItemDamageBonusPercent / 100f;
+        }
+
         // "Критические атаки" + бонус крита с предметов, суммарно клампится на 75% (8.6).
         float critChancePercent = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems - attacker.CritChanceDebuffPercent; // 10/20/30/40/50% за уровень навыка - "Оглушающий крик" (2.4)
         critChancePercent = Mathf.Max(0f, critChancePercent);
@@ -338,7 +346,11 @@ public class CombatManager : MonoBehaviour
             damage *= 1.5f;
         }
 
-        var result = DamageCalculator.ApplyDamage(target, damage, weapon.DamageType);
+        // 3.10 (ФИКС): "Пробивание" (Топор/Молот редкого+ тира, BonusStatType.ArmorPenetrationFlat) —
+        // раньше игнорировалось. "Против бронированных целей урон считается на +N больше" — флэт-
+        // бонус к урону только для целей ПРОБИТИЯ брони, добавляется прямо перед проверкой брони.
+        float armorPenetrationDamage = weapon.DamageType == DamageType.Physical ? weapon.ArmorPenetrationFlat : 0f;
+        var result = DamageCalculator.ApplyDamage(target, damage + armorPenetrationDamage, weapon.DamageType);
 
         if (result.WasBlocked)
         {

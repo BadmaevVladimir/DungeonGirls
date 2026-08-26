@@ -27,12 +27,20 @@ public class CharacterManager : MonoBehaviour
     public int CurrentHP => Mathf.CeilToInt(Combatant != null ? Combatant.CurrentHP : 0f);
     public int Level => Progress != null ? Progress.Level : 1;
 
-    // 8.1: уровень Таверны на момент старта забега — здания не меняются посреди забега, поэтому
-    // достаточно прочитать его один раз в BeginRun и переиспользовать в RefreshCombatStats.
+    // 8.1 (ФИКС): уровни зданий на момент старта забега — здания не меняются посреди забега,
+    // поэтому достаточно прочитать их один раз в BeginRun и переиспользовать в RefreshCombatStats/
+    // на привале. Раньше только tavernLevelThisRun кэшировался и то использовался частично
+    // (только флэт-урон, не рационы/лечение); Кузница/Храм не читались за пределами стартового
+    // снаряжения вовсе.
     int tavernLevelThisRun;
+    int forgeLevelThisRun;
+    int templeLevelThisRun;
+    public int TavernLevelThisRun => tavernLevelThisRun;
+    public int ForgeLevelThisRun => forgeLevelThisRun;
+    public int TempleLevelThisRun => templeLevelThisRun;
 
     // equipmentManager/saveManager опциональны (могут быть null, напр. в тестах) — тогда бонусы
-    // от Кузницы/Таверны/гачи (3.5/8.1) не применяются, персонаж стартует с базовым лоадаутом.
+    // от Кузницы/Таверны/Храма/гачи (3.5/8.1) не применяются, персонаж стартует с базовым лоадаутом.
     public void BeginRun(CharacterData character, EquipmentManager equipmentManager = null, SaveManager saveManager = null)
     {
         Character = character;
@@ -41,12 +49,13 @@ public class CharacterManager : MonoBehaviour
         RunCurrency = 0;
         RoomsClearedThisRun = 0;
         tavernLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Tavern) : 0;
+        forgeLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Forge) : 0;
+        templeLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Temple) : 0;
 
         if (equipmentManager != null)
         {
-            int forgeLevel = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Forge) : 0;
             int copyCount = saveManager != null ? saveManager.GetCharacterCopies(character.characterName) : 0;
-            EquippedItems = equipmentManager.GetEffectiveStartingEquipment(character, forgeLevel, copyCount);
+            EquippedItems = equipmentManager.GetEffectiveStartingEquipment(character, forgeLevelThisRun, copyCount);
             Progress.ApplyGachaStartingBonus(GachaCopyBonusCalculator.CalculateBonus(copyCount));
         }
         else
@@ -54,7 +63,7 @@ public class CharacterManager : MonoBehaviour
             EquippedItems = new List<ItemData>(character.startingEquipment ?? new ItemData[0]);
         }
 
-        Combatant = CombatantFactory.CreatePlayerCombatant(character, Progress.Level, Progress, EquippedItems, tavernLevelThisRun);
+        Combatant = CombatantFactory.CreatePlayerCombatant(character, Progress.Level, Progress, EquippedItems, tavernLevelThisRun, forgeLevelThisRun, templeLevelThisRun);
     }
 
     public void BeginFloor()
@@ -139,7 +148,7 @@ public class CharacterManager : MonoBehaviour
         float oldDefenseMax = Combatant.PhysicalDefenseMax;
         float oldDefenseCurrent = Combatant.PhysicalDefenseCurrent;
 
-        var rebuilt = CombatantFactory.CreatePlayerCombatant(Character, Progress.Level, Progress, EquippedItems, tavernLevelThisRun);
+        var rebuilt = CombatantFactory.CreatePlayerCombatant(Character, Progress.Level, Progress, EquippedItems, tavernLevelThisRun, forgeLevelThisRun, templeLevelThisRun);
 
         rebuilt.CurrentHP = Mathf.Clamp(oldCurrentHP + (rebuilt.MaxHP - oldMaxHP), 0f, rebuilt.MaxHP);
         rebuilt.PhysicalDefenseCurrent = Mathf.Clamp(oldDefenseCurrent + (rebuilt.PhysicalDefenseMax - oldDefenseMax), 0f, rebuilt.PhysicalDefenseMax);

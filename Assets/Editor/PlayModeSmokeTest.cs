@@ -163,6 +163,100 @@ public static class PlayModeSmokeTest
         Check(sword.EffectiveDefense == 0f, $"3.10 защита от нуля не масштабируется: {sword.EffectiveDefense} (ожидалось 0)");
         UnityEngine.Object.DestroyImmediate(sword);
 
+        // 3.10 (ФИКС, 2026-08-26): бонусные статы предметов (BonusStatType) — раньше только
+        // MagicShieldFlat/CritChancePercent реально считались в CombatantFactory, остальные 7 типов
+        // (почти все кольца/аксессуары + часть Редких/Эпических шлемов/сапог/оружия) молча
+        // игнорировались. Проверяем каждый тип по отдельности на синтетическом снаряжении.
+        var bonusTestCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        bonusTestCharacter.baseHealth = 100;
+
+        var hpRing = ScriptableObject.CreateInstance<ItemData>();
+        hpRing.slot = EquipmentSlot.Ring;
+        hpRing.itemLevel = 2;
+        hpRing.bonusStat = new BonusStat { type = BonusStatType.FlatHP, baseValue = 15f };
+
+        var armorRing = ScriptableObject.CreateInstance<ItemData>();
+        armorRing.slot = EquipmentSlot.Ring;
+        armorRing.itemLevel = 1;
+        armorRing.bonusStat = new BonusStat { type = BonusStatType.MaxPhysicalDefenseFlat, baseValue = 8f };
+
+        var speedBoots = ScriptableObject.CreateInstance<ItemData>();
+        speedBoots.slot = EquipmentSlot.Boots;
+        speedBoots.itemLevel = 1;
+        speedBoots.bonusStat = new BonusStat { type = BonusStatType.AttackSpeedPercent, baseValue = 10f };
+
+        var damageHelmet = ScriptableObject.CreateInstance<ItemData>();
+        damageHelmet.slot = EquipmentSlot.Helmet;
+        damageHelmet.itemLevel = 1;
+        damageHelmet.bonusStat = new BonusStat { type = BonusStatType.DamagePercent, baseValue = 5f };
+
+        var evasionAccessory = ScriptableObject.CreateInstance<ItemData>();
+        evasionAccessory.slot = EquipmentSlot.Accessory;
+        evasionAccessory.itemLevel = 1;
+        evasionAccessory.bonusStat = new BonusStat { type = BonusStatType.EvasionPercent, baseValue = 8f };
+
+        var mightRing = ScriptableObject.CreateInstance<ItemData>();
+        mightRing.slot = EquipmentSlot.Ring;
+        mightRing.itemLevel = 1;
+        mightRing.bonusStat = new BonusStat { type = BonusStatType.WeaponDamageFlat, baseValue = 2f };
+
+        var pierceAxe = ScriptableObject.CreateInstance<ItemData>();
+        pierceAxe.slot = EquipmentSlot.Weapon;
+        pierceAxe.weaponSubtype = WeaponSubtype.Axe;
+        pierceAxe.baseDamage = 10f;
+        pierceAxe.attackSpeed = 1f;
+        pierceAxe.itemLevel = 1;
+        pierceAxe.bonusStat = new BonusStat { type = BonusStatType.ArmorPenetrationFlat, baseValue = 1f };
+
+        var bonusTestEquipment = new List<ItemData> { hpRing, armorRing, speedBoots, damageHelmet, evasionAccessory, mightRing, pierceAxe };
+        var bonusTestRuntime = CombatantFactory.CreatePlayerCombatant(bonusTestCharacter, 1, null, bonusTestEquipment);
+
+        Check(bonusTestRuntime.MaxHP == 130f, $"3.10 FlatHP от кольца (баз.15, ур.2): MaxHP={bonusTestRuntime.MaxHP} (ожидалось 130 = 100+15×2)");
+        Check(bonusTestRuntime.PhysicalDefenseMax == 8f, $"3.10 MaxPhysicalDefenseFlat от кольца: PhysicalDefenseMax={bonusTestRuntime.PhysicalDefenseMax} (ожидалось 8)");
+        Check(bonusTestRuntime.ItemAttackSpeedBonusPercent == 10f, $"3.10 AttackSpeedPercent от сапог: {bonusTestRuntime.ItemAttackSpeedBonusPercent} (ожидалось 10)");
+        Check(bonusTestRuntime.ItemDamageBonusPercent == 5f, $"3.10 DamagePercent от шлема: {bonusTestRuntime.ItemDamageBonusPercent} (ожидалось 5)");
+        Check(bonusTestRuntime.ItemEvasionBonusPercent == 8f, $"3.10 EvasionPercent от аксессуара: {bonusTestRuntime.ItemEvasionBonusPercent} (ожидалось 8)");
+        Check(bonusTestRuntime.Weapons.Count == 1 && bonusTestRuntime.Weapons[0].ArmorPenetrationFlat == 1f,
+            $"3.10 ArmorPenetrationFlat привязан к оружию (Топор): {(bonusTestRuntime.Weapons.Count > 0 ? bonusTestRuntime.Weapons[0].ArmorPenetrationFlat.ToString() : "нет оружия")} (ожидалось 1)");
+        // WeaponDamageFlat: базовый урон топора 10 + WeaponDamageFlat(2) = 12 -> диапазон [floor(12*0.8); ceil(12*1.2)] = [9;15].
+        Check(bonusTestRuntime.Weapons.Count == 1 && bonusTestRuntime.Weapons[0].DamageMin == 9f && bonusTestRuntime.Weapons[0].DamageMax == 15f,
+            $"3.10 WeaponDamageFlat от кольца силы: диапазон {(bonusTestRuntime.Weapons.Count > 0 ? $"{bonusTestRuntime.Weapons[0].DamageMin}-{bonusTestRuntime.Weapons[0].DamageMax}" : "нет оружия")} (ожидалось 9-15)");
+
+        foreach (var item in bonusTestEquipment) UnityEngine.Object.DestroyImmediate(item);
+        UnityEngine.Object.DestroyImmediate(bonusTestCharacter);
+
+        // 8.1 (ФИКС, 2026-08-26): бонусы зданий деревни по уровням — раньше только Кузница ур.1/3
+        // (стартовое снаряжение) и Таверна ур.1 (флэт-урон) реально считались, остальные 6 из 8
+        // численных бонусов были только текстом в BuildingCatalog.LevelBonuses без эффекта.
+        Check(BuildingCatalog.ForgeArmorBonus(1) == 0f && BuildingCatalog.ForgeArmorBonus(2) == 10f && BuildingCatalog.ForgeArmorBonus(4) == 30f,
+            $"8.1 Кузница ур.2/4 (+10/+20 брони): ур.1={BuildingCatalog.ForgeArmorBonus(1)}, ур.2={BuildingCatalog.ForgeArmorBonus(2)}, ур.4={BuildingCatalog.ForgeArmorBonus(4)} (ожидалось 0/10/30)");
+        Check(BuildingCatalog.ForgeCampArmorRestorePercent(4) == 0f && BuildingCatalog.ForgeCampArmorRestorePercent(5) == 50f,
+            $"8.1 Кузница ур.5 (50% брони на привале): ур.4={BuildingCatalog.ForgeCampArmorRestorePercent(4)}, ур.5={BuildingCatalog.ForgeCampArmorRestorePercent(5)} (ожидалось 0/50)");
+        Check(BuildingCatalog.TempleMagicShieldBonus(1) == 10f && BuildingCatalog.TempleMagicShieldBonus(3) == 30f,
+            $"8.1 Храм ур.1/3 (+10/+20 маг.щита): ур.1={BuildingCatalog.TempleMagicShieldBonus(1)}, ур.3={BuildingCatalog.TempleMagicShieldBonus(3)} (ожидалось 10/30)");
+        Check(BuildingCatalog.TavernRationsBonus(1) == 5 && BuildingCatalog.TavernRationsBonus(3) == 10,
+            $"8.1 Таверна ур.1/3 (+5/+10 рационов): ур.1={BuildingCatalog.TavernRationsBonus(1)}, ур.3={BuildingCatalog.TavernRationsBonus(3)} (ожидалось 5/10)");
+        Check(BuildingCatalog.TavernCampHealBonusPercent(2) == 10f && BuildingCatalog.TavernCampHealBonusPercent(4) == 30f,
+            $"8.1 Таверна ур.2/4 (+10/+20% лечения): ур.2={BuildingCatalog.TavernCampHealBonusPercent(2)}, ур.4={BuildingCatalog.TavernCampHealBonusPercent(4)} (ожидалось 10/30)");
+
+        // 8.1 (ФИКС): CampManager.BeginRun реально прибавляет рационы Таверны, а не всегда сбрасывает
+        // на захардкоженные 5 (StartingRations).
+        var campBuildingTestGO = new GameObject("SmokeTest_CampBuildingBonus");
+        var campBuildingTestManager = campBuildingTestGO.AddComponent<CampManager>();
+        campBuildingTestManager.BeginRun(3); // Таверна ур.3 -> +10 рационов
+        Check(campBuildingTestManager.RationsRemaining == CampManager.StartingRations + 10,
+            $"8.1 CampManager.BeginRun(3) учитывает бонус Таверны: RationsRemaining={campBuildingTestManager.RationsRemaining} (ожидалось {CampManager.StartingRations + 10})");
+        UnityEngine.Object.DestroyImmediate(campBuildingTestGO);
+
+        // 8.1 (ФИКС): CombatantFactory.CreatePlayerCombatant реально прибавляет броню Кузницы/маг.
+        // щит Храма — раньше forgeLevel/templeLevel не принимались этим методом вовсе.
+        var buildingStatsCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        buildingStatsCharacter.baseHealth = 50;
+        var buildingStatsRuntime = CombatantFactory.CreatePlayerCombatant(buildingStatsCharacter, 1, null, null, 0, 4, 3);
+        Check(buildingStatsRuntime.PhysicalDefenseMax == 30f, $"8.1 Кузница ур.4 добавляет броню в CreatePlayerCombatant: PhysicalDefenseMax={buildingStatsRuntime.PhysicalDefenseMax} (ожидалось 30)");
+        Check(buildingStatsRuntime.MagicShieldMax == 30f, $"8.1 Храм ур.3 добавляет маг.щит в CreatePlayerCombatant: MagicShieldMax={buildingStatsRuntime.MagicShieldMax} (ожидалось 30)");
+        UnityEngine.Object.DestroyImmediate(buildingStatsCharacter);
+
         // 2.1: длина подземелья в этажах
         Check(DungeonManager.TotalFloors == 10, $"2.1 этажей в подземелье: {DungeonManager.TotalFloors} (ожидалось 10)");
 

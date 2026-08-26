@@ -15,4 +15,11 @@ public class WeaponAttackState
     public int VampirismLevel;
     public int ArmorBreakLevel;
     public int PiercingLevel;
+
+    // 3.10 (ФИКС): "Пробивание" — бонусный стат (BonusStatType.ArmorPenetrationFlat) Топора/Молота
+    // редкого+ тира, привязан к конкретному оружию (в отличие от прочих бонусных статов —
+    // сумма по всему снаряжению, см. CombatantRuntime.ItemAttackSpeedBonusPercent и соседние).
+    // "Против бронированных целей урон считается на +N больше" — добавляется к урону этого
+    // оружия перед проверкой брони в DamageCalculator (см. CombatManager.ResolveAttack).
+    public float ArmorPenetrationFlat;
 }

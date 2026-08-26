@@ -66,4 +66,53 @@ public static class BuildingCatalog
     // +5 рационов. Складывается с базовым уроном ДО расчёта диапазона/брони (см.
     // CombatantFactory.AggregateEquipmentStats), независимо от бонуса Кузницы.
     public static float TavernFlatDamageBonus(int tavernLevel) => tavernLevel >= 1 ? 1f : 0f;
+
+    // 8.1 (ФИКС): раньше только текст в LevelBonuses выше и флэт-урон Таверны (ур.1) реально
+    // применялись в геймплей — остальные 6 из 8 численных бонусов зданий были только описанием,
+    // без эффекта. Ур.2/4 Храма (снижение дебаффов этажей) и ур.5 Храма (перезапуск забега) сюда
+    // не входят — первое блокируется отсутствием самой механики дебаффов этажей (см. GDD 2.5,
+    // не реализовано), второе требует отдельного потока управления забегом (retry-flow), не просто
+    // числового бонуса — оба вне скоупа этого фикса.
+
+    // Кузница ур.2/4: +10/+20 физической защиты (складывается, итого +30 на ур.4+).
+    public static float ForgeArmorBonus(int forgeLevel)
+    {
+        float bonus = 0f;
+        if (forgeLevel >= 2) bonus += 10f;
+        if (forgeLevel >= 4) bonus += 20f;
+        return bonus;
+    }
+
+    // Кузница ур.5: восстанавливает 50% брони на привале — складывается с "Полевым ремонтом"/
+    // предметной пассивкой "Ремонт" в CampManager.RestAtCamp (тот же клампящийся totalRepairPercent).
+    public static float ForgeCampArmorRestorePercent(int forgeLevel) => forgeLevel >= 5 ? 50f : 0f;
+
+    // Храм ур.1/3: +10/+20 магического щита (складывается, итого +30 на ур.3+).
+    public static float TempleMagicShieldBonus(int templeLevel)
+    {
+        float bonus = 0f;
+        if (templeLevel >= 1) bonus += 10f;
+        if (templeLevel >= 3) bonus += 20f;
+        return bonus;
+    }
+
+    // Таверна ур.1/3: +5/+10 рационов на забег (складывается с базовыми рационами подземелья,
+    // см. CampManager.StartingRations).
+    public static int TavernRationsBonus(int tavernLevel)
+    {
+        int bonus = 0;
+        if (tavernLevel >= 1) bonus += 5;
+        if (tavernLevel >= 3) bonus += 5;
+        return bonus;
+    }
+
+    // Таверна ур.2/4: +10/+20% восстановления здоровья на привале (складывается с базовыми 50%,
+    // итого +30% на ур.4+) — процентные пункты, см. CampManager.RestAtCamp.
+    public static float TavernCampHealBonusPercent(int tavernLevel)
+    {
+        float bonus = 0f;
+        if (tavernLevel >= 2) bonus += 10f;
+        if (tavernLevel >= 4) bonus += 20f;
+        return bonus;
+    }
 }

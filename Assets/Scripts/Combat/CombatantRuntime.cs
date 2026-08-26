@@ -55,6 +55,14 @@ public class CombatantRuntime
     // Суммарный бонус к шансу крита от предметов (оружие/кольца/аксессуары), уже с учётом уровня предмета.
     public float CritChanceBonusFromItems;
 
+    // 3.10 (ФИКС): остальные бонусные статы предметов (BonusStatType), раньше молча игнорировались
+    // в CombatantFactory.AggregateEquipmentStats — только MagicShieldFlat/CritChancePercent реально
+    // считались, семь остальных значений висели в ассетах предметов без эффекта. Суммарно по всему
+    // снаряжению, с учётом уровня предмета (см. CombatantFactory).
+    public float ItemAttackSpeedBonusPercent; // AttackSpeedPercent — множитель к GetEffectiveAttackSpeed
+    public float ItemDamageBonusPercent; // DamagePercent — множитель к урону атаки (CombatManager.ResolveAttack)
+    public float ItemEvasionBonusPercent; // EvasionPercent — складывается в общую формулу уклонения
+
     // 3.10: пассивки эпических предметов, не привязанные к конкретному оружию (0 = нет предмета
     // с этой пассивкой). Значение — уровень ПРЕДМЕТА. Вампиризм/Разрушение брони/Насквозь —
     // per-weapon поля на WeaponAttackState (см. выше), т.к. привязаны к конкретному оружию.
@@ -117,6 +125,7 @@ public class CombatantRuntime
         }
 
         multiplier *= Mathf.Max(0.01f, 1f - FreezeStacks * 0.05f);
+        multiplier *= 1f + ItemAttackSpeedBonusPercent / 100f; // 3.10 (ФИКС): AttackSpeedPercent от снаряжения
         return Mathf.Max(0.01f, weapon.AttackSpeed * multiplier);
     }
 
