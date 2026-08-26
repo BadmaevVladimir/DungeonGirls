@@ -668,6 +668,43 @@ git commit -m "Generate Rogue/Barbarian content assets: 18 items, 5 item-passive
 
 ---
 
+## Task 3c: Wire class skill pools into LevelUpManager (plan gap found during Task 3 review)
+
+**Why this task exists:** Task 3's implementer discovered that `LevelUpManager`'s per-class skill pool selection is hardcoded to Warrior only — none of the 10 new class skills (5 Rogue, 5 Barbarian) generated in Task 3 would ever appear on a level-up card for a Rogue/Barbarian character, even after Tasks 4-5 build their combat behavior. This is load-bearing (defeats the plan's purpose) and no other task covers it — added via controller ruling, ledgered.
+
+**Files:**
+- Modify: `Assets/Scripts/Managers/LevelUpManager.cs`
+- Modify: `Assets/Scripts/UI/RunFlowController.cs` (wherever `levelUpManager.WarriorSkillPool = warriorSkillPool;` is currently set — the equivalent Rogue/Barbarian wiring needs the same treatment, gated so only the ACTIVE character's own class pool is exposed, matching how Warrior's pool already only matters for a Warrior character)
+- Test: `Assets/Editor/PlayModeSmokeTest.cs`
+
+**Interfaces:**
+- Consumes: the 10 `PassiveSkillData` assets from Task 3 (`Assets/ScriptableObjects/Skills/Rogue/*.asset`, `Assets/ScriptableObjects/Skills/Barbarian/*.asset`), `CharacterData.characterClass` (existing field).
+
+- [ ] **Step 1: Read the current class-pool selection logic before changing anything**
+
+Read `Assets/Scripts/Managers/LevelUpManager.cs` in full. It already has a `WarriorSkillPool` (and `GeneralSkillPool`/`MentorSkillPool`) — find exactly how `GenerateLevelUpOptions` decides which class-specific pool to mix in (likely a check against `progress.Character.characterClass == CharacterClass.Warrior` or similar). Read `RunFlowController.cs` around the line that sets `levelUpManager.WarriorSkillPool = warriorSkillPool;` (search for that exact assignment) to see how the Inspector-exposed list is populated from scene wiring.
+
+- [ ] **Step 2: Add RogueSkillPool/BarbarianSkillPool fields and wire class-conditional selection**
+
+In `LevelUpManager.cs`, add `public List<PassiveSkillData> RogueSkillPool = new List<PassiveSkillData>();` and `public List<PassiveSkillData> BarbarianSkillPool = new List<PassiveSkillData>();` alongside the existing `WarriorSkillPool`. In whatever method currently does `if (progress.Character.characterClass == CharacterClass.Warrior) { pool.AddRange(WarriorSkillPool); }` (read the real code first — this is illustrative), add the symmetric two branches for `CharacterClass.Rogue`/`CharacterClass.Barbarian`.
+
+- [ ] **Step 3: Wire the two new pools in RunFlowController**
+
+Near the existing `levelUpManager.WarriorSkillPool = warriorSkillPool;` line, add two new `[SerializeField] List<PassiveSkillData> rogueSkillPool;`/`barbarianSkillPool;` fields (matching the existing `warriorSkillPool` field's declaration style exactly) and the corresponding `levelUpManager.RogueSkillPool = rogueSkillPool;`/`levelUpManager.BarbarianSkillPool = barbarianSkillPool;` assignments. **These new Inspector fields will be EMPTY in the scene** (no scene-YAML wiring in this task — that requires hand-editing `SampleScene.unity`'s serialized RunFlowController component to reference the 5 Rogue/5 Barbarian skill assets by GUID, which needs the exact GUIDs Task 3's generator assigned; read `Assets/ScriptableObjects/Skills/Rogue/*.asset.meta`/`Barbarian/*.asset.meta` for their `guid:` values and add the scene YAML entries the same way `warriorSkillPool` is already wired there — copy that entry's exact YAML shape with the new GUIDs substituted). Do not skip the scene wiring — an empty pool list means the whole task accomplishes nothing at runtime even though the code compiles.
+
+- [ ] **Step 4: Smoke-test coverage**
+
+Add a check that builds a `LevelUpManager`, sets `RogueSkillPool`/`BarbarianSkillPool` to small fake lists (same pattern as the existing `testLevelUpManager.MentorSkillPool = new List<PassiveSkillData> { fakeMentorSkill };` mentor-pool smoke test), constructs a `RunCharacterProgress` for a Rogue-class `CharacterData` and a Barbarian-class one, calls `GenerateLevelUpOptions` for each, and asserts the class-specific fake skill appears in the Rogue run's options and NOT in the Barbarian run's options (and vice versa) — proving the class gate actually discriminates, not just that both lists exist.
+
+- [ ] **Step 5: Run full smoke test, verify pass, commit**
+
+```bash
+git add Assets/Scripts/Managers/LevelUpManager.cs Assets/Scripts/UI/RunFlowController.cs Assets/Scenes/SampleScene.unity Assets/Editor/PlayModeSmokeTest.cs
+git commit -m "Wire Rogue/Barbarian class skill pools into LevelUpManager (plan gap found during Task 3 review, GDD 3.11)"
+```
+
+---
+
 ## Task 4: Rogue combat behavior — Stealth, class skills, unique passive/active
 
 **Files:**
