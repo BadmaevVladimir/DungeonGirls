@@ -97,6 +97,20 @@ public class CharacterManager : MonoBehaviour
     // склада/хранилища в прототипе нет).
     public void EquipItem(ItemData newItem, ItemData replacing)
     {
+        if (newItem.isTwoHanded)
+        {
+            // 3.4 исключение (Варвар, Двуручное оружие): оба текущих предмета в слотах оружия/рук
+            // заменяются одновременно, а не по одному, как в обычной логике сравнения слотов.
+            var currentWeapons = EquippedItems.FindAll(i => i != null && i.slot == EquipmentSlot.Weapon);
+            foreach (var current in currentWeapons)
+            {
+                EquippedItems.Remove(current);
+            }
+            EquippedItems.Add(newItem);
+            RefreshCombatStats();
+            return;
+        }
+
         if (replacing != null)
         {
             EquippedItems.Remove(replacing);

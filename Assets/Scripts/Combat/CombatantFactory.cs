@@ -351,7 +351,11 @@ public static class CombatantFactory
         foreach (var item in realWeaponItems)
         {
             float itemDamage = item.EffectiveDamage; // 3.10: основной стат уже с бонусом уровня
-            if (isDualWielding)
+            // 3.11 (Плут, Клинок): Клинок никогда не получает штраф/бонус дуал-вилда — ни как
+            // основное, ни как второе оружие. Проверка по конкретному предмету (не глобальный флаг),
+            // поэтому Клинок+Клинок = оба 100%, Клинок+Меч = Клинок 100%/Меч со штрафом, Меч+Меч —
+            // штраф обоим как раньше.
+            if (isDualWielding && item.weaponSubtype != WeaponSubtype.Blade)
             {
                 itemDamage *= dualWieldMultiplier;
             }
@@ -368,6 +372,15 @@ public static class CombatantFactory
             float armorPenetrationFlat = item.bonusStat != null && item.bonusStat.type == BonusStatType.ArmorPenetrationFlat
                 ? item.bonusStat.baseValue * item.itemLevel
                 : 0f;
+            // 3.11 (Плут, Клинок): BonusStatType.ArmorIgnorePercent ("Зазубренный клинок"/"Моменто
+            // Мори", Редкий+/Эпик тир Клинка) — ранее не имел ветки здесь вовсе и молча
+            // игнорировался (в отличие от ArmorPenetrationFlat выше, который принадлежит другому,
+            // не связанному типу бонуса — Топор/Молот). WeaponAttackState.ArmorIgnorePercent и
+            // потребление в CombatManager/DamageCalculator уже существуют с Task 1/2 — здесь
+            // единственное недостающее звено, заполняющее поле из данных предмета.
+            float armorIgnorePercent = item.bonusStat != null && item.bonusStat.type == BonusStatType.ArmorIgnorePercent
+                ? item.bonusStat.baseValue * item.itemLevel
+                : 0f;
             weapons.Add(new WeaponAttackState
             {
                 DamageMin = damageMin,
@@ -377,7 +390,8 @@ public static class CombatantFactory
                 VampirismLevel = passiveName == SkillEffectMap.Vampirism ? item.itemLevel : 0,
                 ArmorBreakLevel = passiveName == SkillEffectMap.ArmorBreak ? item.itemLevel : 0,
                 PiercingLevel = passiveName == SkillEffectMap.Piercing ? item.itemLevel : 0,
-                ArmorPenetrationFlat = armorPenetrationFlat
+                ArmorPenetrationFlat = armorPenetrationFlat,
+                ArmorIgnorePercent = armorIgnorePercent
             });
 
             if (passiveName == SkillEffectMap.Repair)

@@ -508,6 +508,114 @@ public static class PlayModeSmokeTest
         Check(floorGap21x9 / 900f > 0.04f && floorGap21x9 / 900f < 0.08f, $"7.2/10.6 отступ пола на 21:9: {floorGap21x9:F1}px ({floorGap21x9 / 900f:P1} высоты, ожидалось ~6.25%)");
         Check(floorGap21x9 < floorGap16x9, $"7.2/10.6 отступ пола уменьшается на более широких экранах: 16:9={floorGap16x9:F1}px, 21:9={floorGap21x9:F1}px");
 
+        // 3.11 (Варвар, Task 6): двуручное оружие при экипировке заменяет ОБА текущих предмета в
+        // слотах оружия/рук одновременно (CharacterManager.EquipItem-исключение), а не по одному,
+        // как в обычной логике сравнения слотов.
+        var twoHandedTestGO = new GameObject("SmokeTest_TwoHandedEquip");
+        var twoHandedCharacterManager = twoHandedTestGO.AddComponent<CharacterManager>();
+        var twoHandedCharacter = ScriptableObject.CreateInstance<CharacterData>();
+
+        var startingSword = ScriptableObject.CreateInstance<ItemData>();
+        startingSword.itemName = "TestSword";
+        startingSword.slot = EquipmentSlot.Weapon;
+        startingSword.weaponSubtype = WeaponSubtype.Sword;
+        startingSword.baseDamage = 10f;
+        startingSword.attackSpeed = 1f;
+
+        var startingShield = ScriptableObject.CreateInstance<ItemData>();
+        startingShield.itemName = "TestShield";
+        startingShield.slot = EquipmentSlot.Weapon;
+        startingShield.weaponSubtype = WeaponSubtype.Shield;
+        startingShield.physicalDefense = 0f;
+
+        twoHandedCharacter.startingEquipment = new[] { startingSword, startingShield };
+        twoHandedCharacterManager.BeginRun(twoHandedCharacter);
+
+        var twoHandedAxe = ScriptableObject.CreateInstance<ItemData>();
+        twoHandedAxe.itemName = "TestTwoHandedAxe";
+        twoHandedAxe.slot = EquipmentSlot.Weapon;
+        twoHandedAxe.weaponSubtype = WeaponSubtype.TwoHandedAxe;
+        twoHandedAxe.isTwoHanded = true;
+        twoHandedAxe.baseDamage = 30f;
+        twoHandedAxe.attackSpeed = 0.8f;
+
+        // Клик по любому кандидату (передаём startingSword как "replacing") всё равно должен снести
+        // ОБА текущих оружия — EquipItem игнорирует конкретный replacing для isTwoHanded=true.
+        twoHandedCharacterManager.EquipItem(twoHandedAxe, startingSword);
+
+        var equippedAfterTwoHanded = twoHandedCharacterManager.EquippedItems;
+        Check(equippedAfterTwoHanded.Count == 1 && equippedAfterTwoHanded[0] == twoHandedAxe,
+            $"3.11 Двуручное оружие заменяет ОБА слота оружия/рук сразу: EquippedItems.Count={equippedAfterTwoHanded.Count}" +
+            (equippedAfterTwoHanded.Count == 1 ? $", содержит={equippedAfterTwoHanded[0].itemName}" : string.Empty) +
+            " (ожидалось 1 предмет = только топор, ни меч, ни щит не остались)");
+
+        UnityEngine.Object.DestroyImmediate(twoHandedTestGO);
+        UnityEngine.Object.DestroyImmediate(twoHandedCharacter);
+        UnityEngine.Object.DestroyImmediate(startingSword);
+        UnityEngine.Object.DestroyImmediate(startingShield);
+        UnityEngine.Object.DestroyImmediate(twoHandedAxe);
+
+        // 3.11 (Плут, Task 6): Клинок никогда не получает штраф/бонус дуал-вилда, независимо от
+        // того, что во второй руке — проверяем все три случая из ГДД через CombatantFactory напрямую.
+        var dualWieldTestCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        dualWieldTestCharacter.baseHealth = 100;
+
+        ItemData MakeWeapon(string name, WeaponSubtype subtype, float damage)
+        {
+            var w = ScriptableObject.CreateInstance<ItemData>();
+            w.itemName = name;
+            w.slot = EquipmentSlot.Weapon;
+            w.weaponSubtype = subtype;
+            w.baseDamage = damage;
+            w.attackSpeed = 1f;
+            w.itemLevel = 1;
+            return w;
+        }
+
+        var bladeA = MakeWeapon("BladeA", WeaponSubtype.Blade, 10f);
+        var bladeB = MakeWeapon("BladeB", WeaponSubtype.Blade, 10f);
+        var bladeBladeRuntime = CombatantFactory.CreatePlayerCombatant(dualWieldTestCharacter, 1, null, new List<ItemData> { bladeA, bladeB });
+        // Без штрафа: база 10 -> диапазон [floor(10*0.8); ceil(10*1.2)] = [8;12].
+        Check(bladeBladeRuntime.Weapons.Count == 2
+            && bladeBladeRuntime.Weapons[0].DamageMin == 8f && bladeBladeRuntime.Weapons[0].DamageMax == 12f
+            && bladeBladeRuntime.Weapons[1].DamageMin == 8f && bladeBladeRuntime.Weapons[1].DamageMax == 12f,
+            $"3.11 Клинок+Клинок: оба без штрафа дуал-вилда, диапазоны " +
+            (bladeBladeRuntime.Weapons.Count == 2 ? $"{bladeBladeRuntime.Weapons[0].DamageMin}-{bladeBladeRuntime.Weapons[0].DamageMax} / {bladeBladeRuntime.Weapons[1].DamageMin}-{bladeBladeRuntime.Weapons[1].DamageMax}" : "нет 2 оружий") +
+            " (ожидалось 8-12 / 8-12)");
+        UnityEngine.Object.DestroyImmediate(bladeA);
+        UnityEngine.Object.DestroyImmediate(bladeB);
+
+        var bladeC = MakeWeapon("BladeC", WeaponSubtype.Blade, 10f);
+        var swordD = MakeWeapon("SwordD", WeaponSubtype.Sword, 10f);
+        var bladeSwordRuntime = CombatantFactory.CreatePlayerCombatant(dualWieldTestCharacter, 1, null, new List<ItemData> { bladeC, swordD });
+        // Клинок (индекс 0, порядок сохраняет порядок items): без штрафа [8;12].
+        // Меч: база 10 × 0.75 (базовый штраф без Амбидекстрии) = 7.5 -> [floor(7.5*0.8); ceil(7.5*1.2)] = [6;9].
+        Check(bladeSwordRuntime.Weapons.Count == 2
+            && bladeSwordRuntime.Weapons[0].DamageMin == 8f && bladeSwordRuntime.Weapons[0].DamageMax == 12f
+            && bladeSwordRuntime.Weapons[1].DamageMin == 6f && bladeSwordRuntime.Weapons[1].DamageMax == 9f,
+            $"3.11 Клинок+Меч: Клинок 100%, Меч со штрафом 75%, диапазоны " +
+            (bladeSwordRuntime.Weapons.Count == 2 ? $"{bladeSwordRuntime.Weapons[0].DamageMin}-{bladeSwordRuntime.Weapons[0].DamageMax} / {bladeSwordRuntime.Weapons[1].DamageMin}-{bladeSwordRuntime.Weapons[1].DamageMax}" : "нет 2 оружий") +
+            " (ожидалось 8-12 / 6-9)");
+        UnityEngine.Object.DestroyImmediate(bladeC);
+        UnityEngine.Object.DestroyImmediate(swordD);
+
+        UnityEngine.Object.DestroyImmediate(dualWieldTestCharacter);
+
+        // 3.11 (Task 6, доп. работа сверх брифа): BonusStatType.ArmorIgnorePercent ("Зазубренный
+        // клинок", Редкий Клинок) раньше молча игнорировался в AggregateEquipmentStats — эта
+        // проверка гоняет реальный ассет через CreatePlayerCombatant и убеждается, что поле
+        // WeaponAttackState.ArmorIgnorePercent теперь реально заполняется.
+        var jaggedBlade = AssetDatabase.LoadAssetAtPath<ItemData>("Assets/ScriptableObjects/Items/Blades/Item_Blade_Rare_JaggedBlade.asset");
+        if (Check(jaggedBlade != null, "Item_Blade_Rare_JaggedBlade.asset загрузился"))
+        {
+            var armorIgnoreTestCharacter = ScriptableObject.CreateInstance<CharacterData>();
+            armorIgnoreTestCharacter.baseHealth = 100;
+            var armorIgnoreRuntime = CombatantFactory.CreatePlayerCombatant(armorIgnoreTestCharacter, 1, null, new List<ItemData> { jaggedBlade });
+            Check(armorIgnoreRuntime.Weapons.Count == 1 && armorIgnoreRuntime.Weapons[0].ArmorIgnorePercent > 0f,
+                $"3.11 Зазубренный клинок заполняет WeaponAttackState.ArmorIgnorePercent: {(armorIgnoreRuntime.Weapons.Count == 1 ? armorIgnoreRuntime.Weapons[0].ArmorIgnorePercent.ToString() : "нет оружия")} (ожидалось >0)");
+            UnityEngine.Object.DestroyImmediate(armorIgnoreTestCharacter);
+        }
+
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
     }
 
