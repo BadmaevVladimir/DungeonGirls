@@ -866,6 +866,140 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(poisonedBladeGO);
 
+        // 3.11 (Варвар) — "Ярость": чистая проверка свойства, без боя. MaxHP=100: HP=100 -> 0%,
+        // HP=50 -> 50%, HP=0 -> 100%; RageFlatBonusPercent (Пояс титана) складывается флэт поверх.
+        var rageTestCombatant = new CombatantRuntime { MaxHP = 100f, CurrentHP = 100f };
+        Check(Mathf.Approximately(rageTestCombatant.Rage, 0f), $"3.11 Ярость при полном HP = 0% (было {rageTestCombatant.Rage})");
+        rageTestCombatant.CurrentHP = 50f;
+        Check(Mathf.Approximately(rageTestCombatant.Rage, 50f), $"3.11 Ярость при 50% HP = 50% (было {rageTestCombatant.Rage})");
+        rageTestCombatant.CurrentHP = 0f;
+        Check(Mathf.Approximately(rageTestCombatant.Rage, 100f), $"3.11 Ярость при 0 HP = 100% (было {rageTestCombatant.Rage})");
+        rageTestCombatant.CurrentHP = 50f;
+        rageTestCombatant.RageFlatBonusPercent = 20f;
+        Check(Mathf.Approximately(rageTestCombatant.Rage, 70f), $"3.11 Ярость складывает флэт-бонус (Пояс титана) поверх формулы HP: 50%+20 = 70% (было {rageTestCombatant.Rage})");
+
+        // 3.11 (Варвар) — "Упёртость": при Ярости выше порога уровня новый дебафф (здесь — стак
+        // заморозки) полностью игнорируется; ниже порога — применяется как обычно. Порог ур.5 = 50%.
+        var stubbornGO = new GameObject("SmokeTest_Stubbornness");
+        var stubbornCombatManager = stubbornGO.AddComponent<CombatManager>();
+        var stubbornAttacker = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, SkillFreezeLevel = 1 };
+        stubbornAttacker.Weapons.Add(new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var stubbornTarget = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 400f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, SkillStubbornnessLevel = 5, DisplayName = "TestDummy" };
+        stubbornTarget.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        stubbornCombatManager.StartCombat(stubbornAttacker, new List<CombatantRuntime> { stubbornTarget });
+        stubbornCombatManager.Tick(1.01f); // Ярость цели = 60% > порога 50% (ур.5) -> заморозка игнорируется
+        Check(stubbornTarget.FreezeStacks == 0, $"3.11 «Упёртость» блокирует новый стак заморозки выше порога Ярости (было {stubbornTarget.FreezeStacks}, ожидалось 0)");
+
+        stubbornTarget.CurrentHP = 600f; // Ярость цели = 40% <= порога 50% -> заморозка применяется как обычно
+        stubbornCombatManager.Tick(1.01f);
+        Check(stubbornTarget.FreezeStacks == 1, $"3.11 «Упёртость» пропускает новый стак заморозки ниже порога Ярости (было {stubbornTarget.FreezeStacks}, ожидалось 1)");
+
+        UnityEngine.Object.DestroyImmediate(stubbornGO);
+
+        // 3.11 (Варвар) — "Боевая регенерация": срабатывает РОВНО на N-й полученный удар (ур.1 = 5),
+        // не раньше. Урон/удар фиксирован (1 урона), MaxHP=1000 -> регенерация = 100 HP на 5-м ударе.
+        var combatRegenGO = new GameObject("SmokeTest_CombatRegen");
+        var combatRegenCombatManager = combatRegenGO.AddComponent<CombatManager>();
+        var combatRegenAttacker = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
+        combatRegenAttacker.Weapons.Add(new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var combatRegenTarget = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 500f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, SkillCombatRegenLevel = 1, DisplayName = "TestDummy" };
+        combatRegenTarget.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        combatRegenCombatManager.StartCombat(combatRegenAttacker, new List<CombatantRuntime> { combatRegenTarget });
+        for (int hit = 0; hit < 4; hit++)
+        {
+            combatRegenCombatManager.Tick(1.01f); // 4 удара по 1 урону, регенерация ещё не должна сработать
+        }
+        Check(combatRegenTarget.HitsTakenSinceLastRegen == 4 && Mathf.Approximately(combatRegenTarget.CurrentHP, 496f), $"3.11 «Боевая регенерация» не срабатывает раньше N-го удара (счётчик={combatRegenTarget.HitsTakenSinceLastRegen}, HP={combatRegenTarget.CurrentHP}, ожидалось счётчик=4, HP=496)");
+
+        combatRegenCombatManager.Tick(1.01f); // 5-й удар -> регенерация 10% от 1000 = 100 HP
+        Check(combatRegenTarget.HitsTakenSinceLastRegen == 0 && Mathf.Approximately(combatRegenTarget.CurrentHP, 595f), $"3.11 «Боевая регенерация» срабатывает ровно на 5-й удар и восстанавливает 10% MaxHP (счётчик={combatRegenTarget.HitsTakenSinceLastRegen}, HP={combatRegenTarget.CurrentHP}, ожидалось счётчик=0, HP=595)");
+
+        UnityEngine.Object.DestroyImmediate(combatRegenGO);
+
+        // 3.11 (Варвар) — "Берсерк": пока тумблер активен, физ. сопротивление (см. UpdateResistances)
+        // снижает входящий физический урон ДО брони/щита (DamageCalculator.ApplyDamage). Ур.2 = 20%.
+        var berserkOffGO = new GameObject("SmokeTest_BerserkOff");
+        var berserkOffCombatManager = berserkOffGO.AddComponent<CombatManager>();
+        var berserkOffPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, UniqueBerserkLevel = 2 };
+        var berserkOffEnemy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestEnemy" };
+        berserkOffEnemy.Weapons.Add(new WeaponAttackState { DamageMin = 100f, DamageMax = 100f, DamageType = DamageType.Physical, AttackSpeed = 2f });
+
+        berserkOffCombatManager.StartCombat(berserkOffPlayer, new List<CombatantRuntime> { berserkOffEnemy });
+        berserkOffCombatManager.Tick(0.51f); // ровно один удар врага (интервал 0.5с), Берсерк выключен
+        Check(Mathf.Approximately(berserkOffPlayer.CurrentHP, 900f), $"3.11 «Берсерк» выключен: игрок получает полный урон 100 (HP={berserkOffPlayer.CurrentHP}, ожидалось 900)");
+
+        UnityEngine.Object.DestroyImmediate(berserkOffGO);
+
+        var berserkOnGO = new GameObject("SmokeTest_BerserkOn");
+        var berserkOnCombatManager = berserkOnGO.AddComponent<CombatManager>();
+        var berserkOnPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, UniqueBerserkLevel = 2 };
+        var berserkOnEnemy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestEnemy" };
+        berserkOnEnemy.Weapons.Add(new WeaponAttackState { DamageMin = 100f, DamageMax = 100f, DamageType = DamageType.Physical, AttackSpeed = 2f });
+
+        berserkOnCombatManager.StartCombat(berserkOnPlayer, new List<CombatantRuntime> { berserkOnEnemy });
+        berserkOnCombatManager.SetBerserkActive(true);
+        berserkOnCombatManager.Tick(0.51f); // ровно один удар врага (интервал 0.5с, < 1с — самоурон Берсерка ещё не тикает)
+        Check(Mathf.Approximately(berserkOnPlayer.CurrentHP, 920f), $"3.11 «Берсерк» ур.2 (20% физ. сопротивления) снижает урон 100 -> 80 (HP={berserkOnPlayer.CurrentHP}, ожидалось 920)");
+
+        UnityEngine.Object.DestroyImmediate(berserkOnGO);
+
+        // 3.11 (Варвар) — "Чемпион племени": крит-шанс ВСЕГДА = Ярость×X%, полностью заменяя обычную
+        // формулу; прочие источники крит-шанса конвертируются в крит-урон (1%->+2%), а НЕ в шанс.
+        //
+        // Подслучай 1: Ярость=100% (HP-часть 1% + флэт-бонус 99%), ур.5 (X=1.0) -> крит-шанс = 100%,
+        // гарантированный крит. SkillCriticalHitsLevel=0 -> конвертированных источников нет ->
+        // множитель = база 150%. Фиксированный урон оружия 10 -> ожидаемый урон = 15 ровно.
+        var championGuaranteedGO = new GameObject("SmokeTest_ChampionGuaranteed");
+        var championGuaranteedCombatManager = championGuaranteedGO.AddComponent<CombatManager>();
+        var championGuaranteedPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 99f, RageFlatBonusPercent = 99f, UniqueChampionOfTheTribeLevel = 5, CritChanceReplacedByRage = true };
+        championGuaranteedPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var championGuaranteedDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
+        championGuaranteedDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        championGuaranteedCombatManager.StartCombat(championGuaranteedPlayer, new List<CombatantRuntime> { championGuaranteedDummy });
+        championGuaranteedCombatManager.Tick(1.01f);
+        Check(Mathf.Approximately(championGuaranteedDummy.CurrentHP, 985f), $"3.11 «Чемпион племени» крит-шанс=Ярость×X%=100%: гарантированный крит база×150% (HP болвана={championGuaranteedDummy.CurrentHP}, ожидалось 985)");
+
+        UnityEngine.Object.DestroyImmediate(championGuaranteedGO);
+
+        // Подслучай 2 (тот же расчёт, но SkillCriticalHitsLevel=5): нормально это дало бы +50% К
+        // ШАНСУ крита — здесь вместо этого конвертируется в +100% к крит-множителю (50×2), крит-шанс
+        // остаётся ровно теми же 100% от Ярости. Ожидаемый урон = 10×(150%+100%) = 25 ровно.
+        var championConvertedGO = new GameObject("SmokeTest_ChampionConverted");
+        var championConvertedCombatManager = championConvertedGO.AddComponent<CombatManager>();
+        var championConvertedPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 99f, RageFlatBonusPercent = 99f, UniqueChampionOfTheTribeLevel = 5, CritChanceReplacedByRage = true, SkillCriticalHitsLevel = 5 };
+        championConvertedPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var championConvertedDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
+        championConvertedDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        championConvertedCombatManager.StartCombat(championConvertedPlayer, new List<CombatantRuntime> { championConvertedDummy });
+        championConvertedCombatManager.Tick(1.01f);
+        Check(Mathf.Approximately(championConvertedDummy.CurrentHP, 975f), $"3.11 «Чемпион племени»: SkillCriticalHitsLevel конвертируется в крит-урон (+100%), НЕ в шанс (HP болвана={championConvertedDummy.CurrentHP}, ожидалось 975)");
+
+        UnityEngine.Object.DestroyImmediate(championConvertedGO);
+
+        // Подслучай 3: Ярость=0% (полное HP, без флэт-бонуса) -> крит-шанс = 0×X% = 0 ровно, ДАЖЕ
+        // при огромных "обычных" источниках крит-шанса (SkillCriticalHitsLevel=5 + CritChanceBonusFromItems=50,
+        // что дало бы 100% в обычной формуле) — доказывает, что они конвертируются в урон, а НЕ шанс.
+        // Крит никогда не срабатывает -> урон всегда база (10, без множителя).
+        var championZeroRageGO = new GameObject("SmokeTest_ChampionZeroRage");
+        var championZeroRageCombatManager = championZeroRageGO.AddComponent<CombatManager>();
+        var championZeroRagePlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, UniqueChampionOfTheTribeLevel = 5, CritChanceReplacedByRage = true, SkillCriticalHitsLevel = 5, CritChanceBonusFromItems = 50f };
+        championZeroRagePlayer.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var championZeroRageDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
+        championZeroRageDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        championZeroRageCombatManager.StartCombat(championZeroRagePlayer, new List<CombatantRuntime> { championZeroRageDummy });
+        for (int hit = 0; hit < 5; hit++)
+        {
+            championZeroRageCombatManager.Tick(1.01f);
+        }
+        Check(Mathf.Approximately(championZeroRageDummy.CurrentHP, 950f), $"3.11 «Чемпион племени» при Ярости=0: крит-шанс=0 ровно вне зависимости от SkillCriticalHitsLevel/CritChanceBonusFromItems, ни один из 5 ударов не критует (HP болвана={championZeroRageDummy.CurrentHP}, ожидалось 950)");
+
+        UnityEngine.Object.DestroyImmediate(championZeroRageGO);
+
         Info.Add("Play Mode проверки хаба/зданий/гачи/сейва/BeginRun выполнены.");
     }
 

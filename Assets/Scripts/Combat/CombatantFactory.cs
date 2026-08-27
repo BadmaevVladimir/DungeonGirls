@@ -46,12 +46,16 @@ public static class CombatantFactory
             out float flatHPBonus,
             out float attackSpeedBonusPercent,
             out float damageBonusPercent,
-            out float evasionBonusPercent);
+            out float evasionBonusPercent,
+            out float hpBonusSum,
+            out float rageBonusFlatPercentSum);
 
         runtime.Weapons = weapons;
 
         runtime.MaxHP += flatHPBonus; // 3.10 (ФИКС): BonusStatType.FlatHP (кольца/аксессуары/броня)
+        runtime.MaxHP += hpBonusSum; // 3.11 (Варвар): Пояс — hpBonus как ОСНОВНОЙ стат предмета, отдельно от BonusStatType.FlatHP
         runtime.CurrentHP = runtime.MaxHP;
+        runtime.RageFlatBonusPercent = rageBonusFlatPercentSum; // 3.11 (Пояс титана): флэт-линейный бонус к Ярости
 
         runtime.PhysicalDefenseMax = physicalDefense + maxPhysicalDefenseBonus + BuildingCatalog.ForgeArmorBonus(forgeLevel);
         runtime.PhysicalDefenseCurrent = runtime.PhysicalDefenseMax;
@@ -219,6 +223,28 @@ public static class CombatantFactory
         {
             1 => 175f, 2 => 180f, 3 => 185f, 4 => 190f, 5 => 200f, _ => (float?)null
         };
+
+        // 3.11 (Варвар) — классовые навыки (пул уровня персонажа, безусловный паттерн копирования,
+        // как у Плута выше — навыки классового пула у "чужого" класса просто всегда 0, т.к.
+        // LevelUpManager.GetClassPool не даёт их выучить, см. Task 3c).
+        runtime.SkillStubbornnessLevel = progress.GetSkillLevel(SkillEffectMap.Stubbornness);
+        runtime.SkillFrenzyLevel = progress.GetSkillLevel(SkillEffectMap.Frenzy);
+        runtime.SkillCombatRegenLevel = progress.GetSkillLevel(SkillEffectMap.CombatRegen);
+        runtime.SkillIntimidationLevel = progress.GetSkillLevel(SkillEffectMap.Intimidation);
+        runtime.SkillSuperstitionLevel = progress.GetSkillLevel(SkillEffectMap.Superstition);
+
+        // ФИКС: в отличие от классовых навыков выше и UniqueShadowLevel/UniqueSmokeBombLevel (Task 4,
+        // безвредны для чужих классов — используются только за Rogue-специфичными триггерами вроде
+        // IsStealthed/SmokeBomb-активации, которые никогда не срабатывают у не-Плута), UniquePassiveLevel/
+        // UniqueActiveLevel — ОБЩИЕ поля прогресса, стартующие с 1 у ЛЮБОГО персонажа (см.
+        // RunCharacterProgress.UniquePassiveLevel = 1), а не только у Варвара. CritChanceReplacedByRage
+        // читается БЕЗУСЛОВНО в CombatManager.ResolveAttack для любого атакующего — если скопировать
+        // UniqueChampionOfTheTribeLevel так же безусловно, как Shadow/SmokeBomb, крит-шанс сломается
+        // у ВСЕХ не-Варваров (Воин/Маг/Плут), не только у Варвара. Поэтому здесь явная проверка класса.
+        bool isBarbarian = progress.Character != null && progress.Character.characterClass == CharacterClass.Barbarian;
+        runtime.UniqueChampionOfTheTribeLevel = isBarbarian ? progress.UniquePassiveLevel : 0;
+        runtime.UniqueBerserkLevel = isBarbarian ? progress.UniqueActiveLevel : 0;
+        runtime.CritChanceReplacedByRage = runtime.UniqueChampionOfTheTribeLevel > 0;
     }
 
     static float SumShieldMaxDefenseBonus(ItemData[] items)
@@ -263,7 +289,9 @@ public static class CombatantFactory
         out float flatHPBonus,
         out float attackSpeedBonusPercent,
         out float damageBonusPercent,
-        out float evasionBonusPercent)
+        out float evasionBonusPercent,
+        out float hpBonusSum,
+        out float rageBonusFlatPercentSum)
     {
         weapons = new List<WeaponAttackState>();
         physicalDefense = 0f;
@@ -278,6 +306,8 @@ public static class CombatantFactory
         attackSpeedBonusPercent = 0f;
         damageBonusPercent = 0f;
         evasionBonusPercent = 0f;
+        hpBonusSum = 0f;
+        rageBonusFlatPercentSum = 0f;
 
         if (items == null)
         {
@@ -377,6 +407,12 @@ public static class CombatantFactory
             // и то, и другое. У всех существующих предметов magicShieldBonus = 0, так что для них
             // эта строка — no-op.
             magicShield += item.MagicShieldEffective;
+
+            // 3.11 (Варвар) — Пояс: hpBonus как ОСНОВНОЙ стат предмета (аналогично magicShield выше),
+            // масштабируется через StatScaling (HpBonusEffective). rageBonusFlatPercent (Пояс титана)
+            // НЕ идёт через StatScaling — по ГДД это флэт-линейный бонус, просто ×itemLevel.
+            hpBonusSum += item.HpBonusEffective;
+            rageBonusFlatPercentSum += item.rageBonusFlatPercent * item.itemLevel;
 
             if (item.bonusStat != null)
             {

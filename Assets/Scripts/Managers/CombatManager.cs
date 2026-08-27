@@ -28,6 +28,24 @@ public class CombatManager : MonoBehaviour
         LogMessage?.Invoke(message);
     }
 
+    // 3.11 (Варвар) — общая таблица X-по-уровню (0.7/0.75/0.8/0.9/1.0), общая для "Остервенелости"
+    // (собственная копия на CombatantRuntime — см. её комментарий), "Запугивания", "Суеверности" и
+    // "Чемпиона племени".
+    static float RageSkillMultiplier(int level) => level switch
+    {
+        1 => 0.7f, 2 => 0.75f, 3 => 0.8f, 4 => 0.9f, 5 => 1.0f, _ => 0f
+    };
+
+    // 3.11 (Варвар) — "Упёртость": СВОЯ, отдельная от RageSkillMultiplier, таблица порогов Ярости
+    // (90/80/70/60/50%), выше которых персонаж полностью игнорирует НОВЫЕ дебаффы.
+    static float StubbornnessThreshold(int level) => level switch
+    {
+        1 => 90f, 2 => 80f, 3 => 70f, 4 => 60f, 5 => 50f, _ => 101f
+    };
+
+    static bool IgnoresDebuffs(CombatantRuntime target) =>
+        target.SkillStubbornnessLevel > 0 && target.Rage > StubbornnessThreshold(target.SkillStubbornnessLevel);
+
     // 4.3: уникальный активный навык персонажа (3.1 "3 быстрые атаки" — единственный активный
     // навык прототипа, общего пула активных навыков в 3.9 нет). Настраивается при входе в бой,
     // т.к. зависит от текущего уровня навыка игрока.
@@ -54,6 +72,30 @@ public class CombatManager : MonoBehaviour
     public void SetActiveSkillAutoMode(bool autoMode)
     {
         activeSkillAutoMode = autoMode;
+    }
+
+    // 3.11 (Варвар) — "Берсерк": ручной тумблер, а не кулдаун-навык, только у игрока (ГДД явно
+    // говорит, что монстры этот навык никогда не получают). Хук для будущей UI-кнопки (out of
+    // scope этого плана, см. RunFlowController) — мирроит форму SetActiveSkillAutoMode выше.
+    public void SetBerserkActive(bool active)
+    {
+        if (Player != null)
+        {
+            Player.IsBerserkActive = active;
+        }
+    }
+
+    // 3.11 (Варвар) — "Суеверность"/"Берсерк": сопротивления зависят от ЖИВОЙ Ярости, поэтому
+    // пересчитываются каждый Tick, а не запекаются один раз в CombatantFactory.ApplyCharacterSkills.
+    void UpdateResistances(CombatantRuntime combatant)
+    {
+        combatant.MagicalResistancePercent = combatant.SkillSuperstitionLevel > 0
+            ? combatant.Rage * RageSkillMultiplier(combatant.SkillSuperstitionLevel) / 100f
+            : 0f;
+
+        combatant.PhysicalResistancePercent = combatant.IsBerserkActive
+            ? combatant.UniqueBerserkLevel switch { 1 => 10f, 2 => 20f, 3 => 30f, _ => 0f }
+            : 0f;
     }
 
     // 4.3: ручной режим — доступна только по готовности кулдауна; автоматический — срабатывает
@@ -151,10 +193,35 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        // 3.11 (Варвар) — "Суеверность"/"Берсерк" дают сопротивление, зависящее от ЖИВОЙ Ярости
+        // (пересчитывается каждый тик, а не один раз при создании боевого юнита — см. комментарий
+        // на CombatantRuntime.Rage).
+        UpdateResistances(Player);
+        foreach (var enemy in Enemies)
+        {
+            UpdateResistances(enemy);
+        }
+
         UpdateStatusEffects(Player, deltaTime);
         foreach (var enemy in Enemies)
         {
             UpdateStatusEffects(enemy, deltaTime);
+        }
+
+        // 3.11 (Берсерк, Варвар) — ручной тумблер, только у игрока (см. SetBerserkActive). Тикает как
+        // кровотечение/яд — накопитель на 1 секунду, БЕЗ защиты от смерти (ГДД явно это оговаривает).
+        if (Player.IsBerserkActive && Player.IsAlive)
+        {
+            Player.BerserkTickAccumulator += deltaTime;
+            while (Player.BerserkTickAccumulator >= 1f && Player.IsAlive)
+            {
+                Player.BerserkTickAccumulator -= 1f;
+                // [ПРЕДПОЛОЖЕНИЕ, см. Global Constraints] — урон от ТЕКУЩЕГО HP, не максимума; ГДД
+                // сам помечает точную базу как неподтверждённую.
+                float tickDamage = Mathf.Max(1f, Player.CurrentHP * 0.01f);
+                Player.CurrentHP = Mathf.Max(0f, Player.CurrentHP - tickDamage);
+                Log($"[Combat] «Берсерк» наносит {tickDamage:F1} урона {Player.DisplayName} (HP {Player.CurrentHP:F1}/{Player.MaxHP:F1}).");
+            }
         }
 
         TickMonsterPeriodicPassives(deltaTime); // "Тёмное исцеление" / "Двойной удар" (2.4)
@@ -405,15 +472,29 @@ public class CombatManager : MonoBehaviour
         {
             1 => 2f, 2 => 5f, 3 => 7.5f, 4 => 10f, 5 => 12.5f, _ => 0f
         };
-        float critChancePercent = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems - attacker.CritChanceDebuffPercent + eyeForAnEyeBonus; // 10/20/30/40/50% за уровень навыка - "Оглушающий крик" (2.4) + "В глаз"
-        critChancePercent = Mathf.Max(0f, critChancePercent);
-        critChancePercent = BalanceClamps.ClampCritChancePercent(critChancePercent);
-
-        // 3.11 "Устранение" (Плут): переопределяет базовый крит-множитель 150%, если навык изучен —
-        // Task 5 (Варвар) вставляет свою ветку переопределения ШАНСА крита МЕЖДУ вычислением
-        // critChancePercent выше и isCrit-роллом ниже; critMultiplier остаётся именованной локальной
-        // переменной, вычисленной ДО ролла, специально для этого.
+        // 3.11 "Устранение" (Плут): переопределяет базовый крит-множитель 150%, если навык изучен.
+        // Вычисляется ДО критChancePercent, т.к. "Чемпион племени" (Варвар) ниже может добавить к
+        // нему конвертированные источники крит-шанса.
         float critMultiplier = attacker.CritDamageMultiplierOverridePercent ?? 150f;
+
+        float critChancePercent;
+        if (attacker.CritChanceReplacedByRage)
+        {
+            // 3.11 "Чемпион племени" (Варвар, уникальная пассивка): крит-шанс ВСЕГДА = Ярость×X%,
+            // полностью заменяя обычную формулу. Остальные источники крит-шанса (навык "Критические
+            // атаки" + бонус предметов — "В глаз"/крит-дебафф Гарпии сюда намеренно не входят, это
+            // Rogue-специфика/дебафф шанса, а не источник шанса Варвара) конвертируются в крит-урон
+            // по курсу 1%->+2% вместо суммирования в шанс.
+            critChancePercent = Mathf.Clamp(attacker.Rage * RageSkillMultiplier(attacker.UniqueChampionOfTheTribeLevel), 0f, 100f);
+            float convertedSources = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems;
+            critMultiplier += convertedSources * 2f;
+        }
+        else
+        {
+            critChancePercent = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems - attacker.CritChanceDebuffPercent + eyeForAnEyeBonus; // 10/20/30/40/50% за уровень навыка - "Оглушающий крик" (2.4) + "В глаз"
+            critChancePercent = Mathf.Max(0f, critChancePercent);
+            critChancePercent = BalanceClamps.ClampCritChancePercent(critChancePercent);
+        }
 
         bool isCrit = critChancePercent > 0f && Random.value * 100f < critChancePercent;
 
@@ -434,6 +515,24 @@ public class CombatManager : MonoBehaviour
             if (attacker.SkillEyeForAnEyeLevel > 0)
             {
                 GrantOrRefreshStealth(attacker);
+            }
+
+            // 3.11 "Запугивание" (Варвар): крит накладывает дебафф скорости атаки на цель,
+            // пропорциональный Ярости атакующего. Подчиняется "Упёртости" цели, как любой дебафф.
+            if (attacker.SkillIntimidationLevel > 0 && !IgnoresDebuffs(target))
+            {
+                float intimidationMultiplier = Mathf.Max(0.01f, 1f - (attacker.Rage * RageSkillMultiplier(attacker.SkillIntimidationLevel) / 100f));
+                var existingIntimidation = target.ActiveDebuffs.Find(d => d.Id == "intimidation");
+                if (existingIntimidation != null)
+                {
+                    existingIntimidation.RemainingTime = 3f;
+                    existingIntimidation.AttackSpeedMultiplier = intimidationMultiplier;
+                }
+                else
+                {
+                    target.ActiveDebuffs.Add(new ActiveDebuff { Id = "intimidation", RemainingTime = 3f, AttackSpeedMultiplier = intimidationMultiplier });
+                }
+                Log($"[Combat] «Запугивание» снижает скорость атаки {target.DisplayName} на {(1f - intimidationMultiplier) * 100f:F0}% (3 сек).");
             }
         }
 
@@ -555,6 +654,24 @@ public class CombatManager : MonoBehaviour
         {
             Log($"[Combat] {target.DisplayName} погибает.");
         }
+
+        // 3.11 "Боевая регенерация" (Варвар): каждый N-й ПОЛУЧЕННЫЙ удар (блокированный или нет —
+        // ГДД "каждые N полученных ударов", читаем как любую разрешённую атаку по цели, а не только
+        // прошедшую по HP; [ПРЕДПОЛОЖЕНИЕ] — если задумывалось иначе, это расхождение с ГДД, не
+        // угаданное молча) восстанавливает 10% MaxHP, если цель выжила. Урон -> потом восстановление
+        // (ГДД: "сначала урон... затем, если персонаж выжил — восстановление").
+        if (target.SkillCombatRegenLevel > 0)
+        {
+            target.HitsTakenSinceLastRegen++;
+            int regenThreshold = target.SkillCombatRegenLevel switch { 1 => 5, 2 => 4, 3 => 3, 4 => 2, 5 => 1, _ => int.MaxValue };
+            if (target.HitsTakenSinceLastRegen >= regenThreshold && target.IsAlive)
+            {
+                target.HitsTakenSinceLastRegen = 0;
+                float regenAmount = target.MaxHP * 0.10f;
+                target.CurrentHP = Mathf.Min(target.MaxHP, target.CurrentHP + regenAmount);
+                Log($"[Combat] «Боевая регенерация» восстанавливает {target.DisplayName} {regenAmount:F1} HP (HP {target.CurrentHP:F1}/{target.MaxHP:F1}).");
+            }
+        }
     }
 
     static int FreezeMaxStacksByLevel(int level)
@@ -595,6 +712,13 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель полностью игнорирует НОВЫЕ стаки заморозки.
+        if (IgnoresDebuffs(target))
+        {
+            Log($"[Combat] «Упёртость» защищает {target.DisplayName} от заморозки.");
+            return;
+        }
+
         int maxStacks = FreezeMaxStacksByLevel(attacker.SkillFreezeLevel);
         target.FreezeStacks = Mathf.Min(target.FreezeStacks + 1, maxStacks);
         target.FreezeStackTimer = 3f;
@@ -611,6 +735,13 @@ public class CombatManager : MonoBehaviour
 
     void ApplyBleed(CombatantRuntime target, int bleedLevel)
     {
+        // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель полностью игнорирует новое кровотечение.
+        if (IgnoresDebuffs(target))
+        {
+            Log($"[Combat] «Упёртость» защищает {target.DisplayName} от кровотечения.");
+            return;
+        }
+
         bool isFreshApplication = !target.HasBleed;
 
         target.HasBleed = true;
@@ -640,6 +771,13 @@ public class CombatManager : MonoBehaviour
     // CombatantRuntime. В Скрытности стаки/максимум удваиваются.
     void ApplyRoguePoison(CombatantRuntime attacker, CombatantRuntime target)
     {
+        // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель полностью игнорирует новый яд Плута.
+        if (IgnoresDebuffs(target))
+        {
+            Log($"[Combat] «Упёртость» защищает {target.DisplayName} от «Отравленного клинка».");
+            return;
+        }
+
         int maxStacks = attacker.SkillPoisonedBladeLevel;
         int stacksToAdd = 1;
         if (attacker.IsStealthed)
@@ -707,7 +845,8 @@ public class CombatManager : MonoBehaviour
 
             case MonsterSkillEffectMap.Poison:
                 // "При попадании по здоровью накладывает яд (3 сек, 4 урона/сек, стакается до 3 раз)."
-                if (!result.WasBlocked)
+                // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель полностью игнорирует новый яд.
+                if (!result.WasBlocked && !IgnoresDebuffs(target))
                 {
                     target.PoisonStacks = Mathf.Min(target.PoisonStacks + 1, 3);
                     target.PoisonTimer = 3f;
@@ -717,7 +856,8 @@ public class CombatManager : MonoBehaviour
 
             case MonsterSkillEffectMap.StunningScream:
                 // "15% шанс при атаке снизить шанс крита персонажа на 20% на 4 сек." — на атаке, не на попадании.
-                if (Random.value < 0.15f)
+                // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель игнорирует крит-дебафф.
+                if (Random.value < 0.15f && !IgnoresDebuffs(target))
                 {
                     target.CritChanceDebuffPercent = 20f;
                     target.CritChanceDebuffTimer = 4f;
@@ -728,7 +868,8 @@ public class CombatManager : MonoBehaviour
             case MonsterSkillEffectMap.SlowCurse:
                 // "Если урон Колдуна проходит по здоровью персонажа, скорость атаки персонажа снижается
                 // на 30% на 3 секунды (не стакается, повторное попадание обновляет длительность)."
-                if (!result.WasBlocked)
+                // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель игнорирует новый дебафф скорости.
+                if (!result.WasBlocked && !IgnoresDebuffs(target))
                 {
                     var existing = target.ActiveDebuffs.Find(d => d.Id == "warlock_slow");
                     if (existing != null)

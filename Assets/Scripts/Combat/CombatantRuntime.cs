@@ -187,6 +187,14 @@ public class CombatantRuntime
         ? Mathf.Max(0f, (1f - Mathf.Clamp01(CurrentHP / MaxHP)) * 100f + RageFlatBonusPercent)
         : 0f;
 
+    // 3.11 (Варвар) — общая таблица X-по-уровню (0.7/0.75/0.8/0.9/1.0), используемая "Остервенелостью"
+    // здесь и (отдельной копией) CombatManager для "Запугивания"/"Суеверности"/"Чемпиона племени" —
+    // CombatantRuntime не MonoBehaviour и не должен тянуть зависимость на CombatManager ради одной таблицы.
+    static float RageSkillMultiplierTable(int level) => level switch
+    {
+        1 => 0.7f, 2 => 0.75f, 3 => 0.8f, 4 => 0.9f, 5 => 1.0f, _ => 0f
+    };
+
     // Дебаффы скорости атаки (проклятие Колдуна и т.п.) и стаки заморозки действуют на персонажа
     // целиком, поэтому одинаково множат скорость атаки каждого из его оружий.
     public float GetEffectiveAttackSpeed(WeaponAttackState weapon)
@@ -199,6 +207,13 @@ public class CombatantRuntime
 
         multiplier *= Mathf.Max(0.01f, 1f - FreezeStacks * 0.05f);
         multiplier *= 1f + ItemAttackSpeedBonusPercent / 100f; // 3.10 (ФИКС): AttackSpeedPercent от снаряжения
+
+        // 3.11 (Варвар) — "Остервенелость": скорость атаки растёт с текущей Яростью.
+        if (SkillFrenzyLevel > 0)
+        {
+            multiplier *= 1f + (Rage * RageSkillMultiplierTable(SkillFrenzyLevel) / 100f) / 100f;
+        }
+
         return Mathf.Max(0.01f, weapon.AttackSpeed * multiplier);
     }
 
