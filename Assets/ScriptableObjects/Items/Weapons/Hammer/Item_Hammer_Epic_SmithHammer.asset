@@ -16,6 +16,7 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: 154dee8981c57d646a5ce3e1be973c22, type: 3}
   slot: 3
   weaponSubtype: 4
+  isTwoHanded: 0
   tier: 2
   itemLevel: 1
   allowedClasses: 00000000
@@ -24,6 +25,9 @@ MonoBehaviour:
   attackSpeed: 0.7
   physicalDefense: 0
   maxPhysicalDefenseBonus: 0
+  magicShieldBonus: 0
+  hpBonus: 0
+  rageBonusFlatPercent: 0
   bonusStat:
     type: 5
     baseValue: 10

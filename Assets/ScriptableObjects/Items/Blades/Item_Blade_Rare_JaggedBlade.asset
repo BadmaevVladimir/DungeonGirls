@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Blade_Rare_JaggedBlade
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u0417\u0430\u0437\u0443\u0431\u0440\u0435\u043D\u043D\u044B\u0439 \u043A\u043B\u0438\u043D\u043E\u043A"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 8acfc4e140b304740a6844ba19c67878, type: 3}
   slot: 3
   weaponSubtype: 6
   isTwoHanded: 0

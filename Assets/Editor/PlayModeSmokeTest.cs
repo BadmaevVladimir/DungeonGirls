@@ -617,6 +617,63 @@ public static class PlayModeSmokeTest
         }
 
         Info.Add("Чистые проверки формул (3.2/3.3/3.10) выполнены.");
+
+        // Task 7 (rogue-barbarian-classes plan, GDD 10.6): дизайнерская графика Плута/Варвара
+        // импортирована и назначена через ArtAssignmentTool — проверяем, что .icon заполнен на
+        // всех 3 тирах для каждого из 6 новых архетипов предметов.
+        void CheckIconsFor(string archetypeLabel, params string[] assetPaths)
+        {
+            foreach (var assetPath in assetPaths)
+            {
+                var item = AssetDatabase.LoadAssetAtPath<ItemData>(assetPath);
+                if (Check(item != null, $"10.6 {assetPath} загрузился"))
+                {
+                    Check(item.icon != null, $"10.6 {archetypeLabel}: icon заполнен ({assetPath})");
+                }
+            }
+        }
+
+        CheckIconsFor("Клинок",
+            "Assets/ScriptableObjects/Items/Blades/Item_Blade_Common_Blade.asset",
+            "Assets/ScriptableObjects/Items/Blades/Item_Blade_Rare_JaggedBlade.asset",
+            "Assets/ScriptableObjects/Items/Blades/Item_Blade_Epic_MomentoMori.asset");
+        CheckIconsFor("Двуручный топор",
+            "Assets/ScriptableObjects/Items/TwoHandedAxes/Item_TwoHandedAxe_Common_GreatAxe.asset",
+            "Assets/ScriptableObjects/Items/TwoHandedAxes/Item_TwoHandedAxe_Rare_TemperedGreatAxe.asset",
+            "Assets/ScriptableObjects/Items/TwoHandedAxes/Item_TwoHandedAxe_Epic_Headsplitter.asset");
+        CheckIconsFor("Капюшон",
+            "Assets/ScriptableObjects/Items/Hoods/Item_Hood_Common_Hood.asset",
+            "Assets/ScriptableObjects/Items/Hoods/Item_Hood_Rare_DarkHood.asset",
+            "Assets/ScriptableObjects/Items/Hoods/Item_Hood_Epic_DuelistHood.asset");
+        CheckIconsFor("Кожанка",
+            "Assets/ScriptableObjects/Items/Leathers/Item_Leather_Common_Leather.asset",
+            "Assets/ScriptableObjects/Items/Leathers/Item_Leather_Rare_ThickLeather.asset",
+            "Assets/ScriptableObjects/Items/Leathers/Item_Leather_Epic_EmbraceOfNight.asset");
+        CheckIconsFor("Пояс",
+            "Assets/ScriptableObjects/Items/Belts/Item_Belt_Common_Belt.asset",
+            "Assets/ScriptableObjects/Items/Belts/Item_Belt_Rare_ChampionBelt.asset",
+            "Assets/ScriptableObjects/Items/Belts/Item_Belt_Epic_TitanBelt.asset");
+        CheckIconsFor("Трофей",
+            "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Common_Trophy.asset",
+            "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Rare_RareTrophy.asset",
+            "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Epic_EpicTrophy.asset");
+
+        // Портреты персонажей: маппинг подтверждён пользователем напрямую (Sasha.png = Варвар,
+        // Violet.png = Плут) — это не "известный пробел", а реальная проверка после назначения.
+        var sashaSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Characters/Sasha.png");
+        var violetSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Characters/Violet.png");
+        var barbarianChar = AssetDatabase.LoadAssetAtPath<CharacterData>("Assets/ScriptableObjects/Characters/Character_Barbarian.asset");
+        if (Check(barbarianChar != null, "10.6 Character_Barbarian.asset загрузился"))
+        {
+            Check(barbarianChar.portrait != null && barbarianChar.portrait == sashaSprite,
+                $"10.6 Character_Barbarian.portrait = Sasha.png: {(barbarianChar.portrait != null ? barbarianChar.portrait.name : "null")} (ожидалось спрайт Assets/Art/Characters/Sasha.png)");
+        }
+        var rogueChar = AssetDatabase.LoadAssetAtPath<CharacterData>("Assets/ScriptableObjects/Characters/Character_Rogue.asset");
+        if (Check(rogueChar != null, "10.6 Character_Rogue.asset загрузился"))
+        {
+            Check(rogueChar.portrait != null && rogueChar.portrait == violetSprite,
+                $"10.6 Character_Rogue.portrait = Violet.png: {(rogueChar.portrait != null ? rogueChar.portrait.name : "null")} (ожидалось спрайт Assets/Art/Characters/Violet.png)");
+        }
     }
 
     // ==================== Play Mode: живая сцена/хаб/сейв ====================

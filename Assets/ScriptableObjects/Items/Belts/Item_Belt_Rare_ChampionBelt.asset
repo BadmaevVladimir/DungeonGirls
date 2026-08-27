@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Belt_Rare_ChampionBelt
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u041F\u043E\u044F\u0441 \u0447\u0435\u043C\u043F\u0438\u043E\u043D\u0430"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: a16188f815e252642b709dbd28b30b0d, type: 3}
   slot: 1
   weaponSubtype: 0
   isTwoHanded: 0

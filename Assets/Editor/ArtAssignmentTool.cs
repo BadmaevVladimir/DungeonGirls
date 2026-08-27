@@ -83,6 +83,43 @@ public static class ArtAssignmentTool
             "Assets/ScriptableObjects/Items/Accessories/Item_Accessory_Vitality.asset",
         });
 
+        // GDD 10.6 / Task 7 (rogue-barbarian-classes plan): Rogue/Barbarian item icons + character portraits.
+        AssignItems("Assets/Art/Items/Weapons/Knife.png", new[] {
+            "Assets/ScriptableObjects/Items/Blades/Item_Blade_Common_Blade.asset",
+            "Assets/ScriptableObjects/Items/Blades/Item_Blade_Rare_JaggedBlade.asset",
+            "Assets/ScriptableObjects/Items/Blades/Item_Blade_Epic_MomentoMori.asset",
+        });
+        AssignItems("Assets/Art/Items/Weapons/Big_Axe.png", new[] {
+            "Assets/ScriptableObjects/Items/TwoHandedAxes/Item_TwoHandedAxe_Common_GreatAxe.asset",
+            "Assets/ScriptableObjects/Items/TwoHandedAxes/Item_TwoHandedAxe_Rare_TemperedGreatAxe.asset",
+            "Assets/ScriptableObjects/Items/TwoHandedAxes/Item_TwoHandedAxe_Epic_Headsplitter.asset",
+        });
+        AssignItems("Assets/Art/Items/Armor/Hood.png", new[] {
+            "Assets/ScriptableObjects/Items/Hoods/Item_Hood_Common_Hood.asset",
+            "Assets/ScriptableObjects/Items/Hoods/Item_Hood_Rare_DarkHood.asset",
+            "Assets/ScriptableObjects/Items/Hoods/Item_Hood_Epic_DuelistHood.asset",
+        });
+        AssignItems("Assets/Art/Items/Armor/Leather_Armor.png", new[] {
+            "Assets/ScriptableObjects/Items/Leathers/Item_Leather_Common_Leather.asset",
+            "Assets/ScriptableObjects/Items/Leathers/Item_Leather_Rare_ThickLeather.asset",
+            "Assets/ScriptableObjects/Items/Leathers/Item_Leather_Epic_EmbraceOfNight.asset",
+        });
+        AssignItems("Assets/Art/Items/Armor/Belt.png", new[] {
+            "Assets/ScriptableObjects/Items/Belts/Item_Belt_Common_Belt.asset",
+            "Assets/ScriptableObjects/Items/Belts/Item_Belt_Rare_ChampionBelt.asset",
+            "Assets/ScriptableObjects/Items/Belts/Item_Belt_Epic_TitanBelt.asset",
+        });
+        AssignItems("Assets/Art/Items/Armor/Trophy.png", new[] {
+            "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Common_Trophy.asset",
+            "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Rare_RareTrophy.asset",
+            "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Epic_EpicTrophy.asset",
+        });
+
+        // Character-portrait mapping confirmed by the user directly (not a guess):
+        // Sasha.png = Варвар (Barbarian), Violet.png = Плут (Rogue).
+        AssignCharacter("Assets/Art/Characters/Sasha.png", "Assets/ScriptableObjects/Characters/Character_Barbarian.asset");
+        AssignCharacter("Assets/Art/Characters/Violet.png", "Assets/ScriptableObjects/Characters/Character_Rogue.asset");
+
         AssetDatabase.SaveAssets();
         Debug.Log("[ArtAssignmentTool] Sprite assignment complete. Check the Console above for any warnings (missing art / missing assets).");
     }

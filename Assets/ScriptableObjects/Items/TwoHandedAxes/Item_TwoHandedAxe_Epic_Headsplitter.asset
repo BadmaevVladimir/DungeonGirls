@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_TwoHandedAxe_Epic_Headsplitter
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u0413\u043E\u043B\u043E\u0432\u043E\u0440\u0443\u0431"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: c6e748f6e5318ce408d5cea39b7d03e3, type: 3}
   slot: 3
   weaponSubtype: 7
   isTwoHanded: 1

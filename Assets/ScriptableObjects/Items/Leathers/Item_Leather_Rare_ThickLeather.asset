@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Leather_Rare_ThickLeather
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u041F\u043B\u043E\u0442\u043D\u0430\u044F \u043A\u043E\u0436\u0430\u043D\u043A\u0430"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 749a2f3bc50574f43a00eb5be767f279, type: 3}
   slot: 1
   weaponSubtype: 0
   isTwoHanded: 0

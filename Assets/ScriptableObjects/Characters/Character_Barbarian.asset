@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Character_Barbarian
   m_EditorClassIdentifier: Assembly-CSharp::CharacterData
   characterName: "\u0412\u0430\u0440\u0432\u0430\u0440"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 817639c014f726946a554d7306acf03f, type: 3}
   characterClass: 3
   baseHealth: 30
   healthPerLevel: 25

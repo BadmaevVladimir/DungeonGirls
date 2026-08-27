@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Hood_Rare_DarkHood
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u0422\u0451\u043C\u043D\u044B\u0439 \u043A\u0430\u043F\u044E\u0448\u043E\u043D"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 2bbf2954e3ccfea4e835fb0424f9eb83, type: 3}
   slot: 0
   weaponSubtype: 0
   isTwoHanded: 0

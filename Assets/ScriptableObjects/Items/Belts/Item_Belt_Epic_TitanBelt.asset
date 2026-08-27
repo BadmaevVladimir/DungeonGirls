@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Belt_Epic_TitanBelt
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u041F\u043E\u044F\u0441 \u0442\u0438\u0442\u0430\u043D\u0430"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: a16188f815e252642b709dbd28b30b0d, type: 3}
   slot: 1
   weaponSubtype: 0
   isTwoHanded: 0
