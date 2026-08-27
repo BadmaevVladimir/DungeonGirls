@@ -169,6 +169,13 @@ public class CombatManager : MonoBehaviour
         Player.ActiveSkillCooldownTimer = activeSkillCooldownSeconds;
         Player.Target = GetDefaultTarget();
 
+        // 3.11 (Task 6b, Эпический трофей): "Просто царапина" — разовое лечение РОВНО в начале боя,
+        // только у игрока (у монстров предметов нет — ItemJustAScratchLevel всегда 0).
+        if (Player.ItemJustAScratchLevel > 0)
+        {
+            Player.CurrentHP = Mathf.Min(Player.MaxHP, Player.CurrentHP + Player.MaxHP * Player.ItemJustAScratchLevel * 0.01f);
+        }
+
         Log($"[Combat] Бой начался: {Player.DisplayName} (HP {Player.CurrentHP:F1}) против {Enemies.Count} противников.");
     }
 
@@ -456,6 +463,14 @@ public class CombatManager : MonoBehaviour
                 Log($"[Combat] «На волоске» повышает скорость атаки {target.DisplayName} на {byAThreadBonus * 100f:F0}% (3 сек).");
             }
 
+            // 3.11 (Task 6b, Капюшон Дуэльянта): "Рипост" — успешное уклонение ВЗВОДИТ флаг (не бьёт
+            // немедленно), бонус применится на следующей СОБСТВЕННОЙ атаке target (см. ResolveAttack
+            // выше, attacker.RiposteArmed) — ГДД: "первая атака ПОСЛЕ успешного уклонения".
+            if (target.ItemRiposteLevel > 0)
+            {
+                target.RiposteArmed = true;
+            }
+
             return;
         }
 
@@ -478,6 +493,30 @@ public class CombatManager : MonoBehaviour
         if (attacker.ItemDamageBonusPercent > 0f)
         {
             damage *= 1f + attacker.ItemDamageBonusPercent / 100f;
+        }
+
+        // 3.11 (Task 6b, Моменто Мори): "Казнь" — доп. физ. урон = 1% недостающего HP ЦЕЛИ за
+        // уровень оружия. Только физический урон, только если оружие реально несёт эту пассивку.
+        if (weapon.ExecutionLevel > 0 && weapon.DamageType == DamageType.Physical)
+        {
+            float missingHpPercent = target.MaxHP > 0f ? (1f - target.CurrentHP / target.MaxHP) : 0f;
+            damage += target.MaxHP * missingHpPercent * (weapon.ExecutionLevel * 0.01f);
+        }
+
+        // 3.11 (Task 6b, Головоруб): "Убийца великанов" — +5% урона за уровень против цели с БОЛЬШИМ
+        // максимальным HP (не текущим — сравнение по MaxHP, чтобы избитая цель не "переставала" считаться великаном).
+        if (weapon.GiantSlayerLevel > 0 && target.MaxHP > attacker.MaxHP)
+        {
+            damage *= 1f + weapon.GiantSlayerLevel * 0.05f;
+        }
+
+        // 3.11 (Task 6b, Капюшон Дуэльянта): "Рипост" — взведён на предыдущем успешном уклонении
+        // этого атакующего (см. блок уклонения ниже), срабатывает РОВНО на следующей атаке и сразу
+        // сбрасывается — не копится, не бьёт немедленно в момент уклонения.
+        if (attacker.RiposteArmed)
+        {
+            damage += attacker.ItemRiposteLevel;
+            attacker.RiposteArmed = false;
         }
 
         // "Критические атаки" + бонус крита с предметов + "В глаз" (3.11, Плут — таблица не
@@ -572,6 +611,17 @@ public class CombatManager : MonoBehaviour
         // атаки оружием и каждый отдельный удар активного навыка (цикл в TryActivateUniqueActiveSkill
         // вызывает ResolveAttack по разу на удар, так что события уже приходят по одному, не суммарно).
         HitResolved?.Invoke(target, result.DamageToHP, isCrit, result.WasBlocked);
+
+        // 3.11 (Task 6b, "Объятия ночи", Кожанка) — ОТДЕЛЬНЫЙ второй урон, только в Скрытности:
+        // магический (проходит через щит, не через броню), поэтому не может быть просто добавлен в
+        // физический `damage` — отдельный вызов DamageCalculator.ApplyDamage + отдельное всплывающее
+        // число (HitResolved), но НЕ крит (isCrit жёстко false для этого удара).
+        if (attacker.IsStealthed && attacker.ItemEmbraceOfNightLevel > 0)
+        {
+            float bonusMagicDamage = damage * attacker.ItemEmbraceOfNightLevel * 0.01f;
+            var embraceResult = DamageCalculator.ApplyDamage(target, bonusMagicDamage, DamageType.Magical);
+            HitResolved?.Invoke(target, embraceResult.DamageToHP, false, embraceResult.WasBlocked);
+        }
 
         // "Вампиризм" (3.10, Кровавый меч): при крите восстанавливает атакующему часть урона крита здоровьем.
         if (isCrit && weapon.VampirismLevel > 0)

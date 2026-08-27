@@ -27,4 +27,9 @@ public class WeaponAttackState
     // пробития этим конкретным оружием (см. DamageCalculator.ApplyPhysicalDamage armorIgnorePercent
     // param) — отличается от ArmorPenetrationFlat (Топор/Молот, флэт-добавка к урону).
     public float ArmorIgnorePercent;
+
+    // 3.11 (Task 6b, item-passive wiring): "Казнь" (Моменто Мори, Клинок) и "Убийца великанов"
+    // (Головоруб, Двуручный топор) — привязаны к конкретному оружию, как остальные Level-поля выше.
+    public int ExecutionLevel; // "Казнь" — физ. урон = 1% недостающего HP цели за уровень
+    public int GiantSlayerLevel; // "Убийца великанов" — +5% урона за уровень против цели с большим макс.HP
 }

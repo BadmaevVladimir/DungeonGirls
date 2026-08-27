@@ -48,7 +48,10 @@ public static class CombatantFactory
             out float damageBonusPercent,
             out float evasionBonusPercent,
             out float hpBonusSum,
-            out float rageBonusFlatPercentSum);
+            out float rageBonusFlatPercentSum,
+            out int riposteLevel,
+            out int embraceOfNightLevel,
+            out int justAScratchLevel);
 
         runtime.Weapons = weapons;
 
@@ -69,6 +72,9 @@ public static class CombatantFactory
         runtime.ItemGoldenTouchLevel = goldenTouchLevel;
         runtime.ItemToughSoleLevel = toughSoleLevel;
         runtime.ItemRepairLevel = repairLevel;
+        runtime.ItemRiposteLevel = riposteLevel;
+        runtime.ItemEmbraceOfNightLevel = embraceOfNightLevel;
+        runtime.ItemJustAScratchLevel = justAScratchLevel;
 
         runtime.ItemAttackSpeedBonusPercent = attackSpeedBonusPercent;
         runtime.ItemDamageBonusPercent = damageBonusPercent;
@@ -291,7 +297,10 @@ public static class CombatantFactory
         out float damageBonusPercent,
         out float evasionBonusPercent,
         out float hpBonusSum,
-        out float rageBonusFlatPercentSum)
+        out float rageBonusFlatPercentSum,
+        out int riposteLevel,
+        out int embraceOfNightLevel,
+        out int justAScratchLevel)
     {
         weapons = new List<WeaponAttackState>();
         physicalDefense = 0f;
@@ -308,6 +317,9 @@ public static class CombatantFactory
         evasionBonusPercent = 0f;
         hpBonusSum = 0f;
         rageBonusFlatPercentSum = 0f;
+        riposteLevel = 0;
+        embraceOfNightLevel = 0;
+        justAScratchLevel = 0;
 
         if (items == null)
         {
@@ -391,7 +403,9 @@ public static class CombatantFactory
                 ArmorBreakLevel = passiveName == SkillEffectMap.ArmorBreak ? item.itemLevel : 0,
                 PiercingLevel = passiveName == SkillEffectMap.Piercing ? item.itemLevel : 0,
                 ArmorPenetrationFlat = armorPenetrationFlat,
-                ArmorIgnorePercent = armorIgnorePercent
+                ArmorIgnorePercent = armorIgnorePercent,
+                ExecutionLevel = passiveName == SkillEffectMap.Execution ? item.itemLevel : 0,
+                GiantSlayerLevel = passiveName == SkillEffectMap.GiantSlayer ? item.itemLevel : 0
             });
 
             if (passiveName == SkillEffectMap.Repair)
@@ -472,6 +486,18 @@ public static class CombatantFactory
             else if (passiveName == SkillEffectMap.ToughSole)
             {
                 toughSoleLevel += item.itemLevel;
+            }
+            else if (passiveName == SkillEffectMap.Riposte)
+            {
+                riposteLevel += item.itemLevel;
+            }
+            else if (passiveName == SkillEffectMap.EmbraceOfNight)
+            {
+                embraceOfNightLevel += item.itemLevel;
+            }
+            else if (passiveName == SkillEffectMap.JustAScratch)
+            {
+                justAScratchLevel += item.itemLevel;
             }
         }
     }

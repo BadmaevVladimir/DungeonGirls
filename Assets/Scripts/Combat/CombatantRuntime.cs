@@ -71,6 +71,17 @@ public class CombatantRuntime
     public int ItemToughSoleLevel; // Бронированные сапоги — снижение урона от сработавших ловушек (5.5)
     public int ItemRepairLevel; // Молот кузнеца — бонус к восстановлению брони на привале (6.2)
 
+    // 3.11 (Task 6b, item-passive wiring) — armor-bound пассивки эпических предметов, character-level,
+    // тем же паттерном, что и три поля выше.
+    public int ItemRiposteLevel; // "Рипост" (Капюшон Дуэльянта) — доп. флэт-урон = уровень капюшона на первой атаке после уклонения
+    public int ItemEmbraceOfNightLevel; // "Объятия ночи" — доп. маг. урон в Скрытности = уровень × обычный урон атаки × 1%
+    public int ItemJustAScratchLevel; // "Просто царапина" (Эпический трофей) — разовое лечение в начале боя
+
+    // 3.11 (Рипост) — одноразовый флаг: взводится при успешном уклонении ЭТОГО участника (если у
+    // него есть ItemRiposteLevel > 0), потребляется на его СЛЕДУЮЩЕЙ атаке (не немедленно) — см.
+    // CombatManager.ResolveAttack (взвод — в блоке уклонения, потребление — attacker.RiposteArmed).
+    public bool RiposteArmed;
+
     public List<ActiveDebuff> ActiveDebuffs = new List<ActiveDebuff>();
 
     // 2.4/2.8: пассивка монстра (MonsterSkillEffectMap-константа из monster.passiveSkill.skillName),

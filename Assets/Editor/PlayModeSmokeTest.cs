@@ -1132,6 +1132,113 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(championZeroRageGO);
 
+        // 3.11 (Task 6b, Моменто Мори) — "Казнь": физ. урон += MaxHP(цели) × %недостающего HP × 1%/уровень.
+        // Оружие: фикс. урон 10, ExecutionLevel=5 (5%). Цель: MaxHP=1000, CurrentHP=500 (50% недостающего) ->
+        // бонус = 1000×0.5×0.05 = 25 -> итоговый урон 35.
+        var executionGO = new GameObject("SmokeTest_Execution");
+        var executionCombatManager = executionGO.AddComponent<CombatManager>();
+        var executionPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
+        executionPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 1f, ExecutionLevel = 5 });
+        var executionDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 500f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
+        executionDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        executionCombatManager.StartCombat(executionPlayer, new List<CombatantRuntime> { executionDummy });
+        executionCombatManager.Tick(1.01f);
+        Check(Mathf.Approximately(executionDummy.CurrentHP, 465f), $"3.11 «Казнь» доб. урон = MaxHP×%недостающего HP×1%/ур.: HP болвана={executionDummy.CurrentHP} (ожидалось 465, т.е. 500-35)");
+
+        UnityEngine.Object.DestroyImmediate(executionGO);
+
+        // 3.11 (Task 6b, Головоруб) — "Убийца великанов": +5%×уровень урона, ТОЛЬКО если MaxHP цели
+        // больше MaxHP атакующего (сравнение по максимуму, не по текущему HP).
+        var giantSlayerGO = new GameObject("SmokeTest_GiantSlayer");
+        var giantSlayerCombatManager = giantSlayerGO.AddComponent<CombatManager>();
+        var giantSlayerPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
+        giantSlayerPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 1f, GiantSlayerLevel = 5 });
+        var giantSlayerBigDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "BigDummy" };
+        giantSlayerBigDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        giantSlayerCombatManager.StartCombat(giantSlayerPlayer, new List<CombatantRuntime> { giantSlayerBigDummy });
+        giantSlayerCombatManager.Tick(1.01f);
+        // 10 × (1 + 5×0.05) = 10×1.25 = 12.5
+        Check(Mathf.Approximately(giantSlayerBigDummy.CurrentHP, 987.5f), $"3.11 «Убийца великанов» +25% против цели с большим MaxHP: HP болвана={giantSlayerBigDummy.CurrentHP} (ожидалось 987.5)");
+
+        UnityEngine.Object.DestroyImmediate(giantSlayerGO);
+
+        var giantSlayerSmallGO = new GameObject("SmokeTest_GiantSlayerSmall");
+        var giantSlayerSmallCombatManager = giantSlayerSmallGO.AddComponent<CombatManager>();
+        var giantSlayerSmallPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
+        giantSlayerSmallPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 1f, GiantSlayerLevel = 5 });
+        var giantSlayerSmallDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 50f, CurrentHP = 50f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "SmallDummy" };
+        giantSlayerSmallDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        giantSlayerSmallCombatManager.StartCombat(giantSlayerSmallPlayer, new List<CombatantRuntime> { giantSlayerSmallDummy });
+        giantSlayerSmallCombatManager.Tick(1.01f);
+        // MaxHP цели (50) НЕ больше MaxHP атакующего (100) -> бонус не применяется, урон = 10 ровно.
+        Check(Mathf.Approximately(giantSlayerSmallDummy.CurrentHP, 40f), $"3.11 «Убийца великанов» НЕ применяется против цели с меньшим/равным MaxHP: HP болвана={giantSlayerSmallDummy.CurrentHP} (ожидалось 40, т.е. без бонуса)");
+
+        UnityEngine.Object.DestroyImmediate(giantSlayerSmallGO);
+
+        // 3.11 (Task 6b, Капюшон Дуэльянта) — "Рипост": взводится на успешном уклонении, применяется
+        // ТОЛЬКО на следующей атаке (не немедленно), затем сбрасывается (не копится/не бьёт повторно
+        // без свежего уклонения). Player.ItemElusivenessLevel=100 -> гарантированное уклонение от
+        // атак болвана; порядок в CombatManager.Tick — сперва Player, потом враги, так что в ОДНОМ и
+        // том же Tick() собственная атака игрока идёт РАНЬШЕ уклонения того же тика (доказывает "не немедленно").
+        var riposteGO = new GameObject("SmokeTest_Riposte");
+        var riposteCombatManager = riposteGO.AddComponent<CombatManager>();
+        var riposteDefender = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 1000f, ItemElusivenessLevel = 100, ItemRiposteLevel = 5 };
+        riposteDefender.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var riposteEnemyWeapon = new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, DamageType = DamageType.Physical, AttackSpeed = 1f };
+        var riposteEnemy = new CombatantRuntime { IsPlayer = false, MaxHP = 10000f, CurrentHP = 10000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
+        riposteEnemy.Weapons.Add(riposteEnemyWeapon);
+
+        riposteCombatManager.StartCombat(riposteDefender, new List<CombatantRuntime> { riposteEnemy });
+        riposteCombatManager.Tick(1.01f); // игрок бьёт первым (без бонуса) -> потом враг уклонён -> взводит флаг
+        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9990f), $"3.11 «Рипост» НЕ применяется немедленно на той же атаке, что взвела флаг: HP болвана={riposteEnemy.CurrentHP} (ожидалось 9990, т.е. без бонуса)");
+        Check(riposteDefender.RiposteArmed, "3.11 «Рипост»: успешное уклонение взводит RiposteArmed");
+
+        riposteCombatManager.Tick(1.01f); // игрок бьёт с учётом взведённого флага -> +5 к урону
+        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9975f), $"3.11 «Рипост» применяется РОВНО на следующей атаке (+5 флэт): HP болвана={riposteEnemy.CurrentHP} (ожидалось 9975, т.е. 9990-15)");
+
+        riposteDefender.RiposteArmed = false; // имитируем отсутствие нового уклонения (враг уже перевзвёл флаг своим ходом в этом же тике)
+        riposteEnemyWeapon.AttackSpeed = 0.0001f; // враг больше не атакует в пределах теста -> новых уклонений не будет
+        riposteCombatManager.Tick(1.01f);
+        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9965f), $"3.11 «Рипост» не бьёт повторно без свежего уклонения: HP болвана={riposteEnemy.CurrentHP} (ожидалось 9965, т.е. 9975-10 без бонуса)");
+
+        UnityEngine.Object.DestroyImmediate(riposteGO);
+
+        // 3.11 (Task 6b, Кожанка) — "Объятия ночи": доп. МАГИЧЕСКИЙ урон отдельным попаданием,
+        // ТОЛЬКО пока атакующий в Скрытности. Урон оружия фикс. 20 (физ.) + бонус 20×10×1%=2 (маг.).
+        var embraceGO = new GameObject("SmokeTest_EmbraceOfNight");
+        var embraceCombatManager = embraceGO.AddComponent<CombatManager>();
+        var embraceAttacker = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, IsStealthed = true, StealthTimer = 999f, ItemEmbraceOfNightLevel = 10 };
+        embraceAttacker.Weapons.Add(new WeaponAttackState { DamageMin = 20f, DamageMax = 20f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var embraceDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 10000f, CurrentHP = 10000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
+        embraceDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        embraceCombatManager.StartCombat(embraceAttacker, new List<CombatantRuntime> { embraceDummy });
+        embraceCombatManager.Tick(1.01f);
+        Check(Mathf.Approximately(embraceDummy.CurrentHP, 9978f), $"3.11 «Объятия ночи» в Скрытности: физ. 20 + отдельный маг. бонус 2 = -22: HP болвана={embraceDummy.CurrentHP} (ожидалось 9978)");
+
+        embraceAttacker.IsStealthed = false; // выходим из Скрытности -> бонус больше не должен срабатывать
+        embraceCombatManager.Tick(1.01f);
+        Check(Mathf.Approximately(embraceDummy.CurrentHP, 9958f), $"3.11 «Объятия ночи» НЕ срабатывает вне Скрытности: HP болвана={embraceDummy.CurrentHP} (ожидалось 9958, т.е. 9978-20 без маг. бонуса)");
+
+        UnityEngine.Object.DestroyImmediate(embraceGO);
+
+        // 3.11 (Task 6b, Эпический трофей) — "Просто царапина": разовое лечение РОВНО при StartCombat
+        // (не при Tick), только у игрока (у монстров этих предметов не существует).
+        var justAScratchGO = new GameObject("SmokeTest_JustAScratch");
+        var justAScratchCombatManager = justAScratchGO.AddComponent<CombatManager>();
+        var justAScratchPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 50f, ItemJustAScratchLevel = 20 };
+        justAScratchPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+        var justAScratchDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestDummy" };
+        justAScratchDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        justAScratchCombatManager.StartCombat(justAScratchPlayer, new List<CombatantRuntime> { justAScratchDummy });
+        Check(Mathf.Approximately(justAScratchPlayer.CurrentHP, 70f), $"3.11 «Просто царапина» лечит РОВНО при StartCombat (20% от MaxHP): HP игрока={justAScratchPlayer.CurrentHP} (ожидалось 70, т.е. 50+20)");
+
+        UnityEngine.Object.DestroyImmediate(justAScratchGO);
+
         Info.Add("Play Mode проверки хаба/зданий/гачи/сейва/BeginRun выполнены.");
     }
 
