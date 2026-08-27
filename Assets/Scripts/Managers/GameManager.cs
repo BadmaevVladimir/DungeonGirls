@@ -9,7 +9,9 @@ public class GameManager : MonoBehaviour
 
     public void StartRun()
     {
-        RunFlowController.BeginRunFromMenu();
+        // Task 4: BeginRunFromMenu удалён — теперь между меню и стартом забега есть экран выбора
+        // персонажа (Плут/Варвар иначе оставались бы недостижимы из этого пути тоже).
+        RunFlowController.OpenCharacterSelect();
     }
 
     public void ReturnToHub()

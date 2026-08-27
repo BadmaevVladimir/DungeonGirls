@@ -17,6 +17,12 @@
         </ui:VisualElement>
     </ui:VisualElement>
 
+    <ui:VisualElement name="CharacterSelectScreen" class="full-screen hidden" style="flex-direction: column;">
+        <ui:Label text="Выберите персонажа" class="title-label" />
+        <ui:VisualElement name="CharacterSelectCardsContainer" class="buildings-row" />
+        <ui:Button name="CharacterSelectBackButton" text="Назад" class="button-secondary" />
+    </ui:VisualElement>
+
     <ui:VisualElement name="BuildingsScreen" class="full-screen hidden" style="flex-direction: column;">
         <ui:Label text="Здания деревни" class="title-label" />
         <ui:Label name="MetaCurrencyLabel" text="Мета-валюта: 0" class="currency-label" />

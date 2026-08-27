@@ -991,6 +991,40 @@ public static class PlayModeSmokeTest
             Check(characterManager.RoomsClearedOnCurrentFloor == 0, "8.5 BeginFloor() сбрасывает счётчик комнат этажа");
         }
 
+        // Codex P1 2026-08-27: интеграционный smoke — BeginRun не должен падать ни для одного из
+        // 3 персонажей (раньше только Дженифер была реально доступна из RunFlowController).
+        var runFlowController = UnityEngine.Object.FindFirstObjectByType<RunFlowController>();
+        if (runFlowController == null)
+        {
+            Errors.Add("Task 4: RunFlowController не найден в сцене для проверки selectableCharacters.");
+        }
+        else
+        {
+            var selectableField = typeof(RunFlowController).GetField("selectableCharacters", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var selectable = selectableField?.GetValue(runFlowController) as CharacterData[];
+            Check(selectable != null && selectable.Length == 3,
+                $"Task 4: RunFlowController.selectableCharacters содержит 3 персонажа: count={(selectable != null ? selectable.Length : -1)} (ожидалось 3)");
+
+            if (selectable != null)
+            {
+                var testCharacterManager = new GameObject("SmokeTestCharacterManager").AddComponent<CharacterManager>();
+                foreach (var character in selectable)
+                {
+                    try
+                    {
+                        testCharacterManager.BeginRun(character);
+                        Check(testCharacterManager.Combatant != null && testCharacterManager.IsAlive,
+                            $"Task 4: BeginRun успешен для {character.characterName} ({character.characterClass}): Combatant создан, IsAlive={testCharacterManager.IsAlive}");
+                    }
+                    catch (System.Exception e)
+                    {
+                        Errors.Add($"Task 4: BeginRun выбросил исключение для {character.characterName}: {e}");
+                    }
+                }
+                UnityEngine.Object.DestroyImmediate(testCharacterManager.gameObject);
+            }
+        }
+
         // 8.4: состав мешка комнат
         var floorManagerGO = new GameObject("SmokeTest_FloorManager");
         var floorManager = floorManagerGO.AddComponent<FloorManager>();

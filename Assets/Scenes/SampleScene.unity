@@ -579,7 +579,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RunFlowController
   uiDocument: {fileID: 702948515}
-  jenniferCharacter: {fileID: 11400000, guid: fc548e39806d27b4ca5fa23e3fa061de, type: 2}
+  selectableCharacters:
+  - {fileID: 11400000, guid: fc548e39806d27b4ca5fa23e3fa061de, type: 2}
+  - {fileID: 11400000, guid: baceb1dfdd8632e4fb0223bcf5b0fd46, type: 2}
+  - {fileID: 11400000, guid: a7d9a670808583c4a997485355cbcea9, type: 2}
   mentorData: {fileID: 11400000, guid: dee6087c29ec44d185823fad0e8f2815, type: 2}
   generalSkillPool:
   - {fileID: 11400000, guid: be6c014fb2b1b894da8d4c25e8372b30, type: 2}

@@ -14,7 +14,10 @@ public class RunFlowController : MonoBehaviour
     [SerializeField] UIDocument uiDocument;
 
     [Header("Контент (Фаза 2)")]
-    [SerializeField] CharacterData jenniferCharacter;
+    // ФИКС (Codex P1 2026-08-27): единственное поле jenniferCharacter заменено массивом выбираемых
+    // персонажей + экраном выбора — раньше BeginRun ВСЕГДА стартовал Дженифер, Плут/Варвар были
+    // недостижимы из реального флоу забега несмотря на то, что их данные/классовые пулы существуют.
+    [SerializeField] CharacterData[] selectableCharacters;
     [SerializeField] MentorData mentorData;
     [SerializeField] List<PassiveSkillData> generalSkillPool;
     [SerializeField] List<PassiveSkillData> warriorSkillPool;
@@ -41,6 +44,9 @@ public class RunFlowController : MonoBehaviour
     // --- Экраны верхнего уровня ---
     VisualElement mainMenuScreen;
     Button startRunButton;
+    VisualElement characterSelectScreen;
+    VisualElement characterSelectCardsContainer;
+    Button characterSelectBackButton;
     VisualElement runScreen;
     VisualElement resultsScreen;
     Label resultsTitleLabel;
@@ -155,18 +161,63 @@ public class RunFlowController : MonoBehaviour
     bool skipNextAutoCamp;
     int totalRoomsThisFloorCached;
 
+    CharacterData selectedCharacter;
+    public CharacterData SelectedCharacter => selectedCharacter;
+
     void OnEnable()
     {
         var root = uiDocument.rootVisualElement;
         CacheElements(root);
-        startRunButton.clicked += BeginRunFromMenu;
+        startRunButton.clicked += OpenCharacterSelect;
+        characterSelectBackButton.clicked += () =>
+        {
+            characterSelectScreen.style.display = DisplayStyle.None;
+            mainMenuScreen.style.display = DisplayStyle.Flex;
+        };
         resultsContinueButton.clicked += ReturnToMainMenu;
         autoModeToggle.RegisterValueChangedCallback(evt => combatManager.SetActiveSkillAutoMode(evt.newValue));
         activeSkillButton.clicked += () => combatManager.TryActivateUniqueActiveSkill();
     }
 
-    public void BeginRunFromMenu()
+    public void OpenCharacterSelect()
     {
+        mainMenuScreen.style.display = DisplayStyle.None;
+        characterSelectScreen.style.display = DisplayStyle.Flex;
+
+        characterSelectCardsContainer.Clear();
+        foreach (var character in selectableCharacters)
+        {
+            if (character == null) continue;
+
+            var card = new VisualElement();
+            card.AddToClassList("building-card");
+
+            var portraitImage = new Image { sprite = character.portrait };
+            portraitImage.style.width = 64;
+            portraitImage.style.height = 64;
+            card.Add(portraitImage);
+
+            var nameLabel = new Label(character.characterName);
+            nameLabel.AddToClassList("building-card-title");
+            card.Add(nameLabel);
+
+            var classLabel = new Label(character.characterClass.ToString());
+            classLabel.AddToClassList("body-label");
+            card.Add(classLabel);
+
+            var pickButton = new Button { text = "Выбрать" };
+            pickButton.AddToClassList("button-primary");
+            pickButton.clicked += () => BeginRunWithCharacter(character);
+            card.Add(pickButton);
+
+            characterSelectCardsContainer.Add(card);
+        }
+    }
+
+    void BeginRunWithCharacter(CharacterData character)
+    {
+        selectedCharacter = character;
+        characterSelectScreen.style.display = DisplayStyle.None;
         StartCoroutine(RunLoop());
     }
 
@@ -181,6 +232,9 @@ public class RunFlowController : MonoBehaviour
     {
         mainMenuScreen = root.Q<VisualElement>("MainMenuScreen");
         startRunButton = root.Q<Button>("StartRunButton");
+        characterSelectScreen = root.Q<VisualElement>("CharacterSelectScreen");
+        characterSelectCardsContainer = root.Q<VisualElement>("CharacterSelectCardsContainer");
+        characterSelectBackButton = root.Q<Button>("CharacterSelectBackButton");
         runScreen = root.Q<VisualElement>("RunScreen");
         resultsScreen = root.Q<VisualElement>("ResultsScreen");
         resultsTitleLabel = root.Q<Label>("ResultsTitleLabel");
@@ -277,7 +331,7 @@ public class RunFlowController : MonoBehaviour
         levelUpManager.RogueSkillPool = rogueSkillPool;
         levelUpManager.BarbarianSkillPool = barbarianSkillPool;
 
-        characterManager.BeginRun(jenniferCharacter, equipmentManager, saveManager);
+        characterManager.BeginRun(selectedCharacter, equipmentManager, saveManager);
 
         // 1, п.3: наставник передаёт свой основной пассив (постоянный бонус) + свои остальные
         // навыки в общий пул левел-апа (см. design note в плане Task 3).
@@ -464,7 +518,7 @@ public class RunFlowController : MonoBehaviour
 
         int activeLevel = characterManager.Progress.UniqueActiveLevel;
         float activeMultiplier = activeLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f };
-        combatManager.ConfigureUniqueActiveSkill(3, activeMultiplier, jenniferCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value, jenniferCharacter.uniqueActiveSkill.skillName);
+        combatManager.ConfigureUniqueActiveSkill(3, activeMultiplier, characterManager.Progress.Character.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value, characterManager.Progress.Character.uniqueActiveSkill.skillName);
 
         combatManager.LogMessage += OnCombatLog;
         combatManager.MonsterStoleCurrency += OnMonsterStoleCurrency;
@@ -1083,7 +1137,7 @@ public class RunFlowController : MonoBehaviour
         float multiplier = healMultiplierOverride > 0f ? healMultiplierOverride : characterManager.Modifiers.ConsumeCampHealMultiplier();
         var result = campManager.RestAtCamp(characterManager, multiplier);
 
-        campText.text = "Дженифер отдыхает у привала..." +
+        campText.text = $"{characterManager.Character.characterName} отдыхает у привала..." +
             $"\n+{result.HpRestored:F0} HP" +
             (result.ArmorRestored > 0f ? $", +{result.ArmorRestored:F0} физ. защиты (Полевой ремонт)" : string.Empty) +
             $"\nОсталось рационов: {campManager.RationsRemaining}";
@@ -1613,7 +1667,7 @@ public class RunFlowController : MonoBehaviour
         resultsTitleLabel.RemoveFromClassList(victory ? "results-defeat" : "results-victory");
         resultsTitleLabel.AddToClassList(victory ? "results-victory" : "results-defeat");
 
-        resultsBodyLabel.text = $"Дженифер достигла {characterManager.Level} уровня.\n" +
+        resultsBodyLabel.text = $"{characterManager.Character.characterName} достигла {characterManager.Level} уровня.\n" +
             $"Валюта забега (сгорает): {characterManager.RunCurrency}\n\n" +
             "Награды за забег:\n" +
             $"+{completion.MetaCurrency} мета-валюты\n" +
