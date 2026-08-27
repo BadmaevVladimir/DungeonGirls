@@ -61,7 +61,89 @@ public class SaveManager : MonoBehaviour
         if (data.characterRunCounts == null) data.characterRunCounts = new List<KeyCountEntry>();
         if (data.seenVNScenes == null) data.seenVNScenes = new List<CharacterSceneList>();
 
+        // v3: Claude первоначально записал названия классов как стабильные ID двух героев.
+        // По решению дизайнера персонажи называются Саша/Вайолет, а Варвар/Плут — только классы.
+        // Нормализуем также displayName-ключи из сохранений до появления characterId.
+        MigrateCharacterKey(data.gachaOwnedCharacters, "jennifer", "Дженифер");
+        MigrateCharacterKey(data.gachaOwnedCharacters, "violet", "rogue", "Плут", "Вайолет");
+        MigrateCharacterKey(data.gachaOwnedCharacters, "sasha", "barbarian", "Варвар", "Саша");
+        MigrateCharacterKey(data.characterRunCounts, "jennifer", "Дженифер");
+        MigrateCharacterKey(data.characterRunCounts, "violet", "rogue", "Плут", "Вайолет");
+        MigrateCharacterKey(data.characterRunCounts, "sasha", "barbarian", "Варвар", "Саша");
+        MigrateVeteranIds(data.veteranDeck);
+        MigrateSeenSceneIds(data.seenVNScenes);
+
         data.saveVersion = SaveData.CurrentSaveVersion;
+    }
+
+    static void MigrateCharacterKey(List<KeyCountEntry> entries, string stableId, params string[] legacyKeys)
+    {
+        var destination = entries.Find(entry => string.Equals(entry.key, stableId, StringComparison.OrdinalIgnoreCase));
+        foreach (string legacyKey in legacyKeys)
+        {
+            for (int i = entries.Count - 1; i >= 0; i--)
+            {
+                var entry = entries[i];
+                if (entry == null || !string.Equals(entry.key, legacyKey, StringComparison.OrdinalIgnoreCase)) continue;
+                if (destination == null)
+                {
+                    entry.key = stableId;
+                    destination = entry;
+                }
+                else if (!ReferenceEquals(destination, entry))
+                {
+                    destination.count += entry.count;
+                    entries.RemoveAt(i);
+                }
+            }
+        }
+    }
+
+    static void MigrateVeteranIds(List<VeteranCharacter> veterans)
+    {
+        foreach (var veteran in veterans)
+        {
+            if (veteran == null) continue;
+            veteran.characterId = NormalizeCharacterId(veteran.characterId);
+            veteran.finalSkills ??= new List<VeteranSkillEntry>();
+            veteran.finalEquipment ??= new List<string>();
+        }
+    }
+
+    static void MigrateSeenSceneIds(List<CharacterSceneList> entries)
+    {
+        for (int i = entries.Count - 1; i >= 0; i--)
+        {
+            var entry = entries[i];
+            if (entry == null)
+            {
+                entries.RemoveAt(i);
+                continue;
+            }
+
+            entry.characterId = NormalizeCharacterId(entry.characterId);
+            entry.sceneIds ??= new List<string>();
+            var duplicate = entries.Find(other => other != entry && other != null &&
+                string.Equals(other.characterId, entry.characterId, StringComparison.OrdinalIgnoreCase));
+            if (duplicate == null) continue;
+            duplicate.sceneIds ??= new List<string>();
+            foreach (string sceneId in entry.sceneIds)
+            {
+                if (!duplicate.sceneIds.Exists(id => string.Equals(id, sceneId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    duplicate.sceneIds.Add(sceneId);
+                }
+            }
+            entries.RemoveAt(i);
+        }
+    }
+
+    static string NormalizeCharacterId(string id)
+    {
+        if (string.Equals(id, "rogue", StringComparison.OrdinalIgnoreCase) || id == "Плут" || id == "Вайолет") return "violet";
+        if (string.Equals(id, "barbarian", StringComparison.OrdinalIgnoreCase) || id == "Варвар" || id == "Саша") return "sasha";
+        if (id == "Дженифер") return "jennifer";
+        return id;
     }
 
     public void SaveGame()
@@ -164,15 +246,55 @@ public class SaveManager : MonoBehaviour
         SaveGame();
     }
 
+    // 11.1: стоимость и результат одного призыва фиксируются одной записью save. Если процесс
+    // закроется во время анимации, игрок не потеряет валюту без уже сохранённого результата.
+    // Ровно один тип награды обязателен: characterId ИЛИ положительная metaCurrency-награда.
+    public bool TryApplyGachaPull(int cost, string characterId, int metaCurrencyAmount, out int characterCopies)
+    {
+        characterCopies = 0;
+        bool characterPrize = !string.IsNullOrWhiteSpace(characterId);
+        bool currencyPrize = metaCurrencyAmount > 0;
+        if (cost < 0 || Data.gachaCurrency < cost || characterPrize == currencyPrize) return false;
+
+        Data.gachaCurrency -= cost;
+        if (characterPrize)
+        {
+            var entry = FindOrCreateEntry(Data.gachaOwnedCharacters, characterId);
+            entry.count++;
+            characterCopies = entry.count;
+        }
+        else
+        {
+            Data.metaCurrency += metaCurrencyAmount;
+        }
+
+        SaveGame();
+        return true;
+    }
+
     // ==================== Ветераны / прохождения (9.2, раздел завершения забега) ====================
 
     // ФИКС (Codex P2 2026-08-27): добавление ветерана и инкремент счётчика прохождений — одна
     // транзакция в памяти, один SaveGame() — раньше этой пары не существовало вовсе (см. Task 8).
     public void AddVeteranAndIncrementRunCount(VeteranCharacter veteran)
     {
+        if (veteran == null || string.IsNullOrWhiteSpace(veteran.characterId)) return;
         Data.veteranDeck.Add(veteran);
         FindOrCreateEntry(Data.characterRunCounts, veteran.characterId).count++;
         SaveGame();
+    }
+
+    // 1 п.7-8 / 9.2: награды, ветеран и счётчик прохождений — одно логическое завершение
+    // забега и одна запись save, без промежуточного состояния «валюта уже есть, ветерана ещё нет».
+    public bool CompleteRun(int metaCurrency, int gachaCurrency, VeteranCharacter veteran)
+    {
+        if (metaCurrency < 0 || gachaCurrency < 0 || veteran == null || string.IsNullOrWhiteSpace(veteran.characterId)) return false;
+        Data.metaCurrency += metaCurrency;
+        Data.gachaCurrency += gachaCurrency;
+        Data.veteranDeck.Add(veteran);
+        FindOrCreateEntry(Data.characterRunCounts, veteran.characterId).count++;
+        SaveGame();
+        return true;
     }
 
     public int GetRunCount(string characterId) => FindEntry(Data.characterRunCounts, characterId)?.count ?? 0;

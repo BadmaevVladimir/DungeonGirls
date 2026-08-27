@@ -797,7 +797,7 @@ public class RunFlowController : MonoBehaviour
 
         if (!wasBlocked)
         {
-            StartCoroutine(ShakeElement(wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
+            StartCoroutine(ChestRevealAnimator.Shake(wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
         }
     }
 
@@ -1393,12 +1393,6 @@ public class RunFlowController : MonoBehaviour
         rewardPanel.AddToClassList("hidden");
     }
 
-    // Число дополнительных "шумовых" иконок с каждого края ленты сверх видимых 20 слотов (8.2:
-    // "лента зациклена" — ни начало, ни конец списка не должны быть видны ни в состоянии покоя,
-    // ни в любой момент прокрутки). Viewport показывает 5 иконок (320px / 64px), паддинга в 3
-    // с запасом хватает на обе стороны, где реально нужно видеть максимум 2.
-    const int chestReelPadding = 3;
-
     // 8.2/10.6: тряска закрытого сундука, открытие, рулетка иконок предметов, скип, вспышка на приземлении.
     IEnumerator ChestRevealFlow(ChestReward reward)
     {
@@ -1409,15 +1403,12 @@ public class RunFlowController : MonoBehaviour
 
         // 8.2 (уточнено): сундук трясётся закрытым ~1с, затем переключается на открытый — и только
         // ПОСЛЕ этого начинается формирование ленты (не одновременно с открытием, как раньше).
-        yield return ShakeChest(chestSpriteImage, 1f);
+        yield return ChestRevealAnimator.ShakeChest(chestSpriteImage);
         chestSpriteImage.image = chestOpenTexture;
 
         // 8.2: лента из ~20 иконок предметов, взятых из пула каталога (те же иконки, что уже
         // назначены в Task 2) — случайный подбор с повторами, если в каталоге меньше 20 предметов.
         var pool = rewardManager.itemCatalog != null ? rewardManager.itemCatalog.items : null;
-        const int reelLength = 20;
-        const float iconWidth = 64f;
-
         if (pool == null || pool.Length == 0)
         {
             // Пустой каталог — деградируем на мгновенный переход к итогу без ленты, не зависаем.
@@ -1428,102 +1419,27 @@ public class RunFlowController : MonoBehaviour
         // 8.2 (уточнено): паддинг-иконки с обеих сторон — та же "шумовая" логика, что и остальные
         // ~19 слотов (случайный предмет + случайная фальшивая редкость), просто вне видимого при
         // покое диапазона. Итоговый индекс победного слота в массиве смещён на chestReelPadding.
-        int totalIcons = reelLength + chestReelPadding * 2;
-        int winningIndex = chestReelPadding + reelLength - 2;
+        int winningIndex = ChestRevealAnimator.ReelPadding + ChestRevealAnimator.WinningLogicalIndex;
         Sprite winningIcon = reward.Item != null ? reward.Item.icon : pool[0].icon;
-        for (int i = 0; i < totalIcons; i++)
+
+        void BuildSlot(int index, bool isWinning)
         {
-            Sprite iconSprite = i == winningIndex ? winningIcon : pool[Random.Range(0, pool.Length)].icon;
+            Sprite iconSprite = isWinning ? winningIcon : pool[Random.Range(0, pool.Length)].icon;
             var icon = new Image { sprite = iconSprite };
             icon.AddToClassList("chest-reel-icon");
-            icon.AddToClassList(i == winningIndex ? ChestReelBgClassFor(reward.ItemRarity) : ChestReelBgClassFor(rewardManager.RollItemRarity(false)));
+            icon.AddToClassList(isWinning ? ChestReelBgClassFor(reward.ItemRarity) : ChestReelBgClassFor(rewardManager.RollItemRarity(false)));
             chestReelStrip.Add(icon);
         }
 
-        // ChestRevealContainer живёт внутри RewardPanel, который тоже переключается на display:flex
-        // только что (в ShowRewardChestFlow, тем же кадром) — до этого момента Yoga-layout для него
-        // не считался, поэтому resolvedStyle.width ещё вернул бы 0. Ждём один кадр, чтобы layout
-        // успел посчитаться и viewport реально получил заданные в USS 320px.
-        yield return null;
-
-        // Стартовая позиция: первая ЛОГИЧЕСКАЯ иконка (индекс chestReelPadding в массиве, т.е.
-        // после паддинга) видна в центре viewport — паддинг-иконки слева ещё не показаны игроку,
-        // но существуют в массиве, поэтому слева от неё уже есть чем заполнить viewport.
-        float viewportCenter = chestReelViewport.resolvedStyle.width / 2f;
-        chestReelStrip.style.left = viewportCenter - iconWidth / 2f - chestReelPadding * iconWidth;
-
-        bool skipped = false;
-        void OnSkip() => skipped = true;
-        chestSkipButton.clicked += OnSkip;
-
-        // Целевая позиция: победный слот (winningIndex) должен оказаться под центром viewport —
-        // это и есть "указатель"/точка приземления ленты. Паддинг справа от него гарантирует, что
-        // после приземления справа тоже не видно края массива.
-        float targetLeft = viewportCenter - iconWidth / 2f - winningIndex * iconWidth;
-        float tweenDuration = 4f; // середина диапазона 3-5 сек из ГДД 8.2
-
-        bool tweenComplete = false;
-        var tween = DG.Tweening.DOTween.To(
-            () => chestReelStrip.style.left.value.value,
-            x => chestReelStrip.style.left = x,
-            targetLeft,
-            tweenDuration
-        ).SetEase(DG.Tweening.Ease.OutCubic).OnComplete(() => tweenComplete = true);
-
-        while (!tweenComplete && !skipped)
-        {
-            yield return null;
-        }
-
-        if (skipped)
-        {
-            tween.Kill();
-            chestReelStrip.style.left = targetLeft;
-        }
-
-        chestSkipButton.clicked -= OnSkip;
+        yield return ChestRevealAnimator.PlayReel(chestReelStrip, chestReelViewport, BuildSlot, chestSkipButton, winningIndex);
 
         // Вспышка/burst на приземлении (финальный ревью, замена world-space ParticleSystem — см.
         // SpawnChestBurst): UI Toolkit-нативные "искры" внутри chestRevealContainer.
-        SpawnChestBurst(chestSpriteImage, chestRevealContainer);
+        ChestRevealAnimator.SpawnBurst(chestSpriteImage, chestRevealContainer);
 
         yield return new WaitForSeconds(0.3f); // короткая пауза на "приземление" перед итоговым текстом
 
         chestRevealContainer.style.display = DisplayStyle.None;
-    }
-
-    // 8.2 (уточнено): сундук трясётся на месте закрытым спрайтом ~1с перед открытием — DOTween.Punch
-    // по style.translate (UI Toolkit не имеет Transform/RectTransform, поэтому обычный
-    // transform.DOPunchPosition из DOTween для GameObject здесь неприменим).
-    IEnumerator ShakeChest(VisualElement element, float duration)
-    {
-        yield return ShakeElement(element, duration, new Vector3(6f, 4f, 0f), 10);
-    }
-
-    // 4.7: обобщённый хелпер тряски (сундук ~1с/6-4px, попадание в бою ~0.2с/меньшая амплитуда) —
-    // единый DOTween.Punch по style.translate, параметризованный длительностью/амплитудой/вибрато.
-    IEnumerator ShakeElement(VisualElement element, float duration, Vector3 amplitude, int vibrato)
-    {
-        Vector3 shakeOffset = Vector3.zero;
-        bool shakeComplete = false;
-        DG.Tweening.DOTween.Punch(
-            () => shakeOffset,
-            v =>
-            {
-                shakeOffset = v;
-                element.style.translate = new Translate(v.x, v.y, 0);
-            },
-            amplitude,
-            duration,
-            vibrato
-        ).OnComplete(() => shakeComplete = true);
-
-        while (!shakeComplete)
-        {
-            yield return null;
-        }
-
-        element.style.translate = new Translate(0, 0, 0);
     }
 
     // 8.2 (уточнено): фон слота ленты по редкости — переиспользует ту же палитру серый/синий/
@@ -1535,64 +1451,6 @@ public class RunFlowController : MonoBehaviour
         ItemTier.Rare => "chest-reel-icon-rare",
         _ => "chest-reel-icon-epic"
     };
-
-    // Оригинальный план предполагал world-space ParticleSystem-префаб (chestBurstPrefab), но
-    // GamePanelSettings использует ScreenSpaceOverlay (m_RenderMode: 0) — UI Toolkit-панель рисуется
-    // поверх всей сцены, и world-space ParticleSystem физически не мог оказаться поверх UI, к тому же
-    // VisualElement.worldTransform.GetPosition() отдаёт panel-space пиксели, а не мировые координаты
-    // (финальный ревью, находка #3). Заменено на несколько маленьких VisualElement-"искр", которые
-    // разлетаются от центра приземлившейся иконки сундука и гаснут — тот же DOTween, что уже
-    // используется для прокрутки ленты выше.
-    void SpawnChestBurst(VisualElement anchor, VisualElement container)
-    {
-        const int burstCount = 8;
-        const float burstDistance = 48f;
-        const float burstDuration = 0.5f;
-        const float dotSize = 8f;
-        var burstColor = new Color(1f, 217f / 255f, 51f / 255f, 1f); // ~#FFD933, план: rgba(255, 217, 51, 1)
-
-        // anchor — прямой потомок container (ChestSpriteImage внутри ChestRevealContainer), поэтому
-        // anchor.layout уже в системе координат container.
-        float centerX = anchor.layout.x + anchor.layout.width / 2f;
-        float centerY = anchor.layout.y + anchor.layout.height / 2f;
-
-        for (int i = 0; i < burstCount; i++)
-        {
-            var dot = new VisualElement();
-            dot.style.position = Position.Absolute;
-            dot.style.width = dotSize;
-            dot.style.height = dotSize;
-            dot.style.borderTopLeftRadius = dotSize / 2f;
-            dot.style.borderTopRightRadius = dotSize / 2f;
-            dot.style.borderBottomLeftRadius = dotSize / 2f;
-            dot.style.borderBottomRightRadius = dotSize / 2f;
-            dot.style.backgroundColor = burstColor;
-            dot.style.left = centerX - dotSize / 2f;
-            dot.style.top = centerY - dotSize / 2f;
-            container.Add(dot);
-
-            float angle = i / (float)burstCount * Mathf.PI * 2f + Random.Range(-0.2f, 0.2f);
-            float dx = Mathf.Cos(angle) * burstDistance;
-            float dy = Mathf.Sin(angle) * burstDistance;
-
-            float progress = 0f;
-            DG.Tweening.DOTween.To(() => progress, x => progress = x, 1f, burstDuration)
-                .SetEase(DG.Tweening.Ease.OutCubic)
-                .OnUpdate(() =>
-                {
-                    dot.style.left = centerX - dotSize / 2f + dx * progress;
-                    dot.style.top = centerY - dotSize / 2f + dy * progress;
-                    dot.style.opacity = 1f - progress;
-                })
-                .OnComplete(() =>
-                {
-                    if (dot.parent != null)
-                    {
-                        dot.RemoveFromHierarchy();
-                    }
-                });
-        }
-    }
 
     // ==================== Сравнение предмета (3.4, "Без инвентаря") ====================
 
@@ -1702,8 +1560,7 @@ public class RunFlowController : MonoBehaviour
             characterManager.RoomsClearedOnCurrentFloor);
         if (saveManager != null)
         {
-            saveManager.AddMetaCurrency(completion.MetaCurrency);
-            saveManager.AddGachaCurrency(completion.GachaCurrency);
+            saveManager.CompleteRun(completion.MetaCurrency, completion.GachaCurrency, BuildVeteranSnapshot());
         }
 
         resultsTitleLabel.text = victory ? "Победа" : "Поражение";
@@ -1717,6 +1574,34 @@ public class RunFlowController : MonoBehaviour
             $"+{completion.GachaCurrency} гача-валюты";
 
         yield return WaitForClick(resultsContinueButton);
+    }
+
+    VeteranCharacter BuildVeteranSnapshot()
+    {
+        var veteran = new VeteranCharacter
+        {
+            characterId = characterManager.Character.characterId,
+            // finalHP в схеме трактуется как финальный максимальный HP-стат персонажа, а не
+            // оставшееся после последнего удара здоровье (при поражении оно всегда было бы 0).
+            finalHP = characterManager.Combatant.MaxHP,
+            // Формула PowerLevel остаётся открытым вопросом ГДД. Не подменяем решение дизайнера.
+            powerLevel = 0
+        };
+
+        foreach (var pair in characterManager.Progress.KnownSkillLevels)
+        {
+            if (pair.Key != null)
+            {
+                veteran.finalSkills.Add(new VeteranSkillEntry { skillName = pair.Key.skillName, level = pair.Value });
+            }
+        }
+
+        foreach (var item in characterManager.EquippedItems)
+        {
+            if (item != null) veteran.finalEquipment.Add(item.itemName);
+        }
+
+        return veteran;
     }
 
     // ==================== Общие UI-хелперы ====================

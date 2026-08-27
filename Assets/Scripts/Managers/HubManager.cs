@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -12,15 +14,14 @@ public class HubManager : MonoBehaviour
     [Header("Менеджеры")]
     [SerializeField] SaveManager saveManager;
 
-    [Header("Гача-контент (раздел 0: 2 персонажа + 10 предметов-заглушек)")]
+    [Header("Гача-контент (11.1: Дженифер / Вайолет / Саша)")]
     [SerializeField] CharacterData[] gachaCharacters;
-    [SerializeField]
-    List<string> gachaItemNames = new List<string>
-    {
-        "Предмет-заглушка 1", "Предмет-заглушка 2", "Предмет-заглушка 3", "Предмет-заглушка 4",
-        "Предмет-заглушка 5", "Предмет-заглушка 6", "Предмет-заглушка 7", "Предмет-заглушка 8",
-        "Предмет-заглушка 9", "Предмет-заглушка 10"
-    };
+
+    [Header("Гача-анимация (11.1, общая механика сундука 8.2)")]
+    [SerializeField] Texture2D gachaChestClosedTexture;
+    [SerializeField] Texture2D gachaChestOpenTexture;
+    [SerializeField] Sprite characterSilhouetteRayOverlay;
+    [SerializeField] ItemCatalogData currencyIconCatalog;
 
     const int GachaPullCost = 50; // 8.5
 
@@ -30,11 +31,19 @@ public class HubManager : MonoBehaviour
     VisualElement mainMenuScreen;
     VisualElement buildingsScreen;
     VisualElement gachaScreen;
+    VisualElement veteranDeckScreen;
+    VisualElement charactersScreen;
 
     Button buildingsButton;
     Button gachaButton;
+    Button veteranDeckButton;
+    Button charactersButton;
     Button buildingsBackButton;
     Button gachaBackButton;
+    Button veteranDeckBackButton;
+    Button charactersBackButton;
+    ScrollView veteranDeckScrollView;
+    ScrollView charactersScrollView;
 
     Label metaCurrencyLabel;
     Label gachaCurrencyLabel;
@@ -48,6 +57,12 @@ public class HubManager : MonoBehaviour
     VisualElement gachaResultPopup;
     Label gachaResultLabel;
     Button gachaResultCloseButton;
+    VisualElement gachaRevealContainer;
+    Image gachaChestSpriteImage;
+    VisualElement gachaReelViewport;
+    VisualElement gachaReelStrip;
+    Button gachaSkipButton;
+    bool gachaPullInProgress;
 
     Button resetProgressButton;
     VisualElement resetProgressConfirmPopup;
@@ -71,6 +86,10 @@ public class HubManager : MonoBehaviour
         gachaButton.clicked += OpenGacha;
         buildingsBackButton.clicked += OpenVillage;
         gachaBackButton.clicked += OpenVillage;
+        veteranDeckButton.clicked += OpenVeteranDeck;
+        charactersButton.clicked += OpenCharacters;
+        veteranDeckBackButton.clicked += OpenVillage;
+        charactersBackButton.clicked += OpenVillage;
         gachaPullButton.clicked += TryPullGacha;
         gachaResultCloseButton.clicked += () => gachaResultPopup.style.display = DisplayStyle.None;
 
@@ -86,6 +105,10 @@ public class HubManager : MonoBehaviour
 
         RefreshBuildingsScreen();
         RefreshGachaScreen();
+        if (!HasValidGachaCharacterPool())
+        {
+            Debug.LogError("[Hub] GDD 11.1: gachaCharacters должен содержать ровно Дженифер, Вайолет и Сашу с непустыми characterId.");
+        }
     }
 
     void CacheElements(VisualElement root)
@@ -93,11 +116,19 @@ public class HubManager : MonoBehaviour
         mainMenuScreen = root.Q<VisualElement>("MainMenuScreen");
         buildingsScreen = root.Q<VisualElement>("BuildingsScreen");
         gachaScreen = root.Q<VisualElement>("GachaScreen");
+        veteranDeckScreen = root.Q<VisualElement>("VeteranDeckScreen");
+        charactersScreen = root.Q<VisualElement>("CharactersScreen");
 
         buildingsButton = root.Q<Button>("BuildingsButton");
         gachaButton = root.Q<Button>("GachaButton");
+        veteranDeckButton = root.Q<Button>("VeteranDeckButton");
+        charactersButton = root.Q<Button>("CharactersButton");
         buildingsBackButton = root.Q<Button>("BuildingsBackButton");
         gachaBackButton = root.Q<Button>("GachaBackButton");
+        veteranDeckBackButton = root.Q<Button>("VeteranDeckBackButton");
+        charactersBackButton = root.Q<Button>("CharactersBackButton");
+        veteranDeckScrollView = root.Q<ScrollView>("VeteranDeckScrollView");
+        charactersScrollView = root.Q<ScrollView>("CharactersScrollView");
 
         metaCurrencyLabel = root.Q<Label>("MetaCurrencyLabel");
         gachaCurrencyLabel = root.Q<Label>("GachaCurrencyLabel");
@@ -114,6 +145,11 @@ public class HubManager : MonoBehaviour
         gachaResultPopup = root.Q<VisualElement>("GachaResultPopup");
         gachaResultLabel = root.Q<Label>("GachaResultLabel");
         gachaResultCloseButton = root.Q<Button>("GachaResultCloseButton");
+        gachaRevealContainer = root.Q<VisualElement>("GachaRevealContainer");
+        gachaChestSpriteImage = root.Q<Image>("GachaChestSpriteImage");
+        gachaReelViewport = root.Q<VisualElement>("GachaReelViewport");
+        gachaReelStrip = root.Q<VisualElement>("GachaReelStrip");
+        gachaSkipButton = root.Q<Button>("GachaSkipButton");
 
         resetProgressButton = root.Q<Button>("ResetProgressButton");
         resetProgressConfirmPopup = root.Q<VisualElement>("ResetProgressConfirmPopup");
@@ -127,6 +163,8 @@ public class HubManager : MonoBehaviour
     {
         buildingsScreen.style.display = DisplayStyle.None;
         gachaScreen.style.display = DisplayStyle.None;
+        veteranDeckScreen.style.display = DisplayStyle.None;
+        charactersScreen.style.display = DisplayStyle.None;
         mainMenuScreen.style.display = DisplayStyle.Flex;
     }
 
@@ -146,12 +184,71 @@ public class HubManager : MonoBehaviour
 
     public void OpenVeteranDeck()
     {
-        // Экран колоды ветеранов (7.1) — отдельная фаза, вне скоупа Фазы 5.
+        mainMenuScreen.style.display = DisplayStyle.None;
+        veteranDeckScreen.style.display = DisplayStyle.Flex;
+        veteranDeckScrollView.Clear();
+
+        foreach (var veteran in saveManager.Data.veteranDeck)
+        {
+            if (veteran == null) continue;
+            string displayName = CharacterDisplayName(veteran.characterId);
+            string power = veteran.powerLevel > 0 ? veteran.powerLevel.ToString() : "не рассчитан";
+            int skillCount = veteran.finalSkills != null ? veteran.finalSkills.Count : 0;
+            int equipmentCount = veteran.finalEquipment != null ? veteran.finalEquipment.Count : 0;
+            var row = new Label($"{displayName} — PowerLevel: {power}, HP {veteran.finalHP:F0}, навыков {skillCount}, снаряжения {equipmentCount}");
+            row.AddToClassList("body-label");
+            veteranDeckScrollView.Add(row);
+        }
+
+        if (veteranDeckScrollView.childCount == 0)
+        {
+            var empty = new Label("Пока нет завершённых забегов.");
+            empty.AddToClassList("body-label");
+            veteranDeckScrollView.Add(empty);
+        }
     }
 
     public void OpenCharacters()
     {
-        // Экран персонажей/био (7.1) — отдельная фаза, вне скоупа Фазы 5.
+        mainMenuScreen.style.display = DisplayStyle.None;
+        charactersScreen.style.display = DisplayStyle.Flex;
+        charactersScrollView.Clear();
+
+        foreach (var character in gachaCharacters)
+        {
+            if (character == null) continue;
+            int copies = saveManager.GetCharacterCopies(character.characterId);
+            if (copies <= 0) continue; // 7.1: экран содержит полученных в гаче персонажей.
+
+            int runs = saveManager.GetRunCount(character.characterId);
+            var sceneEntry = saveManager.Data.seenVNScenes.Find(entry => entry != null && entry.characterId == character.characterId);
+            int seenScenes = sceneEntry != null && sceneEntry.sceneIds != null ? sceneEntry.sceneIds.Count : 0;
+            var row = new Label($"{character.characterName} ({character.characterClass}) — копий: {copies}, прохождений: {runs}, открытых сцен: {seenScenes}");
+            row.AddToClassList("body-label");
+            charactersScrollView.Add(row);
+        }
+
+        if (charactersScrollView.childCount == 0)
+        {
+            var empty = new Label("Полученных в гаче персонажей пока нет.");
+            empty.AddToClassList("body-label");
+            charactersScrollView.Add(empty);
+        }
+    }
+
+    string CharacterDisplayName(string characterId)
+    {
+        if (gachaCharacters != null)
+        {
+            foreach (var character in gachaCharacters)
+            {
+                if (character != null && System.String.Equals(character.characterId, characterId, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return character.characterName;
+                }
+            }
+        }
+        return characterId;
     }
 
     // ==================== Здания (8.1) ====================
@@ -190,20 +287,163 @@ public class HubManager : MonoBehaviour
         }
     }
 
-    // ==================== Гача (8.5, раздел 0) ====================
+    // ==================== Гача (8.5/11.1) ====================
 
     void RefreshGachaScreen()
     {
         gachaCurrencyLabel.text = $"Гача-валюта: {saveManager.Data.gachaCurrency}";
-        gachaPullButton.SetEnabled(saveManager.Data.gachaCurrency >= GachaPullCost);
+        gachaPullButton.SetEnabled(!gachaPullInProgress && HasValidGachaCharacterPool() && saveManager.Data.gachaCurrency >= GachaPullCost);
     }
 
     void TryPullGacha()
     {
-        // [DRAFT, временная заглушка до Task 6 — полная реализация под GDD 11.1]
-        saveManager.TrySpendGachaCurrency(GachaPullCost);
+        if (gachaPullInProgress || !HasValidGachaCharacterPool()) return;
+        if (!GachaPool.RollResult(Random.value, Random.value, out var result)) return;
+
+        CharacterData character = result.IsCharacter ? gachaCharacters[result.CharacterIndex] : null;
+        int metaCurrencyAmount = result.IsCharacter ? 0 : result.CurrencyAmount;
+        if (!saveManager.TryApplyGachaPull(GachaPullCost, character != null ? character.characterId : null, metaCurrencyAmount, out int copies))
+        {
+            RefreshGachaScreen();
+            return;
+        }
+
+        // Результат уже атомарно сохранён вместе со списанием стоимости. Анимация ниже — только
+        // презентация и может быть безопасно пропущена/прервана без потери награды.
+        gachaPullInProgress = true;
+        gachaResultPopup.style.display = DisplayStyle.None;
+        RefreshGachaScreen();
+        StartCoroutine(GachaPullFlow(result, character, copies));
+    }
+
+    IEnumerator GachaPullFlow(GachaPool.Result result, CharacterData character, int copies)
+    {
+        gachaRevealContainer.style.display = DisplayStyle.Flex;
+        gachaChestSpriteImage.image = gachaChestClosedTexture;
+        gachaChestSpriteImage.style.translate = new Translate(0, 0, 0);
+        gachaReelStrip.Clear();
+        gachaBackButton.SetEnabled(false);
+
+        yield return ChestRevealAnimator.ShakeChest(gachaChestSpriteImage);
+        gachaChestSpriteImage.image = gachaChestOpenTexture;
+
+        VisualElement winningSlot = null;
+        Image winningPortrait = null;
+        int winningIndex = ChestRevealAnimator.ReelPadding + ChestRevealAnimator.WinningLogicalIndex;
+
+        void BuildSlot(int index, bool isWinning)
+        {
+            var slot = new VisualElement();
+            slot.AddToClassList("chest-reel-icon");
+
+            if (isWinning && result.IsCharacter)
+            {
+                if (characterSilhouetteRayOverlay != null)
+                {
+                    var ray = new Image { sprite = characterSilhouetteRayOverlay, scaleMode = ScaleMode.ScaleToFit, pickingMode = PickingMode.Ignore };
+                    ray.style.position = Position.Absolute;
+                    ray.style.left = 0;
+                    ray.style.right = 0;
+                    ray.style.top = 0;
+                    ray.style.bottom = 0;
+                    slot.Add(ray);
+                }
+
+                winningPortrait = new Image { sprite = character.portrait, scaleMode = ScaleMode.ScaleToFit, pickingMode = PickingMode.Ignore };
+                winningPortrait.style.width = Length.Percent(100);
+                winningPortrait.style.height = Length.Percent(100);
+                winningPortrait.style.unityBackgroundImageTintColor = Color.black;
+                slot.Add(winningPortrait);
+            }
+            else if (isWinning)
+            {
+                slot.AddToClassList(ReelBackgroundClass(result.CurrencyTier));
+                var amount = new Label($"+{result.CurrencyAmount}");
+                amount.style.unityTextAlign = TextAnchor.MiddleCenter;
+                amount.style.flexGrow = 1;
+                slot.Add(amount);
+            }
+            else if (currencyIconCatalog != null && currencyIconCatalog.items != null && currencyIconCatalog.items.Length > 0)
+            {
+                var noiseItem = currencyIconCatalog.items[Random.Range(0, currencyIconCatalog.items.Length)];
+                if (noiseItem != null)
+                {
+                    var noise = new Image { sprite = noiseItem.icon, scaleMode = ScaleMode.ScaleToFit, pickingMode = PickingMode.Ignore };
+                    noise.style.width = Length.Percent(100);
+                    noise.style.height = Length.Percent(100);
+                    slot.Add(noise);
+                }
+            }
+
+            if (isWinning) winningSlot = slot;
+            gachaReelStrip.Add(slot);
+        }
+
+        yield return ChestRevealAnimator.PlayReel(gachaReelStrip, gachaReelViewport, BuildSlot, gachaSkipButton, winningIndex);
+        if (winningSlot != null) ChestRevealAnimator.SpawnBurst(winningSlot, gachaRevealContainer);
+
+        if (winningPortrait != null)
+        {
+            Color tint = Color.black;
+            bool revealComplete = false;
+            DG.Tweening.DOTween.To(() => tint, value =>
+            {
+                tint = value;
+                winningPortrait.style.unityBackgroundImageTintColor = value;
+            }, Color.white, 0.18f).OnComplete(() => revealComplete = true);
+            while (!revealComplete) yield return null;
+        }
+
+        yield return new WaitForSeconds(0.3f);
+        gachaRevealContainer.style.display = DisplayStyle.None;
+        gachaResultPopup.style.display = DisplayStyle.Flex;
+
+        if (result.IsCharacter)
+        {
+            gachaResultLabel.text = $"Персонаж: {character.characterName} (копия №{copies})";
+        }
+        else
+        {
+            int shownAmount = 0;
+            gachaResultLabel.text = $"Мета-валюта: +0 ({RarityLabel(result.CurrencyTier)})";
+            bool countComplete = false;
+            DG.Tweening.DOTween.To(() => shownAmount, value =>
+            {
+                shownAmount = value;
+                gachaResultLabel.text = $"Мета-валюта: +{shownAmount} ({RarityLabel(result.CurrencyTier)})";
+            }, result.CurrencyAmount, 0.5f).OnComplete(() => countComplete = true);
+            while (!countComplete) yield return null;
+        }
+
+        gachaBackButton.SetEnabled(true);
+        gachaPullInProgress = false;
         RefreshGachaScreen();
     }
+
+    bool HasValidGachaCharacterPool()
+    {
+        if (gachaCharacters == null || gachaCharacters.Length != GachaPool.CharacterCount) return false;
+        var ids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        foreach (var character in gachaCharacters)
+        {
+            if (character == null || string.IsNullOrWhiteSpace(character.characterId) || !ids.Add(character.characterId)) return false;
+        }
+        return true;
+    }
+
+    static string RarityLabel(ItemTier tier) => tier switch
+    {
+        ItemTier.Common => "Обычный",
+        ItemTier.Rare => "Редкий",
+        _ => "Эпический"
+    };
+
+    static string ReelBackgroundClass(ItemTier tier) => tier switch
+    {
+        ItemTier.Common => "chest-reel-icon-common",
+        ItemTier.Rare => "chest-reel-icon-rare",
+        _ => "chest-reel-icon-epic"
+    };
 
     // ==================== Сброс прогресса (7.1) ====================
 

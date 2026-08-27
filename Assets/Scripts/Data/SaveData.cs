@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine.Serialization;
 
 // 9.2/9.3/9.4: всё, что сохраняется между сессиями. saveVersion (НОВОЕ, Codex P2 2026-08-27) —
 // для миграций при изменении схемы (см. SaveManager.MigrateIfNeeded). gachaOwnedCharacters заменяет
@@ -24,10 +25,8 @@ public class CharacterSceneList
 }
 
 // 9.4: снимок персонажа на момент завершения забега (победа ИЛИ поражение — "финальные" статы,
-// не обязательно "лучшие"). powerLevel: формула — открытый вопрос в ГДД (1, п.8); здесь взята
-// простая монотонная DRAFT-формула (уровень×100 + сумма уровней известных навыков×10 + число
-// надетых предметов×5) — достаточно, чтобы ветераны сортировались осмысленно в UI колоды, не
-// претендует на финальный баланс-расчёт (см. отчёт по этой задаче).
+// не обязательно "лучшие"). Формула powerLevel остаётся открытым дизайн-вопросом в ГДД;
+// технический слой хранит значение, но не придумывает формулу без решения дизайнера.
 [Serializable]
 public class VeteranSkillEntry
 {
@@ -48,7 +47,7 @@ public class VeteranCharacter
 [Serializable]
 public class SaveData
 {
-    public const int CurrentSaveVersion = 2; // 1 = схема до этого фикса (без saveVersion, неявно); 2 = текущая (9.4, Codex-аудит 2026-08-27)
+    public const int CurrentSaveVersion = 3; // 3 = именные ID violet/sasha вместо ошибочных классовых rogue/barbarian.
 
     public int saveVersion = SaveData.CurrentSaveVersion;
 
@@ -59,6 +58,7 @@ public class SaveData
     public int templeLevel;
     public int tavernLevel;
 
+    [FormerlySerializedAs("characterCopies")]
     public List<KeyCountEntry> gachaOwnedCharacters = new List<KeyCountEntry>();
     public List<VeteranCharacter> veteranDeck = new List<VeteranCharacter>();
     public List<KeyCountEntry> characterRunCounts = new List<KeyCountEntry>();

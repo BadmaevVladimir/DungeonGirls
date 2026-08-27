@@ -667,12 +667,16 @@ public static class PlayModeSmokeTest
         {
             Check(barbarianChar.portrait != null && barbarianChar.portrait == sashaSprite,
                 $"10.6 Character_Barbarian.portrait = Sasha.png: {(barbarianChar.portrait != null ? barbarianChar.portrait.name : "null")} (ожидалось спрайт Assets/Art/Characters/Sasha.png)");
+            Check(barbarianChar.characterId == "sasha" && barbarianChar.characterName == "Саша",
+                $"Именная модель: Варвар — класс, персонаж имеет id/name sasha/Саша: {barbarianChar.characterId}/{barbarianChar.characterName}");
         }
         var rogueChar = AssetDatabase.LoadAssetAtPath<CharacterData>("Assets/ScriptableObjects/Characters/Character_Rogue.asset");
         if (Check(rogueChar != null, "10.6 Character_Rogue.asset загрузился"))
         {
             Check(rogueChar.portrait != null && rogueChar.portrait == violetSprite,
                 $"10.6 Character_Rogue.portrait = Violet.png: {(rogueChar.portrait != null ? rogueChar.portrait.name : "null")} (ожидалось спрайт Assets/Art/Characters/Violet.png)");
+            Check(rogueChar.characterId == "violet" && rogueChar.characterName == "Вайолет",
+                $"Именная модель: Плут — класс, персонаж имеет id/name violet/Вайолет: {rogueChar.characterId}/{rogueChar.characterName}");
         }
 
         // ==================== Финальный ревью этой ветки (rogue-barbarian-classes) — 4 находки ====================
@@ -842,6 +846,95 @@ public static class PlayModeSmokeTest
         Check(staleSave.saveVersion == SaveData.CurrentSaveVersion && staleSave.metaCurrency == 500 && staleSave.veteranDeck != null,
             $"9.4 миграция старого save: saveVersion={staleSave.saveVersion}, metaCurrency сохранена={staleSave.metaCurrency}, veteranDeck заполнен дефолтом={staleSave.veteranDeck != null} (ожидалось true/500/true)");
 
+        var legacyNamedSave = new SaveData { saveVersion = 2 };
+        legacyNamedSave.gachaOwnedCharacters.Add(new KeyCountEntry { key = "rogue", count = 2 });
+        legacyNamedSave.gachaOwnedCharacters.Add(new KeyCountEntry { key = "Вайолет", count = 1 });
+        legacyNamedSave.characterRunCounts.Add(new KeyCountEntry { key = "barbarian", count = 3 });
+        legacyNamedSave.veteranDeck.Add(new VeteranCharacter { characterId = "Варвар" });
+        legacyNamedSave.seenVNScenes.Add(new CharacterSceneList { characterId = "rogue", sceneIds = new List<string> { "violet_scene_1" } });
+        SaveManager.MigrateIfNeeded(legacyNamedSave);
+        Check(legacyNamedSave.gachaOwnedCharacters.Count == 1 && legacyNamedSave.gachaOwnedCharacters[0].key == "violet" && legacyNamedSave.gachaOwnedCharacters[0].count == 3,
+            "9.4 v3 миграция объединяет классовые/displayName ключи Плута в стабильный violet");
+        Check(legacyNamedSave.characterRunCounts[0].key == "sasha" && legacyNamedSave.veteranDeck[0].characterId == "sasha" && legacyNamedSave.seenVNScenes[0].characterId == "violet",
+            "9.4 v3 миграция переводит ветеранов, прохождения и VN-историю на ID sasha/violet");
+
+        // GDD 11.1: 15% персонаж, 85% мета-валюта; предметного результата в структуре нет.
+        Check(GachaPool.RollResult(0.01f, 0.5f, out var firstCharacter) && firstCharacter.IsCharacter && firstCharacter.CharacterIndex == 0,
+            "11.1 roll 1% даёт первого персонажа");
+        Check(GachaPool.RollResult(0.06f, 0.5f, out var secondCharacter) && secondCharacter.IsCharacter && secondCharacter.CharacterIndex == 1,
+            "11.1 roll 6% даёт второго персонажа");
+        Check(GachaPool.RollResult(0.11f, 0.5f, out var thirdCharacter) && thirdCharacter.IsCharacter && thirdCharacter.CharacterIndex == 2,
+            "11.1 roll 11% даёт третьего персонажа");
+        Check(GachaPool.RollResult(0.16f, 0.1f, out var commonCurrency) && !commonCurrency.IsCharacter && commonCurrency.CurrencyAmount == 20,
+            "11.1 валютная ветка: обычный приз = 20");
+        Check(GachaPool.RollResult(0.99f, 0.8f, out var rareCurrency) && rareCurrency.CurrencyAmount == 50,
+            "11.1 валютная ветка: редкий приз = 50");
+        Check(GachaPool.RollResult(0.99f, 0.99f, out var epicCurrency) && epicCurrency.CurrencyAmount == 150,
+            "11.1 валютная ветка: эпический приз = 150");
+        Check(!GachaPool.RollResult(1f, 0.5f, out _), "11.1 GachaPool отклоняет roll вне диапазона [0,1)");
+
+        var gachaRng = new System.Random(12345);
+        const int gachaTrials = 100000;
+        int characterHits = 0;
+        int commonHits = 0;
+        int rareHits = 0;
+        int epicHits = 0;
+        var characterHitsByIndex = new int[GachaPool.CharacterCount];
+        for (int i = 0; i < gachaTrials; i++)
+        {
+            GachaPool.RollResult((float)gachaRng.NextDouble(), (float)gachaRng.NextDouble(), out var rolled);
+            if (rolled.IsCharacter)
+            {
+                characterHits++;
+                characterHitsByIndex[rolled.CharacterIndex]++;
+            }
+            else if (rolled.CurrencyTier == ItemTier.Common) commonHits++;
+            else if (rolled.CurrencyTier == ItemTier.Rare) rareHits++;
+            else epicHits++;
+        }
+
+        float characterPercent = characterHits * 100f / gachaTrials;
+        Check(Mathf.Abs(characterPercent - 15f) < 0.5f, $"11.1 статистика: персонажи {characterPercent:F2}% (ожидалось ~15%)");
+        for (int i = 0; i < characterHitsByIndex.Length; i++)
+        {
+            float percent = characterHitsByIndex[i] * 100f / gachaTrials;
+            Check(Mathf.Abs(percent - 5f) < 0.3f, $"11.1 статистика: персонаж #{i} {percent:F2}% (ожидалось ~5%)");
+        }
+        Check(Mathf.Abs(commonHits * 100f / gachaTrials - 52.7f) < 1f, "11.1 статистика обычной мета-валюты соответствует 85%×62%");
+        Check(Mathf.Abs(rareHits * 100f / gachaTrials - 29.75f) < 1f, "11.1 статистика редкой мета-валюты соответствует 85%×35%");
+        Check(Mathf.Abs(epicHits * 100f / gachaTrials - 2.55f) < 0.5f, "11.1 статистика эпической мета-валюты соответствует 85%×3%");
+
+        var atomicGachaManager = new GameObject("SmokeTestSaveManager_GachaAtomic").AddComponent<SaveManager>();
+        atomicGachaManager.Data.gachaCurrency = 100;
+        atomicGachaManager.Data.metaCurrency = 0;
+        atomicGachaManager.Data.gachaOwnedCharacters.Clear();
+        Check(atomicGachaManager.TryApplyGachaPull(50, "violet", 0, out int violetCopies) && violetCopies == 1 && atomicGachaManager.Data.gachaCurrency == 50,
+            "11.1 атомарный призыв персонажа одновременно списывает стоимость и сохраняет копию");
+        Check(atomicGachaManager.TryApplyGachaPull(50, null, 20, out _) && atomicGachaManager.Data.gachaCurrency == 0 && atomicGachaManager.Data.metaCurrency == 20,
+            "11.1 атомарный валютный призыв одновременно списывает стоимость и начисляет мета-валюту");
+        Check(!atomicGachaManager.TryApplyGachaPull(50, "sasha", 20, out _), "11.1 атомарный призыв отклоняет два типа награды одновременно");
+        UnityEngine.Object.DestroyImmediate(atomicGachaManager.gameObject);
+
+        var veteranSaveManager = new GameObject("SmokeTestSaveManager_Veteran").AddComponent<SaveManager>();
+        veteranSaveManager.Data.veteranDeck.Clear();
+        veteranSaveManager.Data.characterRunCounts.Clear();
+        int veteranMetaBefore = veteranSaveManager.Data.metaCurrency;
+        int veteranGachaBefore = veteranSaveManager.Data.gachaCurrency;
+        var veteranSnapshot = new VeteranCharacter
+        {
+            characterId = "sasha",
+            finalHP = 42f,
+            powerLevel = 0
+        };
+        Check(veteranSaveManager.CompleteRun(12, 3, veteranSnapshot), "9.2 CompleteRun принимает валидный снимок ветерана");
+        Check(veteranSaveManager.Data.veteranDeck.Count == 1 && veteranSaveManager.Data.veteranDeck[0].characterId == "sasha",
+            "9.2 CompleteRun добавляет ветерана Сашу");
+        Check(veteranSaveManager.GetRunCount("sasha") == 1 && veteranSaveManager.Data.metaCurrency == veteranMetaBefore + 12 && veteranSaveManager.Data.gachaCurrency == veteranGachaBefore + 3,
+            "9.2 CompleteRun одной транзакцией начисляет награды и прохождение");
+        Check(veteranSaveManager.Data.veteranDeck[0].powerLevel == 0,
+            "9.2 PowerLevel не рассчитывается без утверждённой дизайнером формулы");
+        UnityEngine.Object.DestroyImmediate(veteranSaveManager.gameObject);
+
         // Codex P1 2026-08-27: конфигурация активного навыка в бою должна зависеть от текущего
         // персонажа, не быть жёстко зашитой под "3 быстрые атаки" Дженифер. Дымовая граната Плута
         // конфигурируется с hitCount=0 (сама не бьёт — см. CombatManager.TryActivateUniqueActiveSkill).
@@ -881,6 +974,17 @@ public static class PlayModeSmokeTest
         RequireElement(root, "StartRunButton");
         RequireElement(root, "ForgeUpgradeButton");
         RequireElement(root, "GachaPullButton");
+        RequireElement(root, "GachaRevealContainer");
+        RequireElement(root, "GachaChestSpriteImage");
+        RequireElement(root, "GachaReelViewport");
+        RequireElement(root, "GachaReelStrip");
+        RequireElement(root, "GachaSkipButton");
+        var veteranDeckScreen = RequireElement(root, "VeteranDeckScreen");
+        var charactersScreen = RequireElement(root, "CharactersScreen");
+        RequireElement(root, "VeteranDeckButton");
+        RequireElement(root, "CharactersButton");
+        RequireElement(root, "VeteranDeckScrollView");
+        RequireElement(root, "CharactersScrollView");
         RequireElement(root, "MerchantOffersContainer");
         RequireElement(root, "MerchantCurrencyLabel");
 
@@ -930,6 +1034,15 @@ public static class PlayModeSmokeTest
         Check(gachaScreen.style.display == DisplayStyle.Flex, "OpenGacha() показывает GachaScreen");
         hub.OpenVillage();
 
+        hub.OpenVeteranDeck();
+        Check(veteranDeckScreen.style.display == DisplayStyle.Flex && mainMenuScreen.style.display == DisplayStyle.None,
+            "OpenVeteranDeck() показывает экран колоды ветеранов");
+        hub.OpenVillage();
+        hub.OpenCharacters();
+        Check(charactersScreen.style.display == DisplayStyle.Flex && mainMenuScreen.style.display == DisplayStyle.None,
+            "OpenCharacters() показывает экран полученных персонажей");
+        hub.OpenVillage();
+
         // --- Здания (8.1) ---
         int forgeBefore = saveManager.GetBuildingLevel(BuildingType.Forge);
         saveManager.AddMetaCurrency(1000);
@@ -943,16 +1056,22 @@ public static class PlayModeSmokeTest
         saveManager.AddGachaCurrency(500);
         hub.OpenGacha();
         int gachaCurrencyBefore = saveManager.Data.gachaCurrency;
+        int gachaMetaBefore = saveManager.Data.metaCurrency;
+        int gachaCopiesBefore = 0;
+        foreach (var entry in saveManager.Data.gachaOwnedCharacters) gachaCopiesBefore += entry.count;
         var gachaResultPopup = root.Q<VisualElement>("GachaResultPopup");
+        var gachaRevealContainer = root.Q<VisualElement>("GachaRevealContainer");
         var tryPullGacha = typeof(HubManager).GetMethod("TryPullGacha", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         tryPullGacha?.Invoke(hub, null);
         Check(tryPullGacha != null, "Приватный метод HubManager.TryPullGacha найден рефлексией");
         Check(saveManager.Data.gachaCurrency == gachaCurrencyBefore - 50, $"Призыв гачи списал 50 гача-валюты: было {gachaCurrencyBefore}, стало {saveManager.Data.gachaCurrency}");
-        // ФИКС (Task 3, Codex P2 2026-08-27): TryPullGacha временно заглушка (SaveManager больше не
-        // содержит AddItemCopy/GetItemCount — полная гача-логика под GDD 11.1 приходит в Task 6),
-        // поэтому попап результата сейчас не показывается. Проверка попапа вернётся, когда Task 6
-        // восстановит полную реализацию TryPullGacha.
-        Check(gachaResultPopup.style.display != DisplayStyle.Flex, "Попап результата призыва НЕ показан (временная заглушка TryPullGacha до Task 6)");
+        int gachaCopiesAfter = 0;
+        foreach (var entry in saveManager.Data.gachaOwnedCharacters) gachaCopiesAfter += entry.count;
+        bool characterAwarded = gachaCopiesAfter == gachaCopiesBefore + 1;
+        bool currencyAwarded = saveManager.Data.metaCurrency > gachaMetaBefore;
+        Check(characterAwarded || currencyAwarded, "11.1 результат призыва сохранён до запуска презентационной анимации");
+        Check(gachaRevealContainer.style.display == DisplayStyle.Flex && gachaResultPopup.style.display != DisplayStyle.Flex,
+            "11.1 после призыва запускается общая chest-reveal анимация, итоговый попап ждёт её завершения");
         hub.OpenVillage();
 
         // --- Награда за забег + персистентность SaveManager (8.5/9.2/9.3) ---

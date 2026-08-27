@@ -217,7 +217,12 @@ MonoBehaviour:
   saveManager: {fileID: 6340600}
   gachaCharacters:
   - {fileID: 11400000, guid: fc548e39806d27b4ca5fa23e3fa061de, type: 2}
-  - {fileID: 11400000, guid: 181aae94b69a4c15a0ed897f86ce9576, type: 2}
+  - {fileID: 11400000, guid: baceb1dfdd8632e4fb0223bcf5b0fd46, type: 2}
+  - {fileID: 11400000, guid: a7d9a670808583c4a997485355cbcea9, type: 2}
+  gachaChestClosedTexture: {fileID: 2800000, guid: dc4b3c9baa2df0448b8bf004ea2b5860, type: 3}
+  gachaChestOpenTexture: {fileID: 2800000, guid: b0b8889be5a81ed4fa13be8be1f46244, type: 3}
+  characterSilhouetteRayOverlay: {fileID: 0}
+  currencyIconCatalog: {fileID: 11400000, guid: 583fe7b74f97c9a48882eecf87cfd6c8, type: 2}
 --- !u!114 &6340602
 MonoBehaviour:
   m_ObjectHideFlags: 0
