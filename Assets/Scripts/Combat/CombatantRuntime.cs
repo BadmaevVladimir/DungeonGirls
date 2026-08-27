@@ -7,6 +7,14 @@ public class ActiveDebuff
     public string Id;
     public float RemainingTime;
     public float AttackSpeedMultiplier = 1f;
+
+    // Финальный ревью-фикс #2: ActiveDebuffs изначально мыслился как список ТОЛЬКО дебаффов
+    // (Проклятие замедления и т.п.), но "На волоске" (3.11, Плут) хранит в нём БАФФ скорости
+    // атаки (AttackSpeedMultiplier > 1f) — тот же список используется просто как "временные
+    // модификаторы скорости атаки с таймером". IsBuff=true исключает запись из HasActiveDebuff
+    // ниже, чтобы "Несгибаемый" (бонус урона "пока есть активный дебафф") не срабатывал ложно
+    // от собственного баффа персонажа.
+    public bool IsBuff;
 }
 
 public class CombatantRuntime
@@ -191,7 +199,7 @@ public class CombatantRuntime
 
     public bool IsAlive => CurrentHP > 0f;
 
-    public bool HasActiveDebuff => ActiveDebuffs.Count > 0 || IsFrozen || FreezeStacks > 0;
+    public bool HasActiveDebuff => ActiveDebuffs.Exists(d => !d.IsBuff) || IsFrozen || FreezeStacks > 0;
 
     // 3.11 (Варвар) — "Ярость" = % недостающего HP, ПЕРЕСЧИТЫВАЕТСЯ динамически (не хранимое поле).
     // Флэт-бонусы (Пояс титана) добавляются здесь же поверх формулы — могут увести Rage выше 100%.

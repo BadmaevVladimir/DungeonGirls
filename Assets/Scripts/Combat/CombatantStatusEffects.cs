@@ -5,9 +5,16 @@ using System.Collections.Generic;
 // удобна для юнит-теста с вручную собранным CombatantRuntime.
 public static class CombatantStatusEffects
 {
+    // Финальный ревью-фикс #3: раньше здесь были только записи для ActiveDebuff.Id, известные ДО
+    // этого фикс-волны — "by_a_thread" ("На волоске", 3.11 Плут) и "intimidation" ("Запугивание",
+    // 3.11 Варвар) отсутствовали, и игроки видели сырой английский Id вместо русской подписи
+    // (см. фолбэк в GetActiveEffects ниже). Ключ — ActiveDebuff.Id, значение — отображаемое имя;
+    // баф/дебафф-окраска берётся из ActiveDebuff.IsBuff самого объекта, а не из этой таблицы.
     static readonly Dictionary<string, string> ActiveDebuffNames = new Dictionary<string, string>
     {
         { "warlock_slow", "Проклятие замедления" },
+        { "by_a_thread", "На волоске" }, // 3.11 (Плут) — бафф скорости атаки, см. ActiveDebuff.IsBuff
+        { "intimidation", "Запугивание" }, // 3.11 (Варвар) — дебафф скорости атаки цели крита
     };
 
     public static List<(string label, bool isBuff)> GetActiveEffects(CombatantRuntime combatant)
@@ -47,10 +54,34 @@ public static class CombatantStatusEffects
             effects.Add(("Оглушающий крик", false));
         }
 
+        // Финальный ревью-фикс #3 (3.11, Плут) — "Скрытность": бафф, независимый от ActiveDebuffs.
+        if (combatant.IsStealthed)
+        {
+            effects.Add(("Скрытность", true));
+        }
+
+        // Финальный ревью-фикс #3 (3.11, Плут) — "Отравленный клинок": собственный яд Плута на
+        // цели, отдельный от монстрового PoisonStacks выше (уже покрыт "Яд ×N" строкой выше) —
+        // метка "Яд Плута" отличает его от монстрового яда, тем же форматом ×N.
+        if (combatant.RoguePoisonStacksOnTarget > 0)
+        {
+            effects.Add(($"Яд Плута ×{combatant.RoguePoisonStacksOnTarget}", false));
+        }
+
+        // Финальный ревью-фикс #3 (3.11, Варвар) — "Берсерк": ручной тумблер-бафф (даёт физ.
+        // сопротивление, тикает самоурон — см. CombatManager.Tick). Ярость (Rage) сознательно НЕ
+        // включена сюда: это числовой стат (0-100%+), пересчитываемый каждый кадр от текущего HP,
+        // а не переключаемый статус-эффект вроде остальных записей этого списка — ей место в
+        // отдельном HUD-индикаторе (полоса/число), а не в списке баф/дебафф-меток боя.
+        if (combatant.IsBerserkActive)
+        {
+            effects.Add(("Берсерк", true));
+        }
+
         foreach (var debuff in combatant.ActiveDebuffs)
         {
             string label = ActiveDebuffNames.TryGetValue(debuff.Id, out var name) ? name : debuff.Id;
-            effects.Add((label, false));
+            effects.Add((label, debuff.IsBuff));
         }
 
         return effects;

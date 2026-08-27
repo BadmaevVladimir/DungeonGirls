@@ -82,6 +82,18 @@ public class CharacterManager : MonoBehaviour
     public List<ItemData> GetComparisonCandidates(ItemData newItem)
     {
         var sameSlot = EquippedItems.FindAll(i => i != null && i.slot == newItem.slot);
+
+        // Финальный ревью-фикс #1 (3.11, Варвар/Двуручное оружие): если сейчас надето двуручное
+        // оружие, оно одно занимает ОБА физических слота Оружия — единственный корректный кандидат
+        // на замену это оно само, а не оно + иллюзорный пустой второй слот (который, будучи занят
+        // одноручником, привёл бы к одновременному ношению двуручного + одноручного оружия — см.
+        // CombatantFactory.AggregateEquipmentStats, который тогда увидел бы 2 "настоящих" оружия и
+        // применил дуал-вилд логику к оружию, которое должно занимать руки в одиночку).
+        if (newItem.slot == EquipmentSlot.Weapon && sameSlot.Exists(i => i.isTwoHanded))
+        {
+            return sameSlot;
+        }
+
         int capacity = SlotCapacity(newItem.slot);
 
         var candidates = new List<ItemData>(sameSlot);

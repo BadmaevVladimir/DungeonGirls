@@ -674,6 +674,127 @@ public static class PlayModeSmokeTest
             Check(rogueChar.portrait != null && rogueChar.portrait == violetSprite,
                 $"10.6 Character_Rogue.portrait = Violet.png: {(rogueChar.portrait != null ? rogueChar.portrait.name : "null")} (ожидалось спрайт Assets/Art/Characters/Violet.png)");
         }
+
+        // ==================== Финальный ревью этой ветки (rogue-barbarian-classes) — 4 находки ====================
+
+        // Финальный фикс #1: GetComparisonCandidates не должна предлагать иллюзорный пустой второй
+        // слот оружия, когда сейчас надето двуручное оружие — единственный корректный кандидат на
+        // замену это оно само (см. CharacterManager.GetComparisonCandidates).
+        var ghCandidatesGO = new GameObject("SmokeTest_GetComparisonCandidatesTwoHanded");
+        var ghCandidatesManager = ghCandidatesGO.AddComponent<CharacterManager>();
+        var ghCandidatesCharacter = ScriptableObject.CreateInstance<CharacterData>();
+
+        var ghAxe = ScriptableObject.CreateInstance<ItemData>();
+        ghAxe.itemName = "TestGHAxeCandidates";
+        ghAxe.slot = EquipmentSlot.Weapon;
+        ghAxe.weaponSubtype = WeaponSubtype.TwoHandedAxe;
+        ghAxe.isTwoHanded = true;
+        ghAxe.baseDamage = 30f;
+        ghAxe.attackSpeed = 0.8f;
+
+        ghCandidatesCharacter.startingEquipment = new[] { ghAxe };
+        ghCandidatesManager.BeginRun(ghCandidatesCharacter);
+
+        var oneHandedOffer = ScriptableObject.CreateInstance<ItemData>();
+        oneHandedOffer.itemName = "TestOneHanderOffer";
+        oneHandedOffer.slot = EquipmentSlot.Weapon;
+        oneHandedOffer.weaponSubtype = WeaponSubtype.Sword;
+        oneHandedOffer.baseDamage = 10f;
+        oneHandedOffer.attackSpeed = 1f;
+
+        var twoHandedCandidates = ghCandidatesManager.GetComparisonCandidates(oneHandedOffer);
+        Check(twoHandedCandidates.Count == 1 && twoHandedCandidates[0] == ghAxe,
+            $"Финальный фикс #1: с надетым двуручным оружием GetComparisonCandidates для нового одноручника даёт РОВНО 1 кандидата (само двуручное), без иллюзорного пустого 2-го слота: Count={twoHandedCandidates.Count}" +
+            (twoHandedCandidates.Count > 0 ? $", [0]={(twoHandedCandidates[0] != null ? twoHandedCandidates[0].itemName : "null")}" : string.Empty) +
+            " (ожидалось 1 / TestGHAxeCandidates)");
+
+        UnityEngine.Object.DestroyImmediate(ghCandidatesGO);
+        UnityEngine.Object.DestroyImmediate(ghCandidatesCharacter);
+        UnityEngine.Object.DestroyImmediate(ghAxe);
+        UnityEngine.Object.DestroyImmediate(oneHandedOffer);
+
+        // Регрессия: два ОБЫЧНЫХ одноручных оружия (никакого двуручного не надето) по-прежнему
+        // дают 2 кандидата, как до этого фикса.
+        var normalCandidatesGO = new GameObject("SmokeTest_GetComparisonCandidatesNormal");
+        var normalCandidatesManager = normalCandidatesGO.AddComponent<CharacterManager>();
+        var normalCandidatesCharacter = ScriptableObject.CreateInstance<CharacterData>();
+
+        var normalSwordA = MakeWeapon("NormalCandidateSwordA", WeaponSubtype.Sword, 10f);
+        var normalSwordB = MakeWeapon("NormalCandidateSwordB", WeaponSubtype.Sword, 10f);
+        normalCandidatesCharacter.startingEquipment = new[] { normalSwordA, normalSwordB };
+        normalCandidatesManager.BeginRun(normalCandidatesCharacter);
+
+        var normalOffer = MakeWeapon("NormalCandidateOffer", WeaponSubtype.Sword, 10f);
+        var normalCandidates = normalCandidatesManager.GetComparisonCandidates(normalOffer);
+        Check(normalCandidates.Count == 2,
+            $"Регрессия (Финальный фикс #1): два обычных одноручных оружия по-прежнему дают 2 кандидата: Count={normalCandidates.Count} (ожидалось 2)");
+
+        UnityEngine.Object.DestroyImmediate(normalCandidatesGO);
+        UnityEngine.Object.DestroyImmediate(normalCandidatesCharacter);
+        UnityEngine.Object.DestroyImmediate(normalSwordA);
+        UnityEngine.Object.DestroyImmediate(normalSwordB);
+        UnityEngine.Object.DestroyImmediate(normalOffer);
+
+        // Финальный фикс #2: "На волоске" — БАФФ скорости атаки, хранится в ActiveDebuffs, но не
+        // должен считаться дебаффом для HasActiveDebuff (используется "Несгибаемым" для урона).
+        var byAThreadOnly = new CombatantRuntime { MaxHP = 100f, CurrentHP = 100f };
+        byAThreadOnly.ActiveDebuffs.Add(new ActiveDebuff { Id = "by_a_thread", RemainingTime = 3f, AttackSpeedMultiplier = 1.15f, IsBuff = true });
+        Check(!byAThreadOnly.HasActiveDebuff,
+            $"Финальный фикс #2: HasActiveDebuff=false, когда единственная запись ActiveDebuffs — бафф «На волоске»: {byAThreadOnly.HasActiveDebuff} (ожидалось false)");
+
+        byAThreadOnly.ActiveDebuffs.Add(new ActiveDebuff { Id = "warlock_slow", RemainingTime = 3f, AttackSpeedMultiplier = 0.7f });
+        Check(byAThreadOnly.HasActiveDebuff,
+            $"Финальный фикс #2: HasActiveDebuff=true, когда рядом с баффом «На волоске» есть настоящий дебафф (warlock_slow): {byAThreadOnly.HasActiveDebuff} (ожидалось true)");
+
+        // Финальный фикс #3: CombatantStatusEffects показывает читаемые русские подписи для
+        // by_a_thread/intimidation (не сырой Id) и включает Скрытность/яд Плута/Берсерк.
+        var byAThreadDisplayRuntime = new CombatantRuntime { MaxHP = 100f, CurrentHP = 100f };
+        byAThreadDisplayRuntime.ActiveDebuffs.Add(new ActiveDebuff { Id = "by_a_thread", RemainingTime = 3f, AttackSpeedMultiplier = 1.15f, IsBuff = true });
+        var byAThreadDisplayEffects = CombatantStatusEffects.GetActiveEffects(byAThreadDisplayRuntime);
+        Check(byAThreadDisplayEffects.Exists(e => e.label == "На волоске" && e.isBuff),
+            $"Финальный фикс #3: «На волоске» отображается читаемой русской подписью-баффом (не сырым id): [{string.Join(", ", byAThreadDisplayEffects.ConvertAll(e => e.label + (e.isBuff ? "(buff)" : "(debuff)")))}]");
+
+        var intimidationDisplayRuntime = new CombatantRuntime { MaxHP = 100f, CurrentHP = 100f };
+        intimidationDisplayRuntime.ActiveDebuffs.Add(new ActiveDebuff { Id = "intimidation", RemainingTime = 3f, AttackSpeedMultiplier = 0.8f });
+        var intimidationDisplayEffects = CombatantStatusEffects.GetActiveEffects(intimidationDisplayRuntime);
+        Check(intimidationDisplayEffects.Exists(e => e.label == "Запугивание" && !e.isBuff),
+            $"Финальный фикс #3: «Запугивание» отображается читаемой русской подписью-дебаффом (не сырым id): [{string.Join(", ", intimidationDisplayEffects.ConvertAll(e => e.label + (e.isBuff ? "(buff)" : "(debuff)")))}]");
+
+        var newStatusesRuntime = new CombatantRuntime { MaxHP = 100f, CurrentHP = 100f, IsStealthed = true, RoguePoisonStacksOnTarget = 2, IsBerserkActive = true };
+        var newStatusEffects = CombatantStatusEffects.GetActiveEffects(newStatusesRuntime);
+        Check(newStatusEffects.Exists(e => e.label == "Скрытность" && e.isBuff),
+            $"Финальный фикс #3: Скрытность (IsStealthed) отображается как бафф: [{string.Join(", ", newStatusEffects.ConvertAll(e => e.label))}]");
+        Check(newStatusEffects.Exists(e => e.label.Contains("Яд") && e.label.Contains("2") && !e.isBuff),
+            $"Финальный фикс #3: яд Плута (RoguePoisonStacksOnTarget=2) отображается как дебафф ×N: [{string.Join(", ", newStatusEffects.ConvertAll(e => e.label))}]");
+        Check(newStatusEffects.Exists(e => e.label == "Берсерк" && e.isBuff),
+            $"Финальный фикс #3: Берсерк (IsBerserkActive) отображается как бафф: [{string.Join(", ", newStatusEffects.ConvertAll(e => e.label))}]");
+
+        // Финальный фикс #4: Берсерк никогда не должен проходить через hit-loop машинерию
+        // TryActivateUniqueActiveSkill (построенную под "3 быстрые атаки" Дженнифер) — метод должен
+        // вернуть false и не нанести никакого урона, даже если кулдаун готов (как всегда для Берсерка,
+        // у которого cooldownSeconds=0).
+        var berserkGuardGO = new GameObject("SmokeTest_BerserkGuard");
+        var berserkCombatManager = berserkGuardGO.AddComponent<CombatManager>();
+
+        var berserkWeapon = new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, AttackSpeed = 1f, DamageType = DamageType.Physical };
+        var berserkPlayer = new CombatantRuntime { DisplayName = "TestBarbarianBerserkGuard", IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, UniqueBerserkLevel = 1 };
+        berserkPlayer.Weapons.Add(berserkWeapon);
+
+        var berserkDummy = new CombatantRuntime { DisplayName = "TestDummyBerserkGuard", MaxHP = 1000f, CurrentHP = 1000f };
+
+        berserkCombatManager.StartCombat(berserkPlayer, new List<CombatantRuntime> { berserkDummy });
+        berserkCombatManager.ConfigureUniqueActiveSkill(3, 1f, 0f, false, SkillEffectMap.Berserk); // cooldownSeconds=0, как задумано для тумблера
+        berserkPlayer.ActiveSkillCooldownTimer = 0f; // готов немедленно (StartCombat выставляет полный кулдаун = 0 для Берсерка)
+
+        float berserkDummyHpBefore = berserkDummy.CurrentHP;
+        bool berserkActivationResult = berserkCombatManager.TryActivateUniqueActiveSkill();
+
+        Check(!berserkActivationResult,
+            $"Финальный фикс #4: TryActivateUniqueActiveSkill возвращает false, когда настроен на Берсерк: {berserkActivationResult} (ожидалось false)");
+        Check(berserkDummy.CurrentHP == berserkDummyHpBefore,
+            $"Финальный фикс #4: Берсерк НЕ запускает hit-loop (HP цели не изменилось): было {berserkDummyHpBefore}, стало {berserkDummy.CurrentHP}");
+
+        UnityEngine.Object.DestroyImmediate(berserkGuardGO);
     }
 
     // ==================== Play Mode: живая сцена/хаб/сейв ====================

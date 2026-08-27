@@ -59,6 +59,14 @@ public class CombatManager : MonoBehaviour
     public float ActiveSkillCooldownRemaining => Player != null ? Mathf.Max(0f, Player.ActiveSkillCooldownTimer) : 0f;
     public bool IsActiveSkillReady => Player != null && Player.IsAlive && Player.ActiveSkillCooldownTimer <= 0f;
 
+    // Финальный ревью-фикс #4: эта конфигурация/hit-loop машинерия (TryActivateUniqueActiveSkill)
+    // была построена под Дженнифер ("3 быстрые атаки", см. RunFlowController). Берсерк (Варвар)
+    // НИКОГДА не должен проходить через неё — он не кулдаун-навык, а ручной тумблер, включаемый
+    // ТОЛЬКО через SetBerserkActive; TryActivateUniqueActiveSkill жёстко бейлит на нём (см. ниже).
+    // Дымовая граната (Плут) должна проходить через неё, но с hitCount: 0 — она сама не бьёт,
+    // только даёт Скрытность + гарантированные криты на СЛЕДУЮЩИЕ обычные атаки; ниже она тоже
+    // жёстко возвращается до hit-loop, так что фактический hitCount с будущего character-select
+    // UI для неё не важен, но 0 — по-прежнему корректное намерение при конфигурации.
     public void ConfigureUniqueActiveSkill(int hitCount, float damageMultiplierPerHit, float cooldownSeconds, bool autoMode, string skillName)
     {
         activeSkillHitCount = hitCount;
@@ -121,6 +129,17 @@ public class CombatManager : MonoBehaviour
             return false;
         }
 
+        // Финальный ревью-фикс #4: Берсерк — ручной тумблер (SetBerserkActive), а не hit-loop
+        // активка. Его кулдаун конфигурируется как 0 (нет кулдауна по ГДД), из-за чего
+        // IsActiveSkillReady был бы ПОСТОЯННО true — если бы этот метод не бейлил здесь, авто-режим
+        // (Tick -> TryActivateUniqueActiveSkill) переигрывал бы полный комбо атак оружием КАЖДЫЙ
+        // кадр. Недостижимо сегодня (у Варвара нет character-select UI за пределами этого плана),
+        // но защищаемся заранее — см. комментарий на ConfigureUniqueActiveSkill выше.
+        if (activeSkillName == SkillEffectMap.Berserk)
+        {
+            return false;
+        }
+
         ActiveSkillActivated?.Invoke(Player, activeSkillName);
 
         // 3.11 "Дымовая граната" (уникальная активка Плута): при активации даёт Скрытность и
@@ -131,6 +150,12 @@ public class CombatManager : MonoBehaviour
             GrantOrRefreshStealth(Player);
             Player.SmokeBombGuaranteedCritsRemaining = Player.UniqueSmokeBombLevel;
             Log($"[Combat] «Дымовая граната»: {Player.DisplayName} получает Скрытность и {Player.UniqueSmokeBombLevel} гарантированных крита(ов).");
+            Player.ActiveSkillCooldownTimer = activeSkillCooldownSeconds;
+
+            // Финальный ревью-фикс #4: Дымовая граната НИКОГДА не бьёт сама — hit-loop ниже
+            // (построенный под "3 быстрые атаки" Дженнифер) для неё пропускается безусловно, даже
+            // если будущее character-select-подключение по ошибке передаст ненулевой hitCount.
+            return true;
         }
 
         var weapon = Player.Weapons[0];
@@ -455,10 +480,13 @@ public class CombatManager : MonoBehaviour
                 {
                     existing.RemainingTime = 3f;
                     existing.AttackSpeedMultiplier = 1f + byAThreadBonus;
+                    existing.IsBuff = true;
                 }
                 else
                 {
-                    target.ActiveDebuffs.Add(new ActiveDebuff { Id = "by_a_thread", RemainingTime = 3f, AttackSpeedMultiplier = 1f + byAThreadBonus });
+                    // Финальный ревью-фикс #2: IsBuff=true — это БАФФ скорости атаки, не дебафф,
+                    // несмотря на то что хранится в ActiveDebuffs (см. ActiveDebuff.IsBuff).
+                    target.ActiveDebuffs.Add(new ActiveDebuff { Id = "by_a_thread", RemainingTime = 3f, AttackSpeedMultiplier = 1f + byAThreadBonus, IsBuff = true });
                 }
                 Log($"[Combat] «На волоске» повышает скорость атаки {target.DisplayName} на {byAThreadBonus * 100f:F0}% (3 сек).");
             }
