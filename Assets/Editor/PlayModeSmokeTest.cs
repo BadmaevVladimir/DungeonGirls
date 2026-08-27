@@ -745,6 +745,55 @@ public static class PlayModeSmokeTest
         UnityEngine.Object.DestroyImmediate(fakeCharacter.uniqueActiveSkill);
         UnityEngine.Object.DestroyImmediate(fakeCharacter);
 
+        // 3c: классовые пулы (Плут/Варвар) должны быть взаимно исключающими — навык одного класса
+        // не должен попадать в варианты левел-апа другого класса (закрывает пробел, найденный
+        // при ревью Task 3: LevelUpManager был жёстко привязан только к Warrior).
+        var classGateGO = new GameObject("SmokeTest_ClassSkillGate");
+        var classGateLevelUpManager = classGateGO.AddComponent<LevelUpManager>();
+        var fakeRogueSkill = ScriptableObject.CreateInstance<PassiveSkillData>();
+        fakeRogueSkill.skillName = "ТестНавыкПлута";
+        fakeRogueSkill.maxLevel = 5;
+        var fakeBarbarianSkill = ScriptableObject.CreateInstance<PassiveSkillData>();
+        fakeBarbarianSkill.skillName = "ТестНавыкВарвара";
+        fakeBarbarianSkill.maxLevel = 5;
+        classGateLevelUpManager.GeneralSkillPool = new List<PassiveSkillData>();
+        classGateLevelUpManager.WarriorSkillPool = new List<PassiveSkillData>();
+        classGateLevelUpManager.MentorSkillPool = new List<PassiveSkillData>();
+        classGateLevelUpManager.RogueSkillPool = new List<PassiveSkillData> { fakeRogueSkill };
+        classGateLevelUpManager.BarbarianSkillPool = new List<PassiveSkillData> { fakeBarbarianSkill };
+
+        var fakeRogueCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        fakeRogueCharacter.characterClass = CharacterClass.Rogue;
+        fakeRogueCharacter.uniquePassiveSkill = ScriptableObject.CreateInstance<PassiveSkillData>();
+        fakeRogueCharacter.uniquePassiveSkill.maxLevel = 5;
+        fakeRogueCharacter.uniqueActiveSkill = ScriptableObject.CreateInstance<ActiveSkillData>();
+        fakeRogueCharacter.uniqueActiveSkill.maxLevel = 3;
+        var rogueProgress = new RunCharacterProgress(fakeRogueCharacter);
+        var rogueOptions = classGateLevelUpManager.GenerateLevelUpOptions(rogueProgress);
+        Check(rogueOptions.Exists(o => o.Skill == fakeRogueSkill), "3c классовый пул Плута: навык Плута доступен персонажу-Плуту");
+        Check(!rogueOptions.Exists(o => o.Skill == fakeBarbarianSkill), "3c классовый пул Плута: навык Варвара НЕ доступен персонажу-Плуту");
+
+        var fakeBarbarianCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        fakeBarbarianCharacter.characterClass = CharacterClass.Barbarian;
+        fakeBarbarianCharacter.uniquePassiveSkill = ScriptableObject.CreateInstance<PassiveSkillData>();
+        fakeBarbarianCharacter.uniquePassiveSkill.maxLevel = 5;
+        fakeBarbarianCharacter.uniqueActiveSkill = ScriptableObject.CreateInstance<ActiveSkillData>();
+        fakeBarbarianCharacter.uniqueActiveSkill.maxLevel = 3;
+        var barbarianProgress = new RunCharacterProgress(fakeBarbarianCharacter);
+        var barbarianOptions = classGateLevelUpManager.GenerateLevelUpOptions(barbarianProgress);
+        Check(barbarianOptions.Exists(o => o.Skill == fakeBarbarianSkill), "3c классовый пул Варвара: навык Варвара доступен персонажу-Варвару");
+        Check(!barbarianOptions.Exists(o => o.Skill == fakeRogueSkill), "3c классовый пул Варвара: навык Плута НЕ доступен персонажу-Варвару");
+
+        UnityEngine.Object.DestroyImmediate(classGateGO);
+        UnityEngine.Object.DestroyImmediate(fakeRogueSkill);
+        UnityEngine.Object.DestroyImmediate(fakeBarbarianSkill);
+        UnityEngine.Object.DestroyImmediate(fakeRogueCharacter.uniquePassiveSkill);
+        UnityEngine.Object.DestroyImmediate(fakeRogueCharacter.uniqueActiveSkill);
+        UnityEngine.Object.DestroyImmediate(fakeRogueCharacter);
+        UnityEngine.Object.DestroyImmediate(fakeBarbarianCharacter.uniquePassiveSkill);
+        UnityEngine.Object.DestroyImmediate(fakeBarbarianCharacter.uniqueActiveSkill);
+        UnityEngine.Object.DestroyImmediate(fakeBarbarianCharacter);
+
         // 4.7: список баф/дебаф-строк для UI боя — чистая функция, тестируем напрямую на вручную
         // собранном CombatantRuntime (не требует боевого цикла/CombatManager).
         var statusTestCombatant = new CombatantRuntime { FreezeStacks = 3, PoisonStacks = 2, HasBleed = true, CritChanceDebuffPercent = 20f, FreezeImmune = true };

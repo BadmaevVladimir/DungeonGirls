@@ -18,6 +18,8 @@ public class RunFlowController : MonoBehaviour
     [SerializeField] MentorData mentorData;
     [SerializeField] List<PassiveSkillData> generalSkillPool;
     [SerializeField] List<PassiveSkillData> warriorSkillPool;
+    [SerializeField] List<PassiveSkillData> rogueSkillPool;
+    [SerializeField] List<PassiveSkillData> barbarianSkillPool;
     [SerializeField] List<MonsterData> regularMonsterPool;
     [SerializeField] MonsterData bossData;
     // UXML ui:Image's src="project://database/..." does not resolve at runtime (confirmed via
@@ -272,6 +274,8 @@ public class RunFlowController : MonoBehaviour
 
         levelUpManager.GeneralSkillPool = generalSkillPool;
         levelUpManager.WarriorSkillPool = warriorSkillPool;
+        levelUpManager.RogueSkillPool = rogueSkillPool;
+        levelUpManager.BarbarianSkillPool = barbarianSkillPool;
 
         characterManager.BeginRun(jenniferCharacter, equipmentManager, saveManager);
 

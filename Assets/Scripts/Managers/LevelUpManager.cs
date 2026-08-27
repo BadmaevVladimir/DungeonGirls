@@ -7,6 +7,9 @@ public class LevelUpManager : MonoBehaviour
     // Пулы навыков заполняются извне (позже — из Инспектора/загрузчика контента; сейчас — тестовым прогоном).
     public List<PassiveSkillData> GeneralSkillPool = new List<PassiveSkillData>();
     public List<PassiveSkillData> WarriorSkillPool = new List<PassiveSkillData>();
+    // 3.11: классовые пулы новых классов (Плут/Варвар) — см. design note в плане Task 3c.
+    public List<PassiveSkillData> RogueSkillPool = new List<PassiveSkillData>();
+    public List<PassiveSkillData> BarbarianSkillPool = new List<PassiveSkillData>();
     // 1, п.3 / 3.5: навыки наставника (кроме его основного, не левелящегося пассива) конкурируют
     // за те же 5 слотов, что общие/классовые навыки — см. design note в плане Task 3.
     public List<PassiveSkillData> MentorSkillPool = new List<PassiveSkillData>();
@@ -16,7 +19,17 @@ public class LevelUpManager : MonoBehaviour
 
     List<PassiveSkillData> GetClassPool(CharacterClass characterClass)
     {
-        return characterClass == CharacterClass.Warrior ? WarriorSkillPool : new List<PassiveSkillData>();
+        switch (characterClass)
+        {
+            case CharacterClass.Warrior:
+                return WarriorSkillPool;
+            case CharacterClass.Rogue:
+                return RogueSkillPool;
+            case CharacterClass.Barbarian:
+                return BarbarianSkillPool;
+            default:
+                return new List<PassiveSkillData>();
+        }
     }
 
     // 3.5: окно из 3 вариантов на левел-апе. Часть вариантов — новые навыки, часть — апгрейды

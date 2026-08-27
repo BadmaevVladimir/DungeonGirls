@@ -593,6 +593,18 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 35daf60396587d54983ea55cb5eb5dad, type: 2}
   - {fileID: 11400000, guid: 73341ba66ea6a9c4d9536780774bf757, type: 2}
   - {fileID: 11400000, guid: 675f436a8fd0e814fa3f73656d662109, type: 2}
+  rogueSkillPool:
+  - {fileID: 11400000, guid: d245aa6d2c810d24e9a761c5b372c87f, type: 2}
+  - {fileID: 11400000, guid: 508ef0e886ab5214c836d0d8649ad024, type: 2}
+  - {fileID: 11400000, guid: 896762de9b66e9749a9440d0f63e7ec9, type: 2}
+  - {fileID: 11400000, guid: 86e5f21eeb541e541ab51d44a5e561b4, type: 2}
+  - {fileID: 11400000, guid: 6a8d8c866e86c7e48849701c81b9a623, type: 2}
+  barbarianSkillPool:
+  - {fileID: 11400000, guid: 820f4b56b9545a540a344528464670ab, type: 2}
+  - {fileID: 11400000, guid: cafdcd1323e6f8847927949610e17465, type: 2}
+  - {fileID: 11400000, guid: eafbf5fcfc88ef946a35d8043cf5476f, type: 2}
+  - {fileID: 11400000, guid: 1bdde6051aee40e4ca29dea28084e18c, type: 2}
+  - {fileID: 11400000, guid: 089c11ba2a4c3b0459cb0ee60bf220f0, type: 2}
   regularMonsterPool:
   - {fileID: 11400000, guid: f35a2b080da82d84f87fbfdc91ba709a, type: 2}
   - {fileID: 11400000, guid: ef5e1ca845e463a40b081d424fc21170, type: 2}
