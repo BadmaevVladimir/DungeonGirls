@@ -214,17 +214,23 @@ public static class CombatantFactory
         runtime.SkillBleedLevel = progress.GetSkillLevel(SkillEffectMap.Bleed);
         runtime.MentorMagicDamageBonusPercent = progress.MentorMagicDamageBonusPercent;
 
-        // 3.11 (Плут) — классовые навыки + уникальная пассивка/активка. UniqueShadowLevel/
-        // UniqueSmokeBombLevel копируются из progress.UniquePassiveLevel/UniqueActiveLevel так же,
-        // как это уже делает CampManager для UniquePassiveLevel (см. field-repair) — у каждого
-        // персонажа ровно одна уникальная пассивка/активка, так что уровень читается безусловно,
-        // без проверки класса (у не-Плутов эти навыки просто не задействуются в CombatManager).
+        // 3.11 (Плут) — классовые навыки + уникальная пассивка/активка. ФИКС (Codex P1 2026-08-27):
+        // UniqueShadowLevel/UniqueSmokeBombLevel раньше копировались из progress.UniquePassiveLevel/
+        // UniqueActiveLevel БЕЗУСЛОВНО — но, в отличие от предположения в старом комментарии здесь,
+        // UniquePassiveLevel/UniqueActiveLevel — ОБЩИЕ поля прогресса, стартующие с 1 у ЛЮБОГО
+        // персонажа (см. RunCharacterProgress), а не только у Плута. Скрытность (IsStealthed) может
+        // появиться не только от уникальной активки Плута, но и от общего навыка "Ускользание"
+        // (SlipAway) — доступного другим классам через наставника/общий пул. Без проверки класса
+        // Воин/Варвар со Скрытностью от "Ускользания" получал бы +10-30% уклонения "Тени", используя
+        // уровень СВОЕЙ уникальной пассивки. Тот же паттерн явной проверки класса уже используется
+        // ниже для UniqueChampionOfTheTribeLevel/UniqueBerserkLevel (Варвар).
         runtime.SkillEyeForAnEyeLevel = progress.GetSkillLevel(SkillEffectMap.EyeForAnEye);
         runtime.SkillPoisonedBladeLevel = progress.GetSkillLevel(SkillEffectMap.PoisonedBlade);
         runtime.SkillByAThreadLevel = progress.GetSkillLevel(SkillEffectMap.ByAThread);
         runtime.SkillSlipAwayLevel = progress.GetSkillLevel(SkillEffectMap.SlipAway);
-        runtime.UniqueShadowLevel = progress.UniquePassiveLevel;
-        runtime.UniqueSmokeBombLevel = progress.UniqueActiveLevel;
+        bool isRogue = progress.Character != null && progress.Character.characterClass == CharacterClass.Rogue;
+        runtime.UniqueShadowLevel = isRogue ? progress.UniquePassiveLevel : 0;
+        runtime.UniqueSmokeBombLevel = isRogue ? progress.UniqueActiveLevel : 0;
         runtime.CritDamageMultiplierOverridePercent = progress.GetSkillLevel(SkillEffectMap.Elimination) switch
         {
             1 => 175f, 2 => 180f, 3 => 185f, 4 => 190f, 5 => 200f, _ => (float?)null

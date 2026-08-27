@@ -795,6 +795,32 @@ public static class PlayModeSmokeTest
             $"Финальный фикс #4: Берсерк НЕ запускает hit-loop (HP цели не изменилось): было {berserkDummyHpBefore}, стало {berserkDummy.CurrentHP}");
 
         UnityEngine.Object.DestroyImmediate(berserkGuardGO);
+
+        // 3.11 (ФИКС, Codex P1 2026-08-27): "Тень"/"Дымовая граната" — уникальные навыки Плута,
+        // раньше копировались БЕЗ проверки класса (в отличие от уникальных навыков Варвара).
+        // Не-Плут, получивший Скрытность через "Ускользание" (SlipAway) или наставника, не должен
+        // получать бонус уклонения "Тени" — только у Плута UniqueShadowLevel может быть > 0.
+        var nonRogueCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        nonRogueCharacter.characterName = "ТестВарвар";
+        nonRogueCharacter.characterClass = CharacterClass.Barbarian;
+        nonRogueCharacter.baseHealth = 100;
+        var nonRogueProgress = new RunCharacterProgress(nonRogueCharacter);
+        // UniquePassiveLevel/UniqueActiveLevel стартуют с 1 у ЛЮБОГО персонажа (см. RunCharacterProgress) —
+        // именно поэтому безусловное копирование раньше давало Тени ненулевой уровень у Варвара.
+        var nonRogueCombatant = CombatantFactory.CreatePlayerCombatant(nonRogueCharacter, 1, nonRogueProgress);
+        Check(nonRogueCombatant.UniqueShadowLevel == 0 && nonRogueCombatant.UniqueSmokeBombLevel == 0,
+            $"3.11 ФИКС «Тень»/«Дымовая граната» не текут на не-Плута: UniqueShadowLevel={nonRogueCombatant.UniqueShadowLevel}, UniqueSmokeBombLevel={nonRogueCombatant.UniqueSmokeBombLevel} (ожидалось 0/0)");
+        UnityEngine.Object.DestroyImmediate(nonRogueCharacter);
+
+        var rogueCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        rogueCharacter.characterName = "ТестПлут";
+        rogueCharacter.characterClass = CharacterClass.Rogue;
+        rogueCharacter.baseHealth = 100;
+        var rogueProgress = new RunCharacterProgress(rogueCharacter);
+        var rogueCombatant = CombatantFactory.CreatePlayerCombatant(rogueCharacter, 1, rogueProgress);
+        Check(rogueCombatant.UniqueShadowLevel == 1 && rogueCombatant.UniqueSmokeBombLevel == 1,
+            $"3.11 ФИКС «Тень»/«Дымовая граната» остаются у Плута: UniqueShadowLevel={rogueCombatant.UniqueShadowLevel}, UniqueSmokeBombLevel={rogueCombatant.UniqueSmokeBombLevel} (ожидалось 1/1, т.к. UniquePassiveLevel/UniqueActiveLevel стартуют с 1)");
+        UnityEngine.Object.DestroyImmediate(rogueCharacter);
     }
 
     // ==================== Play Mode: живая сцена/хаб/сейв ====================
