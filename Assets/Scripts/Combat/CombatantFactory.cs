@@ -203,6 +203,22 @@ public static class CombatantFactory
         runtime.SkillUnyieldingLevel = progress.GetSkillLevel(SkillEffectMap.Unyielding);
         runtime.SkillBleedLevel = progress.GetSkillLevel(SkillEffectMap.Bleed);
         runtime.MentorMagicDamageBonusPercent = progress.MentorMagicDamageBonusPercent;
+
+        // 3.11 (Плут) — классовые навыки + уникальная пассивка/активка. UniqueShadowLevel/
+        // UniqueSmokeBombLevel копируются из progress.UniquePassiveLevel/UniqueActiveLevel так же,
+        // как это уже делает CampManager для UniquePassiveLevel (см. field-repair) — у каждого
+        // персонажа ровно одна уникальная пассивка/активка, так что уровень читается безусловно,
+        // без проверки класса (у не-Плутов эти навыки просто не задействуются в CombatManager).
+        runtime.SkillEyeForAnEyeLevel = progress.GetSkillLevel(SkillEffectMap.EyeForAnEye);
+        runtime.SkillPoisonedBladeLevel = progress.GetSkillLevel(SkillEffectMap.PoisonedBlade);
+        runtime.SkillByAThreadLevel = progress.GetSkillLevel(SkillEffectMap.ByAThread);
+        runtime.SkillSlipAwayLevel = progress.GetSkillLevel(SkillEffectMap.SlipAway);
+        runtime.UniqueShadowLevel = progress.UniquePassiveLevel;
+        runtime.UniqueSmokeBombLevel = progress.UniqueActiveLevel;
+        runtime.CritDamageMultiplierOverridePercent = progress.GetSkillLevel(SkillEffectMap.Elimination) switch
+        {
+            1 => 175f, 2 => 180f, 3 => 185f, 4 => 190f, 5 => 200f, _ => (float?)null
+        };
     }
 
     static float SumShieldMaxDefenseBonus(ItemData[] items)

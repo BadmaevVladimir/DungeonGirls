@@ -67,6 +67,16 @@ public class CombatManager : MonoBehaviour
 
         ActiveSkillActivated?.Invoke(Player, activeSkillName);
 
+        // 3.11 "Дымовая граната" (уникальная активка Плута): при активации даёт Скрытность и
+        // заряжает гарантированные криты на N последующих ОБЫЧНЫХ атак — распознаётся по имени
+        // навыка, т.к. ConfigureUniqueActiveSkill уже получает его текстом (для баннера выше).
+        if (activeSkillName == SkillEffectMap.SmokeBomb)
+        {
+            GrantOrRefreshStealth(Player);
+            Player.SmokeBombGuaranteedCritsRemaining = Player.UniqueSmokeBombLevel;
+            Log($"[Combat] «Дымовая граната»: {Player.DisplayName} получает Скрытность и {Player.UniqueSmokeBombLevel} гарантированных крита(ов).");
+        }
+
         var weapon = Player.Weapons[0];
         for (int i = 0; i < activeSkillHitCount; i++)
         {
@@ -75,7 +85,9 @@ public class CombatManager : MonoBehaviour
                 break;
             }
 
-            ResolveAttack(Player, weapon, activeSkillDamageMultiplierPerHit);
+            // isRegularAttack: false — удары самой активки не должны расходовать/получать
+            // гарантированные криты "Дымовой гранаты" (см. ResolveAttack).
+            ResolveAttack(Player, weapon, activeSkillDamageMultiplierPerHit, isRegularAttack: false);
         }
 
         Player.ActiveSkillCooldownTimer = activeSkillCooldownSeconds;
@@ -248,8 +260,20 @@ public class CombatManager : MonoBehaviour
             }
         }
 
+        // 3.11 (Плут) — "Скрытность": простой таймер, независимый от таймера атаки, тикает
+        // каждый кадр пока активна (StartCombat не устанавливает её — см. CombatantRuntime).
+        if (combatant.IsStealthed)
+        {
+            combatant.StealthTimer -= deltaTime;
+            if (combatant.StealthTimer <= 0f)
+            {
+                combatant.IsStealthed = false;
+            }
+        }
+
         TickBleed(combatant, deltaTime);
         TickPoison(combatant, deltaTime);
+        TickRoguePoison(combatant, deltaTime);
 
         if (combatant.CritChanceDebuffTimer > 0f)
         {
@@ -296,7 +320,11 @@ public class CombatManager : MonoBehaviour
     // 4.2: игрок атакует выбранную вручную цель либо (по умолчанию) первого живого
     // противника в списке; противники всегда атакуют персонажа.
     // 3.9: сюда же подключены Уклонение, Критические атаки, Несгибаемый, Шипы, Заморозка, Кровотечение.
-    void ResolveAttack(CombatantRuntime attacker, WeaponAttackState weapon, float damageMultiplier = 1f)
+    // isRegularAttack: 3.11 "Дымовая граната" — true только для обычных, тикером атаки запущенных
+    // ударов (TickCombatant); TryActivateUniqueActiveSkill передаёт false для СВОИХ ударов, чтобы
+    // гарантированные криты гранаты не расходовались/не применялись к ним самим (по ГДД гарантия
+    // распространяется только на "обычные атаки оружием").
+    void ResolveAttack(CombatantRuntime attacker, WeaponAttackState weapon, float damageMultiplier = 1f, bool isRegularAttack = true)
     {
         CombatantRuntime target = attacker.IsPlayer ? GetPlayerTarget() : Player;
 
@@ -306,12 +334,47 @@ public class CombatManager : MonoBehaviour
         }
 
         // "Уклонение" + пассивка предмета "Неуловимость" (3.10, Эфирный доспех) + бонусный стат
-        // EvasionPercent (3.10 ФИКС, Кольцо ловкости/Амулет проворства — раньше игнорировался) — складываются:
-        // шанс полностью проигнорировать атаку (любого типа урона).
+        // EvasionPercent (3.10 ФИКС, Кольцо ловкости/Амулет проворства — раньше игнорировался) +
+        // "Ускользание" (3.11, Плут, собственный бонус шанса уклонения) + "Тень" (3.11, уникальная
+        // пассивка Плута, только пока активна Скрытность) — складываются: шанс полностью
+        // проигнорировать атаку (любого типа урона).
         float evadeChancePercent = target.SkillEvasionLevel * 5f + target.ItemElusivenessLevel * 1f + target.MonsterEvasionPercent + target.ItemEvasionBonusPercent; // 5/10/15/20/25% + 1%/уровень предмета + "Порхание" (2.4)
+
+        float slipAwayBonus = target.SkillSlipAwayLevel switch { 1 => 1f, 2 => 2f, 3 => 3f, 4 => 4f, 5 => 5f, _ => 0f };
+        evadeChancePercent += slipAwayBonus;
+
+        if (target.IsStealthed && target.UniqueShadowLevel > 0)
+        {
+            evadeChancePercent += target.UniqueShadowLevel switch { 1 => 10f, 2 => 15f, 3 => 20f, 4 => 25f, 5 => 30f, _ => 0f };
+        }
+
         if (evadeChancePercent > 0f && Random.value * 100f < evadeChancePercent)
         {
             Log($"[Combat] {target.DisplayName} уклоняется от атаки {attacker.DisplayName}.");
+
+            // "Ускользание" (даёт Скрытность на 3с) и "На волоске" (даёт временный бафф скорости
+            // атаки на 3с) — оба срабатывают на СТОРОНЕ ЗАЩИЩАЮЩЕГОСЯ (target), т.к. это ОН уклонился.
+            if (target.SkillSlipAwayLevel > 0)
+            {
+                GrantOrRefreshStealth(target);
+            }
+
+            if (target.SkillByAThreadLevel > 0)
+            {
+                float byAThreadBonus = target.SkillByAThreadLevel * 0.03f; // 3/6/9/12/15%
+                var existing = target.ActiveDebuffs.Find(d => d.Id == "by_a_thread");
+                if (existing != null)
+                {
+                    existing.RemainingTime = 3f;
+                    existing.AttackSpeedMultiplier = 1f + byAThreadBonus;
+                }
+                else
+                {
+                    target.ActiveDebuffs.Add(new ActiveDebuff { Id = "by_a_thread", RemainingTime = 3f, AttackSpeedMultiplier = 1f + byAThreadBonus });
+                }
+                Log($"[Combat] «На волоске» повышает скорость атаки {target.DisplayName} на {byAThreadBonus * 100f:F0}% (3 сек).");
+            }
+
             return;
         }
 
@@ -336,14 +399,42 @@ public class CombatManager : MonoBehaviour
             damage *= 1f + attacker.ItemDamageBonusPercent / 100f;
         }
 
-        // "Критические атаки" + бонус крита с предметов, суммарно клампится на 75% (8.6).
-        float critChancePercent = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems - attacker.CritChanceDebuffPercent; // 10/20/30/40/50% за уровень навыка - "Оглушающий крик" (2.4)
+        // "Критические атаки" + бонус крита с предметов + "В глаз" (3.11, Плут — таблица не
+        // регулярна: 2/5/7.5/10/12.5%), суммарно клампится на 75% (8.6).
+        float eyeForAnEyeBonus = attacker.SkillEyeForAnEyeLevel switch
+        {
+            1 => 2f, 2 => 5f, 3 => 7.5f, 4 => 10f, 5 => 12.5f, _ => 0f
+        };
+        float critChancePercent = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems - attacker.CritChanceDebuffPercent + eyeForAnEyeBonus; // 10/20/30/40/50% за уровень навыка - "Оглушающий крик" (2.4) + "В глаз"
         critChancePercent = Mathf.Max(0f, critChancePercent);
         critChancePercent = BalanceClamps.ClampCritChancePercent(critChancePercent);
+
+        // 3.11 "Устранение" (Плут): переопределяет базовый крит-множитель 150%, если навык изучен —
+        // Task 5 (Варвар) вставляет свою ветку переопределения ШАНСА крита МЕЖДУ вычислением
+        // critChancePercent выше и isCrit-роллом ниже; critMultiplier остаётся именованной локальной
+        // переменной, вычисленной ДО ролла, специально для этого.
+        float critMultiplier = attacker.CritDamageMultiplierOverridePercent ?? 150f;
+
         bool isCrit = critChancePercent > 0f && Random.value * 100f < critChancePercent;
+
+        // 3.11 "Дымовая граната" (уникальная активка Плута): пока есть заряды гарантированного
+        // крита от этого навыка, ОБЫЧНАЯ атака (isRegularAttack) гарантированно критует и расходует
+        // заряд — независимо от ролла выше.
+        if (isRegularAttack && attacker.SmokeBombGuaranteedCritsRemaining > 0)
+        {
+            isCrit = true;
+            attacker.SmokeBombGuaranteedCritsRemaining--;
+        }
+
         if (isCrit)
         {
-            damage *= 1.5f;
+            damage *= critMultiplier / 100f;
+
+            // "В глаз" (3.11, Плут): крит накладывает/обновляет Скрытность на 3с.
+            if (attacker.SkillEyeForAnEyeLevel > 0)
+            {
+                GrantOrRefreshStealth(attacker);
+            }
         }
 
         // 3.10 (ФИКС): "Пробивание" (Топор/Молот редкого+ тира, BonusStatType.ArmorPenetrationFlat) —
@@ -449,6 +540,13 @@ public class CombatManager : MonoBehaviour
             ApplyBleed(target, attacker.SkillBleedLevel);
         }
 
+        // "Отравленный клинок" (3.11, Плут): собственный яд Плута, отдельный от ядовитого укуса
+        // монстров (PoisonStacks/PoisonTimer) — та же логическая точка, что и Кровотечение выше.
+        if (attacker.SkillPoisonedBladeLevel > 0 && weapon.DamageType == DamageType.Physical && !result.WasBlocked)
+        {
+            ApplyRoguePoison(attacker, target);
+        }
+
         // 2.4: пассивки монстров, срабатывающие ПРИ АТАКЕ (симметрично блоку выше, но для
         // не-игрока — у игрока нет MonsterPassiveName).
         ApplyMonsterPassiveOnAttack(attacker, target, result);
@@ -526,6 +624,64 @@ public class CombatManager : MonoBehaviour
         {
             target.BleedTickAccumulator = 0f;
             Log($"[Combat] {target.DisplayName} получает кровотечение ({target.BleedDamagePerSecond:F1}/сек).");
+        }
+    }
+
+    // 3.11 (Плут) — "В глаз"/"Ускользание" накладывают/обновляют Скрытность: длительность всегда
+    // фиксированные 3с (StealthStatus.DurationSeconds), повторное наложение просто обновляет таймер.
+    void GrantOrRefreshStealth(CombatantRuntime combatant)
+    {
+        combatant.IsStealthed = true;
+        combatant.StealthTimer = StealthStatus.DurationSeconds;
+    }
+
+    // 3.11 (Плут) "Отравленный клинок": собственный яд Плута на ЦЕЛИ, полностью отдельный от
+    // PoisonStacks/PoisonTimer (яд Ядовитого паучка, 2.4) — см. RoguePoisonStacksOnTarget на
+    // CombatantRuntime. В Скрытности стаки/максимум удваиваются.
+    void ApplyRoguePoison(CombatantRuntime attacker, CombatantRuntime target)
+    {
+        int maxStacks = attacker.SkillPoisonedBladeLevel;
+        int stacksToAdd = 1;
+        if (attacker.IsStealthed)
+        {
+            maxStacks *= 2;
+            stacksToAdd = 2;
+        }
+
+        target.RoguePoisonStacksOnTarget = Mathf.Min(target.RoguePoisonStacksOnTarget + stacksToAdd, maxStacks);
+        target.RoguePoisonTimer = 3f;
+        Log($"[Combat] «Отравленный клинок» накладывает яд на {target.DisplayName} ({target.RoguePoisonStacksOnTarget}/{maxStacks} стаков).");
+    }
+
+    // "Отравленный клинок": тикает раз в секунду, урон/сек = текущее число стаков (1:1, В ОТЛИЧИЕ
+    // от монстрового яда, где урон/сек = стаки×4 — см. TickPoison). Стаки истекают все разом по
+    // общему таймеру, зеркально TickPoison, но на отдельных Rogue*-полях.
+    void TickRoguePoison(CombatantRuntime target, float deltaTime)
+    {
+        if (target.RoguePoisonStacksOnTarget <= 0)
+        {
+            return;
+        }
+
+        target.RoguePoisonTimer -= deltaTime;
+        target.RoguePoisonTickAccumulator += deltaTime;
+
+        float damagePerSecond = target.RoguePoisonStacksOnTarget;
+        while (target.RoguePoisonTickAccumulator >= 1f && target.RoguePoisonStacksOnTarget > 0 && target.IsAlive)
+        {
+            target.RoguePoisonTickAccumulator -= 1f;
+            target.CurrentHP -= damagePerSecond;
+            Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от «Отравленного клинка» (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+
+            if (!target.IsAlive)
+            {
+                Log($"[Combat] {target.DisplayName} погибает от «Отравленного клинка».");
+            }
+        }
+
+        if (target.RoguePoisonTimer <= 0f)
+        {
+            target.RoguePoisonStacksOnTarget = 0;
         }
     }
 

@@ -811,6 +811,61 @@ public static class PlayModeSmokeTest
         Check(frozenEffects.Exists(e => e.label == "Заморожен"), "4.7 список статусов: 'Заморожен' вместо стаков, когда уже заморожен");
         Check(!frozenEffects.Exists(e => e.label.StartsWith("Заморозка ×")), "4.7 список статусов: не показывает стаки одновременно с 'Заморожен'");
 
+        // 3.11 (Плут) — Скрытность: крит с "В глаз" накладывает Скрытность, таймер честно тикает
+        // до истечения. Гарантированный крит форсируется через SmokeBombGuaranteedCritsRemaining
+        // (детерминированно, без завязки на Random) — реальный путь isCrit -> GrantOrRefreshStealth
+        // в ResolveAttack тот же, что используется и настоящим критом от "Критические атаки".
+        var stealthGO = new GameObject("SmokeTest_StealthGrant");
+        var stealthCombatManager = stealthGO.AddComponent<CombatManager>();
+        var stealthPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, SkillEyeForAnEyeLevel = 1, SmokeBombGuaranteedCritsRemaining = 1 };
+        stealthPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var stealthDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestDummy" };
+        stealthDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        stealthCombatManager.StartCombat(stealthPlayer, new List<CombatantRuntime> { stealthDummy });
+        stealthCombatManager.Tick(1.01f); // ровно один удар игрока — гарантированный крит расходует заряд
+        Check(stealthPlayer.IsStealthed && stealthPlayer.StealthTimer > 0f, $"3.11 «В глаз»: крит накладывает Скрытность (IsStealthed={stealthPlayer.IsStealthed}, timer={stealthPlayer.StealthTimer:F2})");
+        Check(stealthPlayer.SmokeBombGuaranteedCritsRemaining == 0, "3.11 гарантированный крит расходует заряд SmokeBombGuaranteedCritsRemaining");
+
+        stealthPlayer.SkillEyeForAnEyeLevel = 0; // исключаем случайный повторный крит во время догона таймера ниже
+        stealthCombatManager.Tick(3.5f); // дольше 3с (StealthStatus.DurationSeconds) без новых источников Скрытности
+        Check(!stealthPlayer.IsStealthed, $"3.11 Скрытность спадает по истечении таймера (IsStealthed={stealthPlayer.IsStealthed})");
+
+        UnityEngine.Object.DestroyImmediate(stealthGO);
+
+        // 3.11 (Плут) — "Устранение": переопределяет базовый крит-множитель 150% -> 175% на уровне 1.
+        // Фиксированный урон оружия (min=max=10) + гарантированный крит -> ожидаемый урон = 17.5 ровно.
+        var eliminationGO = new GameObject("SmokeTest_Elimination");
+        var eliminationCombatManager = eliminationGO.AddComponent<CombatManager>();
+        var eliminationPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, CritDamageMultiplierOverridePercent = 175f, SmokeBombGuaranteedCritsRemaining = 1 };
+        eliminationPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        var eliminationDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
+        eliminationDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        eliminationCombatManager.StartCombat(eliminationPlayer, new List<CombatantRuntime> { eliminationDummy });
+        eliminationCombatManager.Tick(1.01f);
+        Check(Mathf.Approximately(eliminationDummy.CurrentHP, 1000f - 17.5f), $"3.11 «Устранение» ур.1 крит-множитель 175%: HP болвана = {eliminationDummy.CurrentHP} (ожидалось 982.5)");
+
+        UnityEngine.Object.DestroyImmediate(eliminationGO);
+
+        // 3.11 (Плут) — "Отравленный клинок": в Скрытности стаки/максимум удваиваются (+2/удар,
+        // максимум = 2×уровень навыка, вместо +1/удар и максимума = уровню навыка).
+        var poisonedBladeGO = new GameObject("SmokeTest_PoisonedBlade");
+        var poisonedBladeCombatManager = poisonedBladeGO.AddComponent<CombatManager>();
+        var poisonedBladePlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, SkillPoisonedBladeLevel = 2, IsStealthed = true, StealthTimer = 999f };
+        poisonedBladePlayer.Weapons.Add(new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, DamageType = DamageType.Physical, AttackSpeed = 5f });
+        var poisonedBladeDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
+        poisonedBladeDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+
+        poisonedBladeCombatManager.StartCombat(poisonedBladePlayer, new List<CombatantRuntime> { poisonedBladeDummy });
+        poisonedBladeCombatManager.Tick(0.21f); // >= 1 удар при AttackSpeed=5 (интервал 0.2с): +2 стака
+        Check(poisonedBladeDummy.RoguePoisonStacksOnTarget == 2, $"3.11 «Отравленный клинок» в Скрытности: +2 стака за удар (было {poisonedBladeDummy.RoguePoisonStacksOnTarget}, ожидалось 2)");
+        poisonedBladeCombatManager.Tick(0.21f); // второй удар: +2 -> клампится максимумом 2×2=4
+        Check(poisonedBladeDummy.RoguePoisonStacksOnTarget == 4, $"3.11 «Отравленный клинок» в Скрытности: максимум удвоен до 2×уровень (было {poisonedBladeDummy.RoguePoisonStacksOnTarget}, ожидалось 4)");
+        Check(poisonedBladeDummy.PoisonStacks == 0, "3.11 «Отравленный клинок» не трогает монстровое поле PoisonStacks (отдельная сущность)");
+
+        UnityEngine.Object.DestroyImmediate(poisonedBladeGO);
+
         Info.Add("Play Mode проверки хаба/зданий/гачи/сейва/BeginRun выполнены.");
     }
 

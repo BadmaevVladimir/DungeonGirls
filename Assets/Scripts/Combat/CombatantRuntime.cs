@@ -139,6 +139,13 @@ public class CombatantRuntime
     // IsStealthed (Скрытность может обновляться другими источниками во время того же окна).
     public int SmokeBombGuaranteedCritsRemaining;
 
+    // 3.11 (Дымовая граната) — уровень уникальной активки Плута (1/2/3 = столько гарантированных
+    // критов заряжается за активацию). Отсутствовало в исходном списке Task 1 — добавлено здесь
+    // как явная зависимость CombatManager.TryActivateUniqueActiveSkill. Копируется в
+    // CombatantFactory.ApplyCharacterSkills из progress.UniqueActiveLevel, тем же паттерном, что
+    // и планируемый UniqueBerserkLevel у Варвара.
+    public int UniqueSmokeBombLevel;
+
     // 3.11 (Варвар) — классовые навыки, копируются так же, как Rogue-поля выше.
     public int SkillStubbornnessLevel; // "Упёртость"
     public int SkillFrenzyLevel; // "Остервенелость" — общий индекс X (0.7/0.75/0.8/0.9/1.0) для 3 навыков
