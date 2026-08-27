@@ -588,3 +588,82 @@ Label, Button {
     color: rgb(240, 240, 240);
     margin-bottom: 8px;
 }
+
+/* --- Выбор персонажа перед забегом (Core Loop 1 п.2 / 7.2) --- */
+
+.character-select-cards-row {
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.character-select-card {
+    width: 300px;
+    min-height: 610px;
+    margin: 8px;
+    padding: 14px;
+    background-color: rgb(30, 30, 36);
+    border-width: 1px;
+    border-color: rgb(70, 70, 82);
+    border-radius: 8px;
+    align-items: stretch;
+}
+
+.character-select-portrait-frame {
+    height: 320px;
+    overflow: hidden;
+    background-color: rgb(18, 18, 22);
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.character-select-portrait {
+    width: 100%;
+    height: 100%;
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.character-select-class {
+    color: rgb(190, 200, 220);
+    font-size: 16px;
+    -unity-font-style: bold;
+    margin-bottom: 8px;
+}
+
+.character-select-stat {
+    color: rgb(215, 215, 215);
+    font-size: 14px;
+    margin-bottom: 3px;
+}
+
+.character-select-skill {
+    color: rgb(230, 200, 90);
+    font-size: 14px;
+    -unity-font-style: bold;
+    margin-top: 6px;
+    padding: 4px;
+    border-radius: 3px;
+}
+
+.character-select-skill:hover {
+    color: rgb(255, 230, 120);
+    background-color: rgb(48, 48, 58);
+}
+
+.character-skill-tooltip {
+    position: absolute;
+    width: 360px;
+    max-width: 420px;
+    padding: 12px;
+    background-color: rgba(18, 18, 22, 0.97);
+    border-width: 1px;
+    border-color: rgb(184, 142, 62);
+    border-radius: 6px;
+}
+
+.character-skill-tooltip-text {
+    color: rgb(240, 240, 240);
+    font-size: 14px;
+    white-space: normal;
+}

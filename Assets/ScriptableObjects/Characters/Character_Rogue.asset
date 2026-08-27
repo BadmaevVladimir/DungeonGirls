@@ -15,6 +15,7 @@ MonoBehaviour:
   characterId: violet
   characterName: "\u0412\u0430\u0439\u043E\u043B\u0435\u0442"
   portrait: {fileID: 21300000, guid: ca71c237ff0cc0d4bbd8a9936da94ca4, type: 3}
+  selectionPortrait: {fileID: 21300000, guid: c4bfcc7c3c8205441ba3d024b395810b, type: 3}
   characterClass: 2
   baseHealth: 15
   healthPerLevel: 15

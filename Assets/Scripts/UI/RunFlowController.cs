@@ -47,6 +47,8 @@ public class RunFlowController : MonoBehaviour
     VisualElement characterSelectScreen;
     VisualElement characterSelectCardsContainer;
     Button characterSelectBackButton;
+    VisualElement characterSkillTooltip;
+    Label characterSkillTooltipText;
     VisualElement runScreen;
     VisualElement resultsScreen;
     Label resultsTitleLabel;
@@ -172,6 +174,7 @@ public class RunFlowController : MonoBehaviour
         startRunButton.clicked += OpenCharacterSelect;
         characterSelectBackButton.clicked += () =>
         {
+            HideCharacterSkillTooltip();
             characterSelectScreen.style.display = DisplayStyle.None;
             mainMenuScreen.style.display = DisplayStyle.Flex;
         };
@@ -183,31 +186,65 @@ public class RunFlowController : MonoBehaviour
 
     public void OpenCharacterSelect()
     {
+        var availableCharacters = BuildAvailableCharacters(selectableCharacters, saveManager);
+        if (availableCharacters.Count == 0)
+        {
+            Debug.LogError("[RunFlowController] Невозможно начать забег: не настроен ни один доступный CharacterData (Дженифер должна быть доступна всегда).");
+            return;
+        }
+
+        // 1 п.2 / 7.2: отдельный этап не задерживает игрока, пока у него только стартовая
+        // Дженифер. Как только из гачи получен хотя бы один другой герой, показываем весь
+        // доступный состав — вместе с Дженифер, а не только новые выпадения.
+        if (ShouldSkipCharacterSelection(availableCharacters))
+        {
+            BeginRunWithCharacter(availableCharacters[0]);
+            return;
+        }
+
         mainMenuScreen.style.display = DisplayStyle.None;
         characterSelectScreen.style.display = DisplayStyle.Flex;
+        HideCharacterSkillTooltip();
 
         characterSelectCardsContainer.Clear();
-        foreach (var character in selectableCharacters)
+        foreach (var character in availableCharacters)
         {
-            if (character == null) continue;
-
             var card = new VisualElement();
-            card.AddToClassList("building-card");
+            card.name = $"CharacterSelectCard_{character.characterId}";
+            card.AddToClassList("character-select-card");
 
-            var portraitImage = new Image { sprite = character.portrait };
-            portraitImage.style.width = 64;
-            portraitImage.style.height = 64;
-            card.Add(portraitImage);
+            var portraitFrame = new VisualElement { name = $"CharacterSelectPortraitFrame_{character.characterId}" };
+            portraitFrame.AddToClassList("character-select-portrait-frame");
+            var portraitImage = new Image
+            {
+                name = $"CharacterSelectPortrait_{character.characterId}",
+                sprite = character.selectionPortrait != null ? character.selectionPortrait : character.portrait,
+                scaleMode = ScaleMode.ScaleAndCrop
+            };
+            portraitImage.AddToClassList("character-select-portrait");
+            portraitFrame.Add(portraitImage);
+            card.Add(portraitFrame);
 
             var nameLabel = new Label(character.characterName);
             nameLabel.AddToClassList("building-card-title");
             card.Add(nameLabel);
 
-            var classLabel = new Label(character.characterClass.ToString());
-            classLabel.AddToClassList("body-label");
+            var classLabel = new Label($"Класс: {CharacterClassDisplayName(character.characterClass)}");
+            classLabel.AddToClassList("character-select-class");
             card.Add(classLabel);
 
-            var pickButton = new Button { text = "Выбрать" };
+            var hpLabel = new Label($"HP: {character.baseHealth}");
+            hpLabel.AddToClassList("character-select-stat");
+            card.Add(hpLabel);
+
+            var hpGrowthLabel = new Label($"Прирост HP: +{character.healthPerLevel} за уровень");
+            hpGrowthLabel.AddToClassList("character-select-stat");
+            card.Add(hpGrowthLabel);
+
+            AddCharacterSkillLabel(card, character.characterId, "PassiveSkill", "Пассивный", character.uniquePassiveSkill != null ? character.uniquePassiveSkill.skillName : "—", character.uniquePassiveSkill != null ? character.uniquePassiveSkill.effectDescription : string.Empty);
+            AddCharacterSkillLabel(card, character.characterId, "ActiveSkill", "Активный", character.uniqueActiveSkill != null ? character.uniqueActiveSkill.skillName : "—", character.uniqueActiveSkill != null ? character.uniqueActiveSkill.effectDescription : string.Empty);
+
+            var pickButton = new Button { name = $"CharacterSelectButton_{character.characterId}", text = "Выбрать" };
             pickButton.AddToClassList("button-primary");
             pickButton.clicked += () => BeginRunWithCharacter(character);
             card.Add(pickButton);
@@ -216,15 +253,100 @@ public class RunFlowController : MonoBehaviour
         }
     }
 
+    public static bool IsCharacterAvailableForRun(CharacterData character, SaveManager currentSaveManager)
+    {
+        if (character == null || string.IsNullOrWhiteSpace(character.characterId)) return false;
+        if (string.Equals(character.characterId, "jennifer", System.StringComparison.OrdinalIgnoreCase)) return true;
+        return currentSaveManager != null && currentSaveManager.GetCharacterCopies(character.characterId) > 0;
+    }
+
+    public static List<CharacterData> BuildAvailableCharacters(IEnumerable<CharacterData> characters, SaveManager currentSaveManager)
+    {
+        var result = new List<CharacterData>();
+        if (characters == null) return result;
+
+        var addedIds = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        foreach (var character in characters)
+        {
+            if (!IsCharacterAvailableForRun(character, currentSaveManager) || !addedIds.Add(character.characterId)) continue;
+            result.Add(character);
+        }
+        return result;
+    }
+
+    public static bool ShouldSkipCharacterSelection(IReadOnlyList<CharacterData> availableCharacters) =>
+        availableCharacters != null &&
+        availableCharacters.Count == 1 &&
+        availableCharacters[0] != null &&
+        string.Equals(availableCharacters[0].characterId, "jennifer", System.StringComparison.OrdinalIgnoreCase);
+
+    static string CharacterClassDisplayName(CharacterClass characterClass) => characterClass switch
+    {
+        CharacterClass.Warrior => "Воин",
+        CharacterClass.Rogue => "Плут",
+        CharacterClass.Barbarian => "Варвар",
+        _ => characterClass.ToString()
+    };
+
+    void AddCharacterSkillLabel(VisualElement card, string characterId, string elementSuffix, string typeLabel, string skillName, string description)
+    {
+        var skillLabel = new Label($"{typeLabel}: {skillName}")
+        {
+            name = $"CharacterSelect{elementSuffix}_{characterId}",
+            tooltip = description ?? string.Empty
+        };
+        skillLabel.AddToClassList("character-select-skill");
+        skillLabel.RegisterCallback<PointerEnterEvent>(evt => ShowCharacterSkillTooltip(description, evt.position));
+        skillLabel.RegisterCallback<PointerMoveEvent>(evt => PositionCharacterSkillTooltip(evt.position));
+        skillLabel.RegisterCallback<PointerLeaveEvent>(_ => HideCharacterSkillTooltip());
+        card.Add(skillLabel);
+    }
+
+    void ShowCharacterSkillTooltip(string description, Vector3 pointerPosition)
+    {
+        if (characterSkillTooltip == null || characterSkillTooltipText == null || string.IsNullOrWhiteSpace(description)) return;
+        characterSkillTooltipText.text = description;
+        characterSkillTooltip.style.display = DisplayStyle.Flex;
+        PositionCharacterSkillTooltip(pointerPosition);
+    }
+
+    void PositionCharacterSkillTooltip(Vector3 pointerPosition)
+    {
+        if (characterSkillTooltip == null || characterSkillTooltip.style.display == DisplayStyle.None) return;
+
+        const float margin = 12f;
+        const float offset = 18f;
+        float tooltipWidth = characterSkillTooltip.resolvedStyle.width;
+        float tooltipHeight = characterSkillTooltip.resolvedStyle.height;
+        if (float.IsNaN(tooltipWidth) || tooltipWidth <= 0f) tooltipWidth = 360f;
+        if (float.IsNaN(tooltipHeight) || tooltipHeight <= 0f) tooltipHeight = 140f;
+
+        float screenWidth = characterSelectScreen.resolvedStyle.width;
+        float screenHeight = characterSelectScreen.resolvedStyle.height;
+        float left = Mathf.Clamp(pointerPosition.x + offset, margin, Mathf.Max(margin, screenWidth - tooltipWidth - margin));
+        float top = Mathf.Clamp(pointerPosition.y + offset, margin, Mathf.Max(margin, screenHeight - tooltipHeight - margin));
+        characterSkillTooltip.style.left = left;
+        characterSkillTooltip.style.top = top;
+    }
+
+    void HideCharacterSkillTooltip()
+    {
+        if (characterSkillTooltip != null) characterSkillTooltip.style.display = DisplayStyle.None;
+    }
+
     void BeginRunWithCharacter(CharacterData character)
     {
         selectedCharacter = character;
+        HideCharacterSkillTooltip();
         characterSelectScreen.style.display = DisplayStyle.None;
+        mainMenuScreen.style.display = DisplayStyle.None;
         StartCoroutine(RunLoop());
     }
 
     public void ReturnToMainMenu()
     {
+        HideCharacterSkillTooltip();
+        characterSelectScreen.style.display = DisplayStyle.None;
         resultsScreen.style.display = DisplayStyle.None;
         runScreen.style.display = DisplayStyle.None;
         mainMenuScreen.style.display = DisplayStyle.Flex;
@@ -237,6 +359,9 @@ public class RunFlowController : MonoBehaviour
         characterSelectScreen = root.Q<VisualElement>("CharacterSelectScreen");
         characterSelectCardsContainer = root.Q<VisualElement>("CharacterSelectCardsContainer");
         characterSelectBackButton = root.Q<Button>("CharacterSelectBackButton");
+        characterSkillTooltip = root.Q<VisualElement>("CharacterSkillTooltip");
+        characterSkillTooltipText = root.Q<Label>("CharacterSkillTooltipText");
+        if (characterSkillTooltip != null) characterSkillTooltip.pickingMode = PickingMode.Ignore;
         runScreen = root.Q<VisualElement>("RunScreen");
         resultsScreen = root.Q<VisualElement>("ResultsScreen");
         resultsTitleLabel = root.Q<Label>("ResultsTitleLabel");

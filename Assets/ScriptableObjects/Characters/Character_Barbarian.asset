@@ -15,6 +15,7 @@ MonoBehaviour:
   characterId: sasha
   characterName: "\u0421\u0430\u0448\u0430"
   portrait: {fileID: 21300000, guid: 817639c014f726946a554d7306acf03f, type: 3}
+  selectionPortrait: {fileID: 21300000, guid: 5354a54af74bca2499abdb58f4a954e3, type: 3}
   characterClass: 3
   baseHealth: 30
   healthPerLevel: 25

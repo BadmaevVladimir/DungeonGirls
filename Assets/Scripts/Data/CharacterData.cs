@@ -11,6 +11,9 @@ public class CharacterData : ScriptableObject
     public string characterId;
     public string characterName;
     public Sprite portrait; // 10.6: пиксель-арт портрет персонажа (64x64).
+    // 1 п.2 / 7.2: крупный диалоговый спрайт для карточки выбора перед забегом. UI обрезает
+    // его внутри портретного кадра; при отсутствии ассета безопасно используется portrait.
+    public Sprite selectionPortrait;
     public CharacterClass characterClass;
 
     public int baseHealth;

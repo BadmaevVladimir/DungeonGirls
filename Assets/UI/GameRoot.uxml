@@ -21,8 +21,11 @@
 
     <ui:VisualElement name="CharacterSelectScreen" class="full-screen hidden" style="flex-direction: column;">
         <ui:Label text="Выберите персонажа" class="title-label" />
-        <ui:VisualElement name="CharacterSelectCardsContainer" class="buildings-row" />
+        <ui:VisualElement name="CharacterSelectCardsContainer" class="character-select-cards-row" />
         <ui:Button name="CharacterSelectBackButton" text="Назад" class="button-secondary" />
+        <ui:VisualElement name="CharacterSkillTooltip" class="character-skill-tooltip hidden">
+            <ui:Label name="CharacterSkillTooltipText" text="" class="character-skill-tooltip-text" />
+        </ui:VisualElement>
     </ui:VisualElement>
 
     <ui:VisualElement name="BuildingsScreen" class="full-screen hidden" style="flex-direction: column;">

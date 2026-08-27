@@ -662,13 +662,24 @@ public static class PlayModeSmokeTest
         // Violet.png = Плут) — это не "известный пробел", а реальная проверка после назначения.
         var sashaSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Characters/Sasha.png");
         var violetSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Characters/Violet.png");
+        var jenniferDialogSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Characters/Dialog_sprites/Jennifer_Dialog.png");
+        var sashaDialogSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Characters/Dialog_sprites/Sasha_Dialog.png");
+        var violetDialogSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Characters/Dialog_sprites/Violet_Dialog.png");
+        var jenniferChar = AssetDatabase.LoadAssetAtPath<CharacterData>("Assets/ScriptableObjects/Characters/Character_Jennifer.asset");
         var barbarianChar = AssetDatabase.LoadAssetAtPath<CharacterData>("Assets/ScriptableObjects/Characters/Character_Barbarian.asset");
+        if (Check(jenniferChar != null, "Character_Jennifer.asset загрузился для экрана выбора"))
+        {
+            Check(jenniferChar.selectionPortrait != null && jenniferChar.selectionPortrait == jenniferDialogSprite,
+                "1 п.2 Дженифер использует Jennifer_Dialog.png в карточке выбора");
+        }
         if (Check(barbarianChar != null, "10.6 Character_Barbarian.asset загрузился"))
         {
             Check(barbarianChar.portrait != null && barbarianChar.portrait == sashaSprite,
                 $"10.6 Character_Barbarian.portrait = Sasha.png: {(barbarianChar.portrait != null ? barbarianChar.portrait.name : "null")} (ожидалось спрайт Assets/Art/Characters/Sasha.png)");
             Check(barbarianChar.characterId == "sasha" && barbarianChar.characterName == "Саша",
                 $"Именная модель: Варвар — класс, персонаж имеет id/name sasha/Саша: {barbarianChar.characterId}/{barbarianChar.characterName}");
+            Check(barbarianChar.selectionPortrait != null && barbarianChar.selectionPortrait == sashaDialogSprite,
+                "1 п.2 Саша использует Sasha_Dialog.png в карточке выбора");
         }
         var rogueChar = AssetDatabase.LoadAssetAtPath<CharacterData>("Assets/ScriptableObjects/Characters/Character_Rogue.asset");
         if (Check(rogueChar != null, "10.6 Character_Rogue.asset загрузился"))
@@ -677,7 +688,26 @@ public static class PlayModeSmokeTest
                 $"10.6 Character_Rogue.portrait = Violet.png: {(rogueChar.portrait != null ? rogueChar.portrait.name : "null")} (ожидалось спрайт Assets/Art/Characters/Violet.png)");
             Check(rogueChar.characterId == "violet" && rogueChar.characterName == "Вайолет",
                 $"Именная модель: Плут — класс, персонаж имеет id/name violet/Вайолет: {rogueChar.characterId}/{rogueChar.characterName}");
+            Check(rogueChar.selectionPortrait != null && rogueChar.selectionPortrait == violetDialogSprite,
+                "1 п.2 Вайолет использует Violet_Dialog.png в карточке выбора");
         }
+
+        var availabilitySave = new GameObject("SmokeTest_CharacterAvailabilitySave").AddComponent<SaveManager>();
+        availabilitySave.Data.gachaOwnedCharacters.Clear();
+        Check(RunFlowController.IsCharacterAvailableForRun(jenniferChar, availabilitySave),
+            "1 п.2 Дженифер доступна без гача-копий");
+        Check(!RunFlowController.IsCharacterAvailableForRun(rogueChar, availabilitySave) && !RunFlowController.IsCharacterAvailableForRun(barbarianChar, availabilitySave),
+            "1 п.2 Вайолет и Саша недоступны без гача-копий");
+        var onlyJennifer = RunFlowController.BuildAvailableCharacters(new[] { jenniferChar, rogueChar, barbarianChar }, availabilitySave);
+        Check(onlyJennifer.Count == 1 && RunFlowController.ShouldSkipCharacterSelection(onlyJennifer),
+            "1 п.2 при одной Дженифер этап выбора пропускается");
+        availabilitySave.Data.gachaOwnedCharacters.Add(new KeyCountEntry { key = "violet", count = 1 });
+        var jenniferAndViolet = RunFlowController.BuildAvailableCharacters(new[] { jenniferChar, rogueChar, barbarianChar }, availabilitySave);
+        Check(jenniferAndViolet.Count == 2 && jenniferAndViolet.Contains(jenniferChar) && jenniferAndViolet.Contains(rogueChar) && !jenniferAndViolet.Contains(barbarianChar),
+            "1 п.2 копия Вайолет открывает её в выборе, Саша без копии остаётся скрыта");
+        Check(!RunFlowController.ShouldSkipCharacterSelection(jenniferAndViolet),
+            "1 п.2 наличие героя кроме Дженифер требует показать окно выбора");
+        UnityEngine.Object.DestroyImmediate(availabilitySave.gameObject);
 
         // ==================== Финальный ревью этой ветки (rogue-barbarian-classes) — 4 находки ====================
 
@@ -971,6 +1001,10 @@ public static class PlayModeSmokeTest
         var mainMenuScreen = RequireElement(root, "MainMenuScreen");
         var buildingsScreen = RequireElement(root, "BuildingsScreen");
         var gachaScreen = RequireElement(root, "GachaScreen");
+        var characterSelectScreen = RequireElement(root, "CharacterSelectScreen");
+        var characterSelectCards = RequireElement(root, "CharacterSelectCardsContainer");
+        var characterSkillTooltip = RequireElement(root, "CharacterSkillTooltip");
+        RequireElement(root, "CharacterSkillTooltipText");
         RequireElement(root, "StartRunButton");
         RequireElement(root, "ForgeUpgradeButton");
         RequireElement(root, "GachaPullButton");
@@ -1021,6 +1055,36 @@ public static class PlayModeSmokeTest
         RequireElement(root, "ChestSkipButton");
 
         if (mainMenuScreen == null || buildingsScreen == null || gachaScreen == null) return;
+
+        // 1 п.2 / 7.2: живая ветка выбора при наличии гача-персонажа. Подменяем только данные
+        // в памяти и восстанавливаем их до любых операций, которые сохраняют save на диск.
+        var savedCharacterCopies = new List<KeyCountEntry>();
+        foreach (var entry in saveManager.Data.gachaOwnedCharacters)
+        {
+            if (entry != null) savedCharacterCopies.Add(new KeyCountEntry { key = entry.key, count = entry.count });
+        }
+        saveManager.Data.gachaOwnedCharacters.Clear();
+        saveManager.Data.gachaOwnedCharacters.Add(new KeyCountEntry { key = "violet", count = 1 });
+        runFlow.OpenCharacterSelect();
+        Check(characterSelectScreen.style.display == DisplayStyle.Flex && mainMenuScreen.style.display == DisplayStyle.None,
+            "1 п.2 копия Вайолет показывает экран выбора и скрывает главное меню");
+        Check(characterSelectCards.childCount == 2,
+            $"1 п.2 экран содержит Дженифер и Вайолет, но не Сашу: cards={characterSelectCards.childCount} (ожидалось 2)");
+        var violetSelectionPortrait = root.Q<UnityEngine.UIElements.Image>("CharacterSelectPortrait_violet");
+        var violetCharacterAsset = AssetDatabase.LoadAssetAtPath<CharacterData>("Assets/ScriptableObjects/Characters/Character_Rogue.asset");
+        Check(violetSelectionPortrait != null && violetCharacterAsset != null && violetSelectionPortrait.sprite == violetCharacterAsset.selectionPortrait && violetSelectionPortrait.scaleMode == ScaleMode.ScaleAndCrop,
+            "1 п.2 карточка Вайолет показывает обрезанный диалоговый спрайт");
+        var violetPassiveLabel = root.Q<Label>("CharacterSelectPassiveSkill_violet");
+        var violetActiveLabel = root.Q<Label>("CharacterSelectActiveSkill_violet");
+        Check(violetPassiveLabel != null && violetPassiveLabel.text.Contains(violetCharacterAsset.uniquePassiveSkill.skillName) && violetPassiveLabel.tooltip == violetCharacterAsset.uniquePassiveSkill.effectDescription,
+            "1 п.2 пассивный навык показывает название и хранит описание для hover-tooltip");
+        Check(violetActiveLabel != null && violetActiveLabel.text.Contains(violetCharacterAsset.uniqueActiveSkill.skillName) && violetActiveLabel.tooltip == violetCharacterAsset.uniqueActiveSkill.effectDescription,
+            "1 п.2 активный навык показывает название и хранит описание для hover-tooltip");
+        Check(characterSkillTooltip.style.display != DisplayStyle.Flex,
+            "1 п.2 tooltip скрыт до наведения курсора");
+        runFlow.ReturnToMainMenu();
+        saveManager.Data.gachaOwnedCharacters.Clear();
+        saveManager.Data.gachaOwnedCharacters.AddRange(savedCharacterCopies);
 
         // --- Навигация хаба (7.1) ---
         hub.OpenBuildings();
