@@ -95,6 +95,7 @@ public class RunFlowController : MonoBehaviour
     VisualElement enemyListContainer;
     Toggle autoModeToggle;
     Button activeSkillButton;
+    Toggle berserkToggle;
 
     // --- Журнал забега (7.2: персистентный лог, не только боевой — виден и вне боя) ---
     ScrollView runLogScroll;
@@ -177,6 +178,7 @@ public class RunFlowController : MonoBehaviour
         resultsContinueButton.clicked += ReturnToMainMenu;
         autoModeToggle.RegisterValueChangedCallback(evt => combatManager.SetActiveSkillAutoMode(evt.newValue));
         activeSkillButton.clicked += () => combatManager.TryActivateUniqueActiveSkill();
+        berserkToggle.RegisterValueChangedCallback(evt => combatManager.SetBerserkActive(evt.newValue));
     }
 
     public void OpenCharacterSelect()
@@ -277,6 +279,7 @@ public class RunFlowController : MonoBehaviour
         runLogText = root.Q<Label>("RunLogText");
         autoModeToggle = root.Q<Toggle>("AutoModeToggle");
         activeSkillButton = root.Q<Button>("ActiveSkillButton");
+        berserkToggle = root.Q<Toggle>("BerserkToggle");
 
         eventDescriptionLabel = root.Q<Label>("EventDescriptionLabel");
         eventChoicesContainer = root.Q<VisualElement>("EventChoicesContainer");
@@ -463,6 +466,18 @@ public class RunFlowController : MonoBehaviour
         return Random.Range(1, 4); // 1-3 (уровень 6+)
     }
 
+    // Codex P1 (ФИКС, 2026-08-27): раньше CombatRoomFlow всегда передавал hitCount=3 и конфиг из
+    // jenniferCharacter.uniqueActiveSkill — Плут получал бы конфигурацию Дженифер (неверный
+    // hitCount/имя навыка), а Варвар вообще не имеет кулдаун-активки (Берсерк — ручной тумблер, см.
+    // ниже). Единственный текущий кейс с hitCount != 3 — Дымовая граната Плута (не бьёт сама, см.
+    // CombatManager.TryActivateUniqueActiveSkill, которое жёстко возвращает до hit-loop для неё
+    // независимо от переданного числа) — hitCount=0 здесь просто отражает намерение корректно.
+    public static int ResolveActiveSkillHitCount(CharacterClass characterClass) => characterClass switch
+    {
+        CharacterClass.Rogue => 0, // Дымовая граната — не бьёт сама
+        _ => 3 // "3 быстрые атаки" (Дженифер/Воин) — единственный hit-loop навык прототипа кроме Дымовой гранаты
+    };
+
     IEnumerator CombatRoomFlow(bool isBoss)
     {
         var enemies = new List<CombatantRuntime>();
@@ -516,9 +531,25 @@ public class RunFlowController : MonoBehaviour
             weapon.AttackSpeed *= spdMult;
         }
 
-        int activeLevel = characterManager.Progress.UniqueActiveLevel;
-        float activeMultiplier = activeLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f };
-        combatManager.ConfigureUniqueActiveSkill(3, activeMultiplier, characterManager.Progress.Character.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value, characterManager.Progress.Character.uniqueActiveSkill.skillName);
+        var activeCharacter = characterManager.Progress.Character;
+        bool isBarbarian = activeCharacter.characterClass == CharacterClass.Barbarian;
+
+        if (isBarbarian)
+        {
+            // 3.11 (Варвар) — Берсерк — ручной тумблер, не кулдаун-активка (см. ГДД 3.11, точная
+            // цитата: "НЕ работает как обычный активный навык (нет кулдауна, нет авто-режима, нет
+            // длительности)"). CombatManager.ConfigureUniqueActiveSkill/TryActivateUniqueActiveSkill
+            // не используются для него вовсе — UI использует berserkToggle (см. ниже), не
+            // activeSkillButton/autoModeToggle.
+            combatManager.SetBerserkActive(false); // сброс на начало боя — тумблер не переносится между боями
+        }
+        else
+        {
+            int activeLevel = characterManager.Progress.UniqueActiveLevel;
+            float activeMultiplier = activeLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f };
+            int hitCount = ResolveActiveSkillHitCount(activeCharacter.characterClass);
+            combatManager.ConfigureUniqueActiveSkill(hitCount, activeMultiplier, activeCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value, activeCharacter.uniqueActiveSkill.skillName);
+        }
 
         combatManager.LogMessage += OnCombatLog;
         combatManager.MonsterStoleCurrency += OnMonsterStoleCurrency;
@@ -663,9 +694,21 @@ public class RunFlowController : MonoBehaviour
             UpdateStatusLabel(entry.StatusLabel, entry.Combatant);
         }
 
-        bool ready = combatManager.IsActiveSkillReady;
-        activeSkillButton.SetEnabled(!autoModeToggle.value && ready);
-        activeSkillButton.text = ready ? "Активный навык (готов)" : $"Активный навык ({combatManager.ActiveSkillCooldownRemaining:F1}с)";
+        bool isBarbarianCombat = characterManager.Progress.Character.characterClass == CharacterClass.Barbarian;
+        activeSkillButton.EnableInClassList("hidden", isBarbarianCombat);
+        autoModeToggle.EnableInClassList("hidden", isBarbarianCombat);
+        berserkToggle.EnableInClassList("hidden", !isBarbarianCombat);
+
+        if (!isBarbarianCombat)
+        {
+            bool ready = combatManager.IsActiveSkillReady;
+            activeSkillButton.SetEnabled(!autoModeToggle.value && ready);
+            activeSkillButton.text = ready ? "Активный навык (готов)" : $"Активный навык ({combatManager.ActiveSkillCooldownRemaining:F1}с)";
+        }
+        else
+        {
+            berserkToggle.SetValueWithoutNotify(player.IsBerserkActive);
+        }
     }
 
     // 4.7: строится один раз при старте боя (список противников не меняется в процессе боя,

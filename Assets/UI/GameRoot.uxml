@@ -104,6 +104,7 @@
                 <ui:VisualElement class="combat-controls-row">
                     <ui:Toggle name="AutoModeToggle" label="Авто-режим навыка" value="true" />
                     <ui:Button name="ActiveSkillButton" text="Активный навык" class="button-secondary" />
+                    <ui:Toggle name="BerserkToggle" label="Берсерк" value="false" class="hidden" />
                 </ui:VisualElement>
             </ui:VisualElement>
 

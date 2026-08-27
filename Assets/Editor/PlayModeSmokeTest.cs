@@ -841,6 +841,19 @@ public static class PlayModeSmokeTest
         SaveManager.MigrateIfNeeded(staleSave);
         Check(staleSave.saveVersion == SaveData.CurrentSaveVersion && staleSave.metaCurrency == 500 && staleSave.veteranDeck != null,
             $"9.4 миграция старого save: saveVersion={staleSave.saveVersion}, metaCurrency сохранена={staleSave.metaCurrency}, veteranDeck заполнен дефолтом={staleSave.veteranDeck != null} (ожидалось true/500/true)");
+
+        // Codex P1 2026-08-27: конфигурация активного навыка в бою должна зависеть от текущего
+        // персонажа, не быть жёстко зашитой под "3 быстрые атаки" Дженифер. Дымовая граната Плута
+        // конфигурируется с hitCount=0 (сама не бьёт — см. CombatManager.TryActivateUniqueActiveSkill).
+        var rogueForSkillTest = ScriptableObject.CreateInstance<CharacterData>();
+        rogueForSkillTest.characterName = "ТестПлутАктивка";
+        rogueForSkillTest.characterClass = CharacterClass.Rogue;
+        rogueForSkillTest.baseHealth = 100;
+        Check(RunFlowController.ResolveActiveSkillHitCount(rogueForSkillTest.characterClass) == 0,
+            $"Task 5: ResolveActiveSkillHitCount(Rogue) == 0 (Дымовая граната не бьёт сама): {RunFlowController.ResolveActiveSkillHitCount(rogueForSkillTest.characterClass)}");
+        Check(RunFlowController.ResolveActiveSkillHitCount(CharacterClass.Warrior) == 3,
+            $"Task 5: ResolveActiveSkillHitCount(Warrior) == 3 (3 быстрые атаки Дженифер): {RunFlowController.ResolveActiveSkillHitCount(CharacterClass.Warrior)}");
+        UnityEngine.Object.DestroyImmediate(rogueForSkillTest);
     }
 
     // ==================== Play Mode: живая сцена/хаб/сейв ====================
