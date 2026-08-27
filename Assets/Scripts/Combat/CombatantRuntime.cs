@@ -154,7 +154,9 @@ public class CombatantRuntime
     public int SkillSuperstitionLevel; // "Суеверность"
     public int UniqueChampionOfTheTribeLevel; // пассивка "Чемпион племени"
 
-    // 3.11 (Боевая регенерация) — счётчик полученных ударов по HP, сбрасывается при срабатывании.
+    // 3.11 (Боевая регенерация) — счётчик полученных ударов, сбрасывается при срабатывании. Считает
+    // ЛЮБОЙ разрешённый удар по цели, включая полностью заблокированный (не только прошедший по HP) —
+    // см. CombatManager.ResolveAttack, где инкремент стоит безусловно после блока/урона.
     public int HitsTakenSinceLastRegen;
 
     // 3.11 (Берсерк) — ручной тумблер, не кулдаун-навык. Уровень 0 = навык не изучен = тумблер
@@ -211,7 +213,10 @@ public class CombatantRuntime
         // 3.11 (Варвар) — "Остервенелость": скорость атаки растёт с текущей Яростью.
         if (SkillFrenzyLevel > 0)
         {
-            multiplier *= 1f + (Rage * RageSkillMultiplierTable(SkillFrenzyLevel) / 100f) / 100f;
+            // ФИКС (код-ревью): один division /100 переводит Rage×X (число-проценты) в дробь для
+            // множителя — этого достаточно. Двойное деление (было /100/100) давало ~1% от нужной
+            // величины. При Rage=100, ур.5 (X=1.0): multiplier *= 1f + 1.0f = +100% скорости атаки.
+            multiplier *= 1f + (Rage * RageSkillMultiplierTable(SkillFrenzyLevel) / 100f);
         }
 
         return Mathf.Max(0.01f, weapon.AttackSpeed * multiplier);

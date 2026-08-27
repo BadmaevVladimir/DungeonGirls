@@ -878,6 +878,30 @@ public static class PlayModeSmokeTest
         rageTestCombatant.RageFlatBonusPercent = 20f;
         Check(Mathf.Approximately(rageTestCombatant.Rage, 70f), $"3.11 Ярость складывает флэт-бонус (Пояс титана) поверх формулы HP: 50%+20 = 70% (было {rageTestCombatant.Rage})");
 
+        // ФИКС (код-ревью): "Остервенелость"/"Суеверность" ранее делили на 100 дважды (~1% от нужной
+        // величины). Проверяем правильный порядок величины напрямую: Rage=100%, ур.5 (X=1.0) должно
+        // давать РОВНО +100% к скорости атаки (Остервенелость) и РОВНО 100% магического сопротивления
+        // (Суеверность), а не ~1%.
+        var frenzyTestCombatant = new CombatantRuntime { MaxHP = 100f, CurrentHP = 0f, SkillFrenzyLevel = 5 }; // Rage = 100%
+        var frenzyWeapon = new WeaponAttackState { AttackSpeed = 2f };
+        Check(Mathf.Approximately(frenzyTestCombatant.GetEffectiveAttackSpeed(frenzyWeapon), 4f), $"3.11 «Остервенелость» ур.5 при Ярости=100%: скорость атаки ×2 (база 2 -> 4, было {frenzyTestCombatant.GetEffectiveAttackSpeed(frenzyWeapon)})");
+
+        var superstitionGO = new GameObject("SmokeTest_Superstition");
+        var superstitionCombatManager = superstitionGO.AddComponent<CombatManager>();
+        // Rage = 50% (CurrentHP=500/MaxHP=1000), ур.5 (X=1.0) -> MagicalResistancePercent должно
+        // быть РОВНО 50 (не 0.5, как при старом двойном делении на 100). Заблокированный урон
+        // от одного удара 100 маг. урона: 100×(1-0.5)=50 по HP -> HP игрока 500->450 (не ~400.5,
+        // как дал бы старый баг с резистансом 0.5%).
+        var superstitionPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 500f, SkillSuperstitionLevel = 5 };
+        var superstitionEnemy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestEnemy" };
+        superstitionEnemy.Weapons.Add(new WeaponAttackState { DamageMin = 100f, DamageMax = 100f, DamageType = DamageType.Magical, AttackSpeed = 2f });
+
+        superstitionCombatManager.StartCombat(superstitionPlayer, new List<CombatantRuntime> { superstitionEnemy });
+        superstitionCombatManager.Tick(0.51f); // ровно один удар врага (интервал 0.5с)
+        Check(Mathf.Approximately(superstitionPlayer.CurrentHP, 450f), $"3.11 «Суеверность» ур.5 при Ярости=50%: маг. сопротивление РОВНО 50% снижает урон 100 -> 50 по HP (HP={superstitionPlayer.CurrentHP}, ожидалось 450, НЕ ~400.5 от старого бага с двойным делением)");
+
+        UnityEngine.Object.DestroyImmediate(superstitionGO);
+
         // 3.11 (Варвар) — "Упёртость": при Ярости выше порога уровня новый дебафф (здесь — стак
         // заморозки) полностью игнорируется; ниже порога — применяется как обычно. Порог ур.5 = 50%.
         var stubbornGO = new GameObject("SmokeTest_Stubbornness");

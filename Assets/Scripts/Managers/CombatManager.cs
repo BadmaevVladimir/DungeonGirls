@@ -79,18 +79,32 @@ public class CombatManager : MonoBehaviour
     // scope этого плана, см. RunFlowController) — мирроит форму SetActiveSkillAutoMode выше.
     public void SetBerserkActive(bool active)
     {
-        if (Player != null)
+        if (Player == null)
         {
-            Player.IsBerserkActive = active;
+            return;
         }
+
+        // ФИКС (код-ревью): деактивация всегда разрешена (безопасно и защитно), но нельзя ВКЛЮЧИТЬ
+        // Берсерк персонажу, который его не изучил — без этой проверки он получал бы самоурон тика
+        // при 0% сопротивления (UniqueBerserkLevel switch ниже даёт 0 для уровня 0).
+        if (active && Player.UniqueBerserkLevel <= 0)
+        {
+            return;
+        }
+
+        Player.IsBerserkActive = active;
     }
 
     // 3.11 (Варвар) — "Суеверность"/"Берсерк": сопротивления зависят от ЖИВОЙ Ярости, поэтому
     // пересчитываются каждый Tick, а не запекаются один раз в CombatantFactory.ApplyCharacterSkills.
     void UpdateResistances(CombatantRuntime combatant)
     {
+        // ФИКС (код-ревью): было двойное деление на 100 (Rage×X/100, затем ещё раз /100 ниже) —
+        // MagicalResistancePercent хранится в ПРОЦЕНТНЫХ единицах (DamageCalculator сам делит на 100
+        // при применении, см. ApplyDamage), точно как соседнее PhysicalResistancePercent от Берсерка
+        // (10f/20f/30f без деления). Лишнее /100f давало ~1% от нужной величины сопротивления.
         combatant.MagicalResistancePercent = combatant.SkillSuperstitionLevel > 0
-            ? combatant.Rage * RageSkillMultiplier(combatant.SkillSuperstitionLevel) / 100f
+            ? combatant.Rage * RageSkillMultiplier(combatant.SkillSuperstitionLevel)
             : 0f;
 
         combatant.PhysicalResistancePercent = combatant.IsBerserkActive
