@@ -821,6 +821,26 @@ public static class PlayModeSmokeTest
         Check(rogueCombatant.UniqueShadowLevel == 1 && rogueCombatant.UniqueSmokeBombLevel == 1,
             $"3.11 ФИКС «Тень»/«Дымовая граната» остаются у Плута: UniqueShadowLevel={rogueCombatant.UniqueShadowLevel}, UniqueSmokeBombLevel={rogueCombatant.UniqueSmokeBombLevel} (ожидалось 1/1, т.к. UniquePassiveLevel/UniqueActiveLevel стартуют с 1)");
         UnityEngine.Object.DestroyImmediate(rogueCharacter);
+
+        // 9.4 (ФИКС, Codex P2 2026-08-27): SaveData расширена полями из актуального ГДД —
+        // saveVersion/veteranDeck/characterRunCounts/seenVNScenes, gachaOwnedCharacters вместо
+        // characterCopies (переключение ключа с displayName на стабильный characterId).
+        var freshSave = new SaveData();
+        Check(freshSave.saveVersion == SaveData.CurrentSaveVersion,
+            $"9.4 новый SaveData имеет текущую версию: saveVersion={freshSave.saveVersion} (ожидалось {SaveData.CurrentSaveVersion})");
+        Check(freshSave.veteranDeck != null && freshSave.veteranDeck.Count == 0,
+            "9.4 veteranDeck инициализирован пустым списком");
+        Check(freshSave.characterRunCounts != null && freshSave.gachaOwnedCharacters != null && freshSave.seenVNScenes != null,
+            "9.4 characterRunCounts/gachaOwnedCharacters/seenVNScenes инициализированы (не null)");
+
+        // 9.4/Codex P2: миграция старого сохранения без saveVersion (симулирует файл с диска до
+        // этого фикса — JsonUtility молча оставит новые поля в дефолте, а не упадёт, но saveVersion
+        // будет 0) — TryMigrate должен довести его до текущей версии без потери уже прочитанных полей.
+        var staleSave = new SaveData { saveVersion = 0, metaCurrency = 500 };
+        staleSave.veteranDeck = null; // симулируем JSON без этого поля вовсе (JsonUtility даёт null для отсутствующих списков в старом файле)
+        SaveManager.MigrateIfNeeded(staleSave);
+        Check(staleSave.saveVersion == SaveData.CurrentSaveVersion && staleSave.metaCurrency == 500 && staleSave.veteranDeck != null,
+            $"9.4 миграция старого save: saveVersion={staleSave.saveVersion}, metaCurrency сохранена={staleSave.metaCurrency}, veteranDeck заполнен дефолтом={staleSave.veteranDeck != null} (ожидалось true/500/true)");
     }
 
     // ==================== Play Mode: живая сцена/хаб/сейв ====================
@@ -915,7 +935,11 @@ public static class PlayModeSmokeTest
         tryPullGacha?.Invoke(hub, null);
         Check(tryPullGacha != null, "Приватный метод HubManager.TryPullGacha найден рефлексией");
         Check(saveManager.Data.gachaCurrency == gachaCurrencyBefore - 50, $"Призыв гачи списал 50 гача-валюты: было {gachaCurrencyBefore}, стало {saveManager.Data.gachaCurrency}");
-        Check(gachaResultPopup.style.display == DisplayStyle.Flex, "Попап результата призыва показан");
+        // ФИКС (Task 3, Codex P2 2026-08-27): TryPullGacha временно заглушка (SaveManager больше не
+        // содержит AddItemCopy/GetItemCount — полная гача-логика под GDD 11.1 приходит в Task 6),
+        // поэтому попап результата сейчас не показывается. Проверка попапа вернётся, когда Task 6
+        // восстановит полную реализацию TryPullGacha.
+        Check(gachaResultPopup.style.display != DisplayStyle.Flex, "Попап результата призыва НЕ показан (временная заглушка TryPullGacha до Task 6)");
         hub.OpenVillage();
 
         // --- Награда за забег + персистентность SaveManager (8.5/9.2/9.3) ---

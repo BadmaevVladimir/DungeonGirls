@@ -200,36 +200,8 @@ public class HubManager : MonoBehaviour
 
     void TryPullGacha()
     {
-        if (!saveManager.TrySpendGachaCurrency(GachaPullCost))
-        {
-            return;
-        }
-
-        // [DRAFT, 8.5/раздел 0]: равномерное распределение между 2 персонажами и 10 предметами —
-        // точные шансы в ГДД не заданы, требует баланс-решения позже.
-        int characterCount = gachaCharacters != null ? gachaCharacters.Length : 0;
-        int totalOptions = characterCount + gachaItemNames.Count;
-        int roll = Random.Range(0, totalOptions);
-
-        string resultText;
-        if (roll < characterCount)
-        {
-            var character = gachaCharacters[roll];
-            saveManager.AddCharacterCopy(character.characterName);
-            int copies = saveManager.GetCharacterCopies(character.characterName);
-            resultText = $"Персонаж: {character.characterName} (копия №{copies})";
-        }
-        else
-        {
-            string itemName = gachaItemNames[roll - characterCount];
-            saveManager.AddItemCopy(itemName);
-            int copies = saveManager.GetItemCount(itemName);
-            resultText = $"Предмет: {itemName} (x{copies})";
-        }
-
-        gachaResultLabel.text = resultText;
-        gachaResultPopup.style.display = DisplayStyle.Flex;
-
+        // [DRAFT, временная заглушка до Task 6 — полная реализация под GDD 11.1]
+        saveManager.TrySpendGachaCurrency(GachaPullCost);
         RefreshGachaScreen();
     }
 
