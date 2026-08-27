@@ -24,4 +24,4 @@ MonoBehaviour:
   magicDefense: 20
   passiveSkill: {fileID: 11400000, guid: 62b93b6d4cac9bc4991dddac190f5134, type: 2}
   gender: 0
-  minFloorTier: 1
+  minFloorTier: 2

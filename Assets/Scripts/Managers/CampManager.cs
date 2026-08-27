@@ -38,7 +38,7 @@ public class CampManager : MonoBehaviour
         combatant.CurrentHP = Mathf.Min(combatant.MaxHP, combatant.CurrentHP + combatant.MaxHP * healPercent);
 
         float armorRestored = 0f;
-        int fieldRepairLevel = characterManager.Progress.UniquePassiveLevel;
+        int fieldRepairLevel = characterManager.Progress.GetEffectiveUniquePassiveLevel(SkillEffectMap.FieldRepair);
         // "Ремонт" (3.10, Молот кузнеца): +1% за уровень предмета, складывается с "Полевым ремонтом"
         // и бонусом Кузницы ур.5 (8.1, ФИКС — раньше здание не читалось здесь вовсе).
         float itemRepairPercent = combatant.ItemRepairLevel * 1f;

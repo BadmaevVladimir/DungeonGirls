@@ -3,9 +3,8 @@ using UnityEngine;
 
 public class FloorManager : MonoBehaviour
 {
-    // 8.4 [РЕШЕНО, ОБНОВЛЕНО 2026-08-25]: состав мешка комнат — 8 боевых / 1 торговец / 2 ловушки /
-    // 1 особая = 12 комнат. Одинаковый на ВСЕХ 10 этажах (не растёт с глубиной) — сложность растёт
-    // только через масштабирование монстров (2.6/2.7/2.8), не через число/состав комнат.
+    // 8.4: на этажах 2-10 — 8 боевых / 1 торговец / 2 ловушки / 1 особая = 12 комнат.
+    // На первом этаже торговца нет: до первой награды у игрока нет валюты для покупки.
     const int CombatRooms = 8;
     const int MerchantRooms = 1;
     const int TrapRooms = 2;
@@ -22,11 +21,14 @@ public class FloorManager : MonoBehaviour
 
     // Мешок/стопка (bag randomization, 8.4): все комнаты этажа перемешиваются один раз,
     // дальше вытягиваются без повторного добавления. Босс в мешок не входит — всегда последний.
-    public void GenerateRoomBag()
+    public void GenerateRoomBag(int floorNumber = 1)
     {
         RoomBag = new List<RoomType>();
         for (int i = 0; i < CombatRooms; i++) RoomBag.Add(RoomType.Combat);
-        for (int i = 0; i < MerchantRooms; i++) RoomBag.Add(RoomType.Merchant);
+        if (floorNumber > 1)
+        {
+            for (int i = 0; i < MerchantRooms; i++) RoomBag.Add(RoomType.Merchant);
+        }
         for (int i = 0; i < TrapRooms; i++) RoomBag.Add(RoomType.Trap);
         for (int i = 0; i < SpecialRooms; i++) RoomBag.Add(RoomType.Special);
 

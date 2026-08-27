@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 // Фаза 4: единственный оркестратор всего цикла забега (7.2), связывающий UI Toolkit с уже
@@ -18,7 +19,6 @@ public class RunFlowController : MonoBehaviour
     // персонажей + экраном выбора — раньше BeginRun ВСЕГДА стартовал Дженифер, Плут/Варвар были
     // недостижимы из реального флоу забега несмотря на то, что их данные/классовые пулы существуют.
     [SerializeField] CharacterData[] selectableCharacters;
-    [SerializeField] MentorData mentorData;
     [SerializeField] List<PassiveSkillData> generalSkillPool;
     [SerializeField] List<PassiveSkillData> warriorSkillPool;
     [SerializeField] List<PassiveSkillData> rogueSkillPool;
@@ -49,11 +49,24 @@ public class RunFlowController : MonoBehaviour
     Button characterSelectBackButton;
     VisualElement characterSkillTooltip;
     Label characterSkillTooltipText;
+    VisualElement mentorSelectScreen;
+    Label mentorSelectStudentLabel;
+    ScrollView mentorSelectScrollView;
+    Button mentorSelectNoneButton;
+    Button mentorSelectBackButton;
     VisualElement runScreen;
     VisualElement resultsScreen;
     Label resultsTitleLabel;
     Label resultsBodyLabel;
     Button resultsContinueButton;
+    VisualElement pauseScreen;
+    Label pauseCharacterStatsLabel;
+    ScrollView pauseSkillsScrollView;
+    ScrollView pauseEquipmentScrollView;
+    Button pauseResumeButton;
+    Button pauseAbandonRunButton;
+    Button pauseQuitGameButton;
+    bool isRunPaused;
 
     // --- Хедер забега ---
     Label floorLabel;
@@ -165,6 +178,8 @@ public class RunFlowController : MonoBehaviour
     int totalRoomsThisFloorCached;
 
     CharacterData selectedCharacter;
+    VeteranCharacter selectedMentor;
+    List<string> selectedTransferredSkills = new List<string>();
     public CharacterData SelectedCharacter => selectedCharacter;
 
     void OnEnable()
@@ -178,10 +193,103 @@ public class RunFlowController : MonoBehaviour
             characterSelectScreen.style.display = DisplayStyle.None;
             mainMenuScreen.style.display = DisplayStyle.Flex;
         };
+        mentorSelectNoneButton.clicked += () => BeginRunWithMentor(null);
+        mentorSelectBackButton.clicked += ReturnFromMentorSelection;
         resultsContinueButton.clicked += ReturnToMainMenu;
+        pauseResumeButton.clicked += ResumeRun;
+        pauseAbandonRunButton.clicked += AbandonRunFromPause;
+        pauseQuitGameButton.clicked += QuitGame;
         autoModeToggle.RegisterValueChangedCallback(evt => combatManager.SetActiveSkillAutoMode(evt.newValue));
         activeSkillButton.clicked += () => combatManager.TryActivateUniqueActiveSkill();
         berserkToggle.RegisterValueChangedCallback(evt => combatManager.SetBerserkActive(evt.newValue));
+    }
+
+    void OnDisable()
+    {
+        Time.timeScale = 1f;
+        isRunPaused = false;
+        UnsubscribeCombatEvents();
+    }
+
+    void Update()
+    {
+        if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame || !IsRunInProgress()) return;
+        if (isRunPaused) ResumeRun();
+        else PauseRun();
+    }
+
+    bool IsRunInProgress() =>
+        runScreen != null && runScreen.style.display == DisplayStyle.Flex &&
+        resultsScreen != null && resultsScreen.style.display != DisplayStyle.Flex;
+
+    void PauseRun()
+    {
+        if (isRunPaused || characterManager == null || characterManager.Character == null) return;
+        RefreshPauseInfo();
+        isRunPaused = true;
+        Time.timeScale = 0f;
+        pauseScreen.style.display = DisplayStyle.Flex;
+    }
+
+    void ResumeRun()
+    {
+        if (!isRunPaused) return;
+        isRunPaused = false;
+        Time.timeScale = 1f;
+        pauseScreen.style.display = DisplayStyle.None;
+    }
+
+    void AbandonRunFromPause()
+    {
+        if (!isRunPaused) return;
+        ResumeRun();
+        combatManager.AbortCombat();
+        UnsubscribeCombatEvents();
+        StopAllCoroutines();
+        dungeonManager.SetRunState(RunState.RunFailed);
+        StartCoroutine(ShowResultsFlow(false));
+    }
+
+    void QuitGame()
+    {
+        Time.timeScale = 1f;
+        Application.Quit();
+    }
+
+    void RefreshPauseInfo()
+    {
+        var combatant = characterManager.Combatant;
+        var progress = characterManager.Progress;
+        pauseCharacterStatsLabel.text = $"{characterManager.Character.characterName} ({CharacterClassDisplayName(characterManager.Character.characterClass)}) — уровень {characterManager.Level}\n" +
+            $"HP: {combatant.CurrentHP:F0}/{combatant.MaxHP:F0}\n" +
+            $"Физ. защита: {combatant.PhysicalDefenseCurrent:F0}/{combatant.PhysicalDefenseMax:F0} | Магический щит: {combatant.MagicShieldCurrent:F0}/{combatant.MagicShieldMax:F0}\n" +
+            $"Этаж: {dungeonManager.CurrentFloorNumber}/{DungeonManager.TotalFloors} | Валюта забега: {characterManager.RunCurrency} | Рационы: {campManager.RationsRemaining}";
+
+        pauseSkillsScrollView.Clear();
+        AddPauseLine(pauseSkillsScrollView, $"Уникальный пассив: {characterManager.Character.uniquePassiveSkill.skillName} — ур. {progress.UniquePassiveLevel}");
+        AddPauseLine(pauseSkillsScrollView, $"Уникальный активный: {characterManager.Character.uniqueActiveSkill.skillName} — ур. {progress.UniqueActiveLevel}");
+        if (!string.IsNullOrWhiteSpace(progress.MentorUniquePassiveSkillName))
+        {
+            AddPauseLine(pauseSkillsScrollView, $"Пассив наставника: {progress.MentorUniquePassiveSkillName} — ур. {progress.MentorUniquePassiveLevel}");
+        }
+        foreach (var pair in progress.KnownSkillLevels.OrderBy(pair => pair.Key != null ? pair.Key.skillName : string.Empty))
+        {
+            if (pair.Key != null) AddPauseLine(pauseSkillsScrollView, $"{pair.Key.skillName} — ур. {pair.Value}");
+        }
+
+        pauseEquipmentScrollView.Clear();
+        foreach (var item in characterManager.EquippedItems)
+        {
+            if (item != null) AddPauseLine(pauseEquipmentScrollView, $"{SlotLabel(item.slot)}: {item.itemName} (ур. {item.itemLevel})\n{ItemStatsText(item)}");
+        }
+        if (pauseEquipmentScrollView.childCount == 0) AddPauseLine(pauseEquipmentScrollView, "Нет снаряжения.");
+    }
+
+    static void AddPauseLine(ScrollView container, string text)
+    {
+        var line = new Label(text);
+        line.AddToClassList("body-label");
+        container.Add(line);
     }
 
     public void OpenCharacterSelect()
@@ -340,15 +448,96 @@ public class RunFlowController : MonoBehaviour
         HideCharacterSkillTooltip();
         characterSelectScreen.style.display = DisplayStyle.None;
         mainMenuScreen.style.display = DisplayStyle.None;
+        OpenMentorSelect();
+    }
+
+    public static List<VeteranCharacter> BuildEligibleMentors(IEnumerable<VeteranCharacter> veterans, string studentCharacterId)
+    {
+        var result = new List<VeteranCharacter>();
+        if (veterans == null) return result;
+        foreach (var veteran in veterans)
+        {
+            if (VeteranSystem.IsEligibleMentor(veteran, studentCharacterId)) result.Add(veteran);
+        }
+        return result;
+    }
+
+    void OpenMentorSelect()
+    {
+        var eligible = BuildEligibleMentors(saveManager != null ? saveManager.Data.veteranDeck : null, selectedCharacter.characterId);
+        if (eligible.Count == 0)
+        {
+            BeginRunWithMentor(null);
+            return;
+        }
+
+        mentorSelectStudentLabel.text = $"Подопечный: {selectedCharacter.characterName}";
+        mentorSelectScrollView.Clear();
+        foreach (var veteran in eligible)
+        {
+            var card = new VisualElement { name = $"MentorSelectCard_{veteran.characterId}_{mentorSelectScrollView.childCount}" };
+            card.AddToClassList("mentor-select-card");
+            var title = new Label($"{CharacterDisplayName(veteran.characterId)} — {veteran.grade}");
+            title.AddToClassList("mentor-select-grade");
+            card.Add(title);
+            card.Add(new Label($"Полностью зачищено этажей: {veteran.floorsCleared}"));
+            card.Add(new Label($"Гарантированный пассив: {veteran.uniquePassiveSkillName}"));
+            string candidates = veteran.finalSkills != null && veteran.finalSkills.Count > 0
+                ? string.Join(", ", veteran.finalSkills.Where(entry => entry != null && !string.IsNullOrWhiteSpace(entry.skillName)).Select(entry => entry.skillName).Distinct())
+                : "нет";
+            card.Add(new Label($"Дополнительный пул: {candidates}"));
+            var pickButton = new Button { text = "Выбрать наставником" };
+            pickButton.AddToClassList("button-primary");
+            pickButton.clicked += () => BeginRunWithMentor(veteran);
+            card.Add(pickButton);
+            mentorSelectScrollView.Add(card);
+        }
+
+        mentorSelectScreen.style.display = DisplayStyle.Flex;
+    }
+
+    string CharacterDisplayName(string characterId)
+    {
+        if (selectableCharacters != null)
+        {
+            foreach (var character in selectableCharacters)
+            {
+                if (character != null && string.Equals(character.characterId, characterId, System.StringComparison.OrdinalIgnoreCase)) return character.characterName;
+            }
+        }
+        return characterId;
+    }
+
+    void BeginRunWithMentor(VeteranCharacter mentor)
+    {
+        selectedMentor = mentor;
+        selectedTransferredSkills = mentor != null
+            ? VeteranSystem.RollTransferredSkills(mentor, new System.Random(System.Environment.TickCount ^ mentor.GetHashCode()))
+            : new List<string>();
+        mentorSelectScreen.style.display = DisplayStyle.None;
         StartCoroutine(RunLoop());
+    }
+
+    void ReturnFromMentorSelection()
+    {
+        mentorSelectScreen.style.display = DisplayStyle.None;
+        selectedMentor = null;
+        selectedTransferredSkills.Clear();
+        selectedCharacter = null;
+        var availableCharacters = BuildAvailableCharacters(selectableCharacters, saveManager);
+        if (ShouldSkipCharacterSelection(availableCharacters)) ReturnToMainMenu();
+        else OpenCharacterSelect();
     }
 
     public void ReturnToMainMenu()
     {
+        ResumeRun();
         HideCharacterSkillTooltip();
         characterSelectScreen.style.display = DisplayStyle.None;
+        mentorSelectScreen.style.display = DisplayStyle.None;
         resultsScreen.style.display = DisplayStyle.None;
         runScreen.style.display = DisplayStyle.None;
+        pauseScreen.style.display = DisplayStyle.None;
         mainMenuScreen.style.display = DisplayStyle.Flex;
     }
 
@@ -362,11 +551,23 @@ public class RunFlowController : MonoBehaviour
         characterSkillTooltip = root.Q<VisualElement>("CharacterSkillTooltip");
         characterSkillTooltipText = root.Q<Label>("CharacterSkillTooltipText");
         if (characterSkillTooltip != null) characterSkillTooltip.pickingMode = PickingMode.Ignore;
+        mentorSelectScreen = root.Q<VisualElement>("MentorSelectScreen");
+        mentorSelectStudentLabel = root.Q<Label>("MentorSelectStudentLabel");
+        mentorSelectScrollView = root.Q<ScrollView>("MentorSelectScrollView");
+        mentorSelectNoneButton = root.Q<Button>("MentorSelectNoneButton");
+        mentorSelectBackButton = root.Q<Button>("MentorSelectBackButton");
         runScreen = root.Q<VisualElement>("RunScreen");
         resultsScreen = root.Q<VisualElement>("ResultsScreen");
         resultsTitleLabel = root.Q<Label>("ResultsTitleLabel");
         resultsBodyLabel = root.Q<Label>("ResultsBodyLabel");
         resultsContinueButton = root.Q<Button>("ResultsContinueButton");
+        pauseScreen = root.Q<VisualElement>("PauseScreen");
+        pauseCharacterStatsLabel = root.Q<Label>("PauseCharacterStatsLabel");
+        pauseSkillsScrollView = root.Q<ScrollView>("PauseSkillsScrollView");
+        pauseEquipmentScrollView = root.Q<ScrollView>("PauseEquipmentScrollView");
+        pauseResumeButton = root.Q<Button>("PauseResumeButton");
+        pauseAbandonRunButton = root.Q<Button>("PauseAbandonRunButton");
+        pauseQuitGameButton = root.Q<Button>("PauseQuitGameButton");
 
         floorLabel = root.Q<Label>("FloorLabel");
         rationsLabel = root.Q<Label>("RationsLabel");
@@ -461,19 +662,8 @@ public class RunFlowController : MonoBehaviour
 
         characterManager.BeginRun(selectedCharacter, equipmentManager, saveManager);
 
-        // 1, п.3: наставник передаёт свой основной пассив (постоянный бонус) + свои остальные
-        // навыки в общий пул левел-апа (см. design note в плане Task 3).
-        characterManager.Progress.MentorMagicDamageBonusPercent = mentorData != null ? mentorData.mainPassiveMagicDamageBonusPercent : 0f;
-        characterManager.RefreshCombatStats(); // применить бонус к уже собранному Combatant
-
-        levelUpManager.MentorSkillPool = mentorData != null && mentorData.otherKnownSkills != null
-            ? new List<PassiveSkillData>(mentorData.otherKnownSkills)
-            : new List<PassiveSkillData>();
-
-        if (mentorData != null)
-        {
-            LogEvent($"[Наставник] {mentorData.mentorName} передаёт «{(mentorData.mainPassiveSkill != null ? mentorData.mainPassiveSkill.skillName : "?")}»: +{mentorData.mainPassiveMagicDamageBonusPercent:F0}% магического урона.");
-        }
+        // 1, п.3: применяем уже выбранный и разыгранный снимок наследования ветерана.
+        ApplySelectedMentorInheritance();
 
         campManager.BeginRun(characterManager.TavernLevelThisRun);
         dungeonManager.SetRunState(RunState.RunSetup);
@@ -485,7 +675,7 @@ public class RunFlowController : MonoBehaviour
         while (true)
         {
             floorManager.SetFloorState(FloorState.FloorStart);
-            floorManager.GenerateRoomBag();
+            floorManager.GenerateRoomBag(dungeonManager.CurrentFloorNumber);
             characterManager.BeginFloor(); // 8.5: сброс счётчика пройденных комнат этого этажа
             totalRoomsThisFloorCached = floorManager.TotalRoomsOnFloor;
             UpdateTopBar();
@@ -691,10 +881,7 @@ public class RunFlowController : MonoBehaviour
         }
 
         UpdateCombatUI();
-        combatManager.LogMessage -= OnCombatLog;
-        combatManager.MonsterStoleCurrency -= OnMonsterStoleCurrency;
-        combatManager.HitResolved -= OnHitResolved;
-        combatManager.ActiveSkillActivated -= OnActiveSkillActivated;
+        UnsubscribeCombatEvents();
 
         for (int i = 0; i < characterManager.Combatant.Weapons.Count && i < originalStats.Count; i++)
         {
@@ -719,6 +906,14 @@ public class RunFlowController : MonoBehaviour
         }
 
         yield return ShowRewardChestFlow(dungeonManager.CurrentFloorNumber, isBoss);
+    }
+
+    void UnsubscribeCombatEvents()
+    {
+        combatManager.LogMessage -= OnCombatLog;
+        combatManager.MonsterStoleCurrency -= OnMonsterStoleCurrency;
+        combatManager.HitResolved -= OnHitResolved;
+        combatManager.ActiveSkillActivated -= OnActiveSkillActivated;
     }
 
     void OnCombatLog(string message)
@@ -1685,7 +1880,9 @@ public class RunFlowController : MonoBehaviour
             characterManager.RoomsClearedOnCurrentFloor);
         if (saveManager != null)
         {
-            saveManager.CompleteRun(completion.MetaCurrency, completion.GachaCurrency, BuildVeteranSnapshot());
+            int floorsCleared = victory ? DungeonManager.TotalFloors : Mathf.Max(0, dungeonManager.CurrentFloorNumber - 1);
+            VeteranCharacter veteran = floorsCleared > 0 ? BuildVeteranSnapshot(floorsCleared) : null;
+            saveManager.CompleteRun(completion.MetaCurrency, completion.GachaCurrency, characterManager.Character.characterId, veteran);
         }
 
         resultsTitleLabel.text = victory ? "Победа" : "Поражение";
@@ -1701,7 +1898,7 @@ public class RunFlowController : MonoBehaviour
         yield return WaitForClick(resultsContinueButton);
     }
 
-    VeteranCharacter BuildVeteranSnapshot()
+    VeteranCharacter BuildVeteranSnapshot(int floorsCleared)
     {
         var veteran = new VeteranCharacter
         {
@@ -1709,6 +1906,14 @@ public class RunFlowController : MonoBehaviour
             // finalHP в схеме трактуется как финальный максимальный HP-стат персонажа, а не
             // оставшееся после последнего удара здоровье (при поражении оно всегда было бы 0).
             finalHP = characterManager.Combatant.MaxHP,
+            uniquePassiveSkillName = characterManager.Character.uniquePassiveSkill != null ? characterManager.Character.uniquePassiveSkill.skillName : string.Empty,
+            uniquePassiveLevel = characterManager.Progress.UniquePassiveLevel,
+            uniqueActiveSkillName = characterManager.Character.uniqueActiveSkill != null ? characterManager.Character.uniqueActiveSkill.skillName : string.Empty,
+            uniqueActiveLevel = characterManager.Progress.UniqueActiveLevel,
+            inheritedUniquePassiveSkillName = characterManager.Progress.MentorUniquePassiveSkillName,
+            inheritedUniquePassiveLevel = characterManager.Progress.MentorUniquePassiveLevel,
+            floorsCleared = floorsCleared,
+            grade = VeteranSystem.GradeForFloors(floorsCleared),
             // Формула PowerLevel остаётся открытым вопросом ГДД. Не подменяем решение дизайнера.
             powerLevel = 0
         };
@@ -1723,10 +1928,43 @@ public class RunFlowController : MonoBehaviour
 
         foreach (var item in characterManager.EquippedItems)
         {
-            if (item != null) veteran.finalEquipment.Add(item.itemName);
+            if (item == null) continue;
+            veteran.finalEquipment.Add(item.itemName);
+            veteran.finalEquipmentSnapshot.Add(new VeteranEquipmentEntry { itemName = item.itemName, itemLevel = item.itemLevel });
         }
 
         return veteran;
+    }
+
+    void ApplySelectedMentorInheritance()
+    {
+        levelUpManager.MentorSkillPool = new List<PassiveSkillData>();
+        if (selectedMentor == null || selectedTransferredSkills == null || selectedTransferredSkills.Count == 0)
+        {
+            LogEvent("[Наставник] Забег начат без наставника.");
+            return;
+        }
+
+        characterManager.Progress.MentorUniquePassiveSkillName = selectedTransferredSkills[0];
+        characterManager.Progress.MentorUniquePassiveLevel = 1;
+        for (int i = 1; i < selectedTransferredSkills.Count; i++)
+        {
+            var skill = FindPassiveSkill(selectedTransferredSkills[i]);
+            if (skill != null) levelUpManager.MentorSkillPool.Add(skill);
+            else Debug.LogWarning($"[Наставник] Не найден PassiveSkillData для «{selectedTransferredSkills[i]}»; навык пропущен.");
+        }
+
+        characterManager.RefreshCombatStats();
+        string extras = levelUpManager.MentorSkillPool.Count > 0
+            ? string.Join(", ", levelUpManager.MentorSkillPool.Select(skill => skill.skillName))
+            : "нет";
+        LogEvent($"[Наставник] {CharacterDisplayName(selectedMentor.characterId)} передаёт «{selectedTransferredSkills[0]}»; в пул левел-апа добавлено: {extras}.");
+    }
+
+    PassiveSkillData FindPassiveSkill(string skillName)
+    {
+        return generalSkillPool.Concat(warriorSkillPool).Concat(rogueSkillPool).Concat(barbarianSkillPool)
+            .FirstOrDefault(skill => skill != null && string.Equals(skill.skillName, skillName, System.StringComparison.OrdinalIgnoreCase));
     }
 
     // ==================== Общие UI-хелперы ====================

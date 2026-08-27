@@ -107,6 +107,16 @@ public class SaveManager : MonoBehaviour
             veteran.characterId = NormalizeCharacterId(veteran.characterId);
             veteran.finalSkills ??= new List<VeteranSkillEntry>();
             veteran.finalEquipment ??= new List<string>();
+            veteran.finalEquipmentSnapshot ??= new List<VeteranEquipmentEntry>();
+            if (veteran.finalEquipmentSnapshot.Count == 0)
+            {
+                foreach (string itemName in veteran.finalEquipment)
+                {
+                    if (!string.IsNullOrWhiteSpace(itemName)) veteran.finalEquipmentSnapshot.Add(new VeteranEquipmentEntry { itemName = itemName, itemLevel = 1 });
+                }
+            }
+            veteran.floorsCleared = Mathf.Clamp(veteran.floorsCleared, 0, DungeonManager.TotalFloors);
+            veteran.grade = VeteranSystem.GradeForFloors(veteran.floorsCleared);
         }
     }
 
@@ -288,11 +298,19 @@ public class SaveManager : MonoBehaviour
     // забега и одна запись save, без промежуточного состояния «валюта уже есть, ветерана ещё нет».
     public bool CompleteRun(int metaCurrency, int gachaCurrency, VeteranCharacter veteran)
     {
-        if (metaCurrency < 0 || gachaCurrency < 0 || veteran == null || string.IsNullOrWhiteSpace(veteran.characterId)) return false;
+        if (veteran == null) return false;
+        return CompleteRun(metaCurrency, gachaCurrency, veteran.characterId, veteran);
+    }
+
+    // Нулевой результат всё ещё выдаёт валюту и учитывает завершённый забег, но не создаёт ветерана.
+    public bool CompleteRun(int metaCurrency, int gachaCurrency, string characterId, VeteranCharacter veteran)
+    {
+        if (metaCurrency < 0 || gachaCurrency < 0 || string.IsNullOrWhiteSpace(characterId)) return false;
+        if (veteran != null && (!string.Equals(veteran.characterId, characterId, StringComparison.OrdinalIgnoreCase) || veteran.floorsCleared < 1)) return false;
         Data.metaCurrency += metaCurrency;
         Data.gachaCurrency += gachaCurrency;
-        Data.veteranDeck.Add(veteran);
-        FindOrCreateEntry(Data.characterRunCounts, veteran.characterId).count++;
+        if (veteran != null) Data.veteranDeck.Add(veteran);
+        FindOrCreateEntry(Data.characterRunCounts, characterId).count++;
         SaveGame();
         return true;
     }

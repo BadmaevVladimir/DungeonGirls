@@ -8,6 +8,13 @@ public class CombatManager : MonoBehaviour
     public List<CombatantRuntime> Enemies { get; private set; } = new List<CombatantRuntime>();
     public bool IsCombatActive { get; private set; }
 
+    // Принудительное завершение используется только при явном выходе игрока из забега через паузу.
+    public void AbortCombat()
+    {
+        IsCombatActive = false;
+        if (Player != null) Player.IsBerserkActive = false;
+    }
+
     // Позволяет UI подписаться на текстовый лог боя (7.2), не читая консоль Unity.
     public event System.Action<string> LogMessage;
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -954,6 +955,10 @@ public static class PlayModeSmokeTest
         {
             characterId = "sasha",
             finalHP = 42f,
+            uniquePassiveSkillName = SkillEffectMap.ChampionOfTheTribe,
+            uniquePassiveLevel = 3,
+            floorsCleared = 4,
+            grade = VeteranSystem.GradeForFloors(4),
             powerLevel = 0
         };
         Check(veteranSaveManager.CompleteRun(12, 3, veteranSnapshot), "9.2 CompleteRun принимает валидный снимок ветерана");
@@ -963,6 +968,48 @@ public static class PlayModeSmokeTest
             "9.2 CompleteRun одной транзакцией начисляет награды и прохождение");
         Check(veteranSaveManager.Data.veteranDeck[0].powerLevel == 0,
             "9.2 PowerLevel не рассчитывается без утверждённой дизайнером формулы");
+        Check(veteranSaveManager.Data.veteranDeck[0].grade == "C" && veteranSaveManager.Data.veteranDeck[0].floorsCleared == 4,
+            "3.7 CompleteRun сохраняет оценку C и 4 полностью зачищенных этажа");
+        int deckBeforeZeroFloorRun = veteranSaveManager.Data.veteranDeck.Count;
+        Check(veteranSaveManager.CompleteRun(1, 0, "violet", null) && veteranSaveManager.Data.veteranDeck.Count == deckBeforeZeroFloorRun && veteranSaveManager.GetRunCount("violet") == 1,
+            "1 п.8 забег без полностью зачищенного этажа выдаёт награду/счётчик, но не создаёт ветерана");
+
+        Check(VeteranSystem.GradeForFloors(10) == "S+" && VeteranSystem.GradeForFloors(9) == "S" &&
+            VeteranSystem.GradeForFloors(8) == "A" && VeteranSystem.GradeForFloors(6) == "B" &&
+            VeteranSystem.GradeForFloors(4) == "C" && VeteranSystem.GradeForFloors(1) == "C-",
+            "3.7 границы оценок ветерана соответствуют ГДД");
+        VeteranSystem.TryGetTransferCountRange(10, out int fullMin, out int fullMax);
+        VeteranSystem.TryGetTransferCountRange(9, out int nineMin, out int nineMax);
+        Check(fullMin == 2 && fullMax == 5 && nineMin == 1 && nineMax == 5 && !VeteranSystem.TryGetTransferCountRange(0, out _, out _),
+            "1 п.3 диапазоны наследования включают гарантированный пассив и требуют минимум этаж");
+
+        var inheritanceVeteran = new VeteranCharacter
+        {
+            characterId = "sasha",
+            uniquePassiveSkillName = SkillEffectMap.ChampionOfTheTribe,
+            floorsCleared = 10,
+            finalSkills = new List<VeteranSkillEntry>
+            {
+                new VeteranSkillEntry { skillName = SkillEffectMap.Frenzy, level = 5 },
+                new VeteranSkillEntry { skillName = SkillEffectMap.Stubbornness, level = 3 },
+                new VeteranSkillEntry { skillName = SkillEffectMap.Frenzy, level = 2 }
+            }
+        };
+        var transferred = VeteranSystem.RollTransferredSkills(inheritanceVeteran, new System.Random(7));
+        Check(transferred.Count >= 2 && transferred.Count <= 3 && transferred[0] == SkillEffectMap.ChampionOfTheTribe && transferred.Distinct().Count() == transferred.Count,
+            "1 п.3 наследование гарантирует уникальный пассив, выбирает дополнительные без повторов и ограничивается известным пулом");
+        Check(VeteranSystem.IsEligibleMentor(inheritanceVeteran, "violet") && !VeteranSystem.IsEligibleMentor(inheritanceVeteran, "sasha"),
+            "1 п.3 наставник доступен только другому персонажу");
+        var inheritedProgressCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        inheritedProgressCharacter.characterClass = CharacterClass.Warrior;
+        var inheritedProgress = new RunCharacterProgress(inheritedProgressCharacter)
+        {
+            MentorUniquePassiveSkillName = SkillEffectMap.Shadow,
+            MentorUniquePassiveLevel = 1
+        };
+        Check(inheritedProgress.GetMentorUniquePassiveLevel(SkillEffectMap.Shadow) == 1 && inheritedProgress.GetMentorUniquePassiveLevel(SkillEffectMap.ChampionOfTheTribe) == 0,
+            "1 п.3 механика наследуемого уникального пассива включается только для выбранного навыка");
+        UnityEngine.Object.DestroyImmediate(inheritedProgressCharacter);
         UnityEngine.Object.DestroyImmediate(veteranSaveManager.gameObject);
 
         // Codex P1 2026-08-27: конфигурация активного навыка в бою должна зависеть от текущего
@@ -1005,6 +1052,11 @@ public static class PlayModeSmokeTest
         var characterSelectCards = RequireElement(root, "CharacterSelectCardsContainer");
         var characterSkillTooltip = RequireElement(root, "CharacterSkillTooltip");
         RequireElement(root, "CharacterSkillTooltipText");
+        RequireElement(root, "MentorSelectScreen");
+        RequireElement(root, "MentorSelectStudentLabel");
+        RequireElement(root, "MentorSelectScrollView");
+        RequireElement(root, "MentorSelectNoneButton");
+        RequireElement(root, "MentorSelectBackButton");
         RequireElement(root, "StartRunButton");
         RequireElement(root, "ForgeUpgradeButton");
         RequireElement(root, "GachaPullButton");
@@ -1021,6 +1073,13 @@ public static class PlayModeSmokeTest
         RequireElement(root, "CharactersScrollView");
         RequireElement(root, "MerchantOffersContainer");
         RequireElement(root, "MerchantCurrencyLabel");
+        RequireElement(root, "PauseScreen");
+        RequireElement(root, "PauseCharacterStatsLabel");
+        RequireElement(root, "PauseSkillsScrollView");
+        RequireElement(root, "PauseEquipmentScrollView");
+        RequireElement(root, "PauseResumeButton");
+        RequireElement(root, "PauseAbandonRunButton");
+        RequireElement(root, "PauseQuitGameButton");
 
         // Task 3 (GDD 10.6): the UXML src="project://database/..." approach on CombatBackground's
         // ui:Image did NOT resolve at runtime (confirmed during Task 3 -- Image.image/.sprite stayed
@@ -1179,6 +1238,16 @@ public static class PlayModeSmokeTest
             Check(characterManager.Combatant != null && characterManager.Combatant.IsAlive, "BeginRun с бонусом Кузницы не падает, боевой юнит жив");
             Check(characterManager.EquippedItems.Count == jennifer.startingEquipment.Length, "BeginRun выдал столько же предметов, сколько стартовый лоадаут");
 
+            var pauseRun = typeof(RunFlowController).GetMethod("PauseRun", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var resumeRun = typeof(RunFlowController).GetMethod("ResumeRun", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var pauseScreen = root.Q<VisualElement>("PauseScreen");
+            pauseRun?.Invoke(runFlow, null);
+            Check(pauseRun != null && pauseScreen.style.display == DisplayStyle.Flex && Mathf.Approximately(Time.timeScale, 0f),
+                "7.2 PauseRun открывает окно и останавливает игровое время");
+            resumeRun?.Invoke(runFlow, null);
+            Check(resumeRun != null && pauseScreen.style.display == DisplayStyle.None && Mathf.Approximately(Time.timeScale, 1f),
+                "7.2 ResumeRun закрывает окно и возобновляет игровое время");
+
             // 8.5: счётчик пройденных комнат этажа
             characterManager.MarkRoomCleared();
             characterManager.MarkRoomCleared();
@@ -1224,14 +1293,21 @@ public static class PlayModeSmokeTest
         // 8.4: состав мешка комнат
         var floorManagerGO = new GameObject("SmokeTest_FloorManager");
         var floorManager = floorManagerGO.AddComponent<FloorManager>();
-        floorManager.GenerateRoomBag();
+        floorManager.GenerateRoomBag(1);
         int combatCount = floorManager.RoomBag.FindAll(r => r == RoomType.Combat).Count;
         int merchantCount = floorManager.RoomBag.FindAll(r => r == RoomType.Merchant).Count;
         int trapCount = floorManager.RoomBag.FindAll(r => r == RoomType.Trap).Count;
         int specialCount = floorManager.RoomBag.FindAll(r => r == RoomType.Special).Count;
-        Check(combatCount == 8 && merchantCount == 1 && trapCount == 2 && specialCount == 1 && floorManager.RoomBag.Count == 12,
-            $"8.4 состав мешка: combat={combatCount}, merchant={merchantCount}, trap={trapCount}, special={specialCount}, total={floorManager.RoomBag.Count} (ожидалось 8/1/2/1/12)");
+        Check(combatCount == 8 && merchantCount == 0 && trapCount == 2 && specialCount == 1 && floorManager.RoomBag.Count == 11,
+            $"8.4 первый этаж без торговца: combat={combatCount}, merchant={merchantCount}, trap={trapCount}, special={specialCount}, total={floorManager.RoomBag.Count} (ожидалось 8/0/2/1/11)");
+        floorManager.GenerateRoomBag(2);
+        Check(floorManager.RoomBag.FindAll(r => r == RoomType.Merchant).Count == 1 && floorManager.RoomBag.Count == 12,
+            "8.4 со второго этажа торговец и 12-комнатный мешок возвращаются");
         UnityEngine.Object.DestroyImmediate(floorManagerGO);
+
+        var warlock = AssetDatabase.LoadAssetAtPath<MonsterData>("Assets/ScriptableObjects/Monsters/Monster_Warlock.asset");
+        Check(warlock != null && warlock.minFloorTier == 2,
+            "2.4 Колдун начинает появляться со второго этажа");
 
         // 2.4: "Проклятие замедления" Колдуна (давний пробел — ассет существовал, но никогда не
         // применялся в бою) через реальный CombatManager.ResolveAttack, а не напрямую.

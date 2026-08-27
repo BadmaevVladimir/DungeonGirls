@@ -229,7 +229,9 @@ public static class CombatantFactory
         runtime.SkillByAThreadLevel = progress.GetSkillLevel(SkillEffectMap.ByAThread);
         runtime.SkillSlipAwayLevel = progress.GetSkillLevel(SkillEffectMap.SlipAway);
         bool isRogue = progress.Character != null && progress.Character.characterClass == CharacterClass.Rogue;
-        runtime.UniqueShadowLevel = isRogue ? progress.UniquePassiveLevel : 0;
+        runtime.UniqueShadowLevel = Mathf.Max(
+            isRogue ? progress.UniquePassiveLevel : 0,
+            progress.GetMentorUniquePassiveLevel(SkillEffectMap.Shadow));
         runtime.UniqueSmokeBombLevel = isRogue ? progress.UniqueActiveLevel : 0;
         runtime.CritDamageMultiplierOverridePercent = progress.GetSkillLevel(SkillEffectMap.Elimination) switch
         {
@@ -254,7 +256,9 @@ public static class CombatantFactory
         // UniqueChampionOfTheTribeLevel так же безусловно, как Shadow/SmokeBomb, крит-шанс сломается
         // у ВСЕХ не-Варваров (Воин/Маг/Плут), не только у Варвара. Поэтому здесь явная проверка класса.
         bool isBarbarian = progress.Character != null && progress.Character.characterClass == CharacterClass.Barbarian;
-        runtime.UniqueChampionOfTheTribeLevel = isBarbarian ? progress.UniquePassiveLevel : 0;
+        runtime.UniqueChampionOfTheTribeLevel = Mathf.Max(
+            isBarbarian ? progress.UniquePassiveLevel : 0,
+            progress.GetMentorUniquePassiveLevel(SkillEffectMap.ChampionOfTheTribe));
         runtime.UniqueBerserkLevel = isBarbarian ? progress.UniqueActiveLevel : 0;
         runtime.CritChanceReplacedByRage = runtime.UniqueChampionOfTheTribeLevel > 0;
     }

@@ -35,19 +35,35 @@ public class VeteranSkillEntry
 }
 
 [Serializable]
+public class VeteranEquipmentEntry
+{
+    public string itemName;
+    public int itemLevel;
+}
+
+[Serializable]
 public class VeteranCharacter
 {
     public string characterId;
     public float finalHP;
+    public string uniquePassiveSkillName;
+    public int uniquePassiveLevel;
+    public string uniqueActiveSkillName;
+    public int uniqueActiveLevel;
+    public string inheritedUniquePassiveSkillName;
+    public int inheritedUniquePassiveLevel;
     public List<VeteranSkillEntry> finalSkills = new List<VeteranSkillEntry>();
     public List<string> finalEquipment = new List<string>(); // itemName — см. существующая конвенция (gachaItemCounts/UI уже используют itemName как идентичность предмета)
+    public List<VeteranEquipmentEntry> finalEquipmentSnapshot = new List<VeteranEquipmentEntry>();
+    public int floorsCleared;
+    public string grade;
     public int powerLevel;
 }
 
 [Serializable]
 public class SaveData
 {
-    public const int CurrentSaveVersion = 3; // 3 = именные ID violet/sasha вместо ошибочных классовых rogue/barbarian.
+    public const int CurrentSaveVersion = 4; // 4 = полный снимок ветерана, этажи и буквенная оценка.
 
     public int saveVersion = SaveData.CurrentSaveVersion;
 

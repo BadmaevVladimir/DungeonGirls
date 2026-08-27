@@ -2,6 +2,7 @@
 // Имена должны совпадать с полем skillName созданных ассетов Assets/ScriptableObjects/Skills.
 public static class SkillEffectMap
 {
+    public const string FieldRepair = "Полевой ремонт"; // Дженифер, уникальная пассивка
     public const string Freeze = "Заморозка";
     public const string Luck = "Удача";
     public const string Evasion = "Уклонение";

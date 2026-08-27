@@ -23,6 +23,49 @@ Label, Button {
     display: none;
 }
 
+/* Черновое окно паузы: приоритет — читабельность текущего состояния, не финальная стилизация. */
+.pause-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.72);
+}
+
+.pause-card {
+    width: 720px;
+    max-height: 900px;
+    padding: 22px;
+    background-color: rgb(28, 28, 34);
+    border-width: 1px;
+    border-color: rgb(135, 115, 70);
+    border-radius: 8px;
+}
+
+.pause-section-title {
+    margin-top: 12px;
+    color: rgb(240, 210, 125);
+    font-size: 20px;
+    -unity-font-style: bold;
+}
+
+.pause-scroll {
+    max-height: 180px;
+    margin-top: 4px;
+    background-color: rgb(20, 20, 25);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.pause-actions {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 12px;
+}
+
 .title-label {
     font-size: 48px;
     color: rgb(240, 240, 240);
@@ -666,4 +709,32 @@ Label, Button {
     color: rgb(240, 240, 240);
     font-size: 14px;
     white-space: normal;
+}
+
+/* --- Выбор наставника перед забегом (Core Loop 1 п.3 / 7.2) --- */
+.mentor-select-scroll {
+    width: 760px;
+    max-height: 620px;
+    margin-top: 12px;
+    margin-bottom: 12px;
+}
+
+.mentor-select-card {
+    margin: 6px;
+    padding: 14px;
+    background-color: rgb(30, 30, 36);
+    border-width: 1px;
+    border-color: rgb(70, 70, 82);
+    border-radius: 8px;
+}
+
+.mentor-select-grade {
+    color: rgb(255, 215, 90);
+    font-size: 20px;
+    -unity-font-style: bold;
+}
+
+.mentor-select-actions {
+    flex-direction: row;
+    justify-content: center;
 }

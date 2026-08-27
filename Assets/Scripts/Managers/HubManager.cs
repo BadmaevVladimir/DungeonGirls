@@ -192,10 +192,11 @@ public class HubManager : MonoBehaviour
         {
             if (veteran == null) continue;
             string displayName = CharacterDisplayName(veteran.characterId);
-            string power = veteran.powerLevel > 0 ? veteran.powerLevel.ToString() : "не рассчитан";
             int skillCount = veteran.finalSkills != null ? veteran.finalSkills.Count : 0;
-            int equipmentCount = veteran.finalEquipment != null ? veteran.finalEquipment.Count : 0;
-            var row = new Label($"{displayName} — PowerLevel: {power}, HP {veteran.finalHP:F0}, навыков {skillCount}, снаряжения {equipmentCount}");
+            int equipmentCount = veteran.finalEquipmentSnapshot != null && veteran.finalEquipmentSnapshot.Count > 0
+                ? veteran.finalEquipmentSnapshot.Count
+                : (veteran.finalEquipment != null ? veteran.finalEquipment.Count : 0);
+            var row = new Label($"{displayName} — {veteran.grade}, этажей {veteran.floorsCleared}, HP {veteran.finalHP:F0}, неуникальных навыков {skillCount}, снаряжения {equipmentCount}");
             row.AddToClassList("body-label");
             veteranDeckScrollView.Add(row);
         }

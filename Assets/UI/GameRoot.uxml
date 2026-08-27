@@ -28,6 +28,16 @@
         </ui:VisualElement>
     </ui:VisualElement>
 
+    <ui:VisualElement name="MentorSelectScreen" class="full-screen hidden" style="flex-direction: column;">
+        <ui:Label text="Выберите наставника" class="title-label" />
+        <ui:Label name="MentorSelectStudentLabel" text="" class="body-label" />
+        <ui:ScrollView name="MentorSelectScrollView" class="mentor-select-scroll" />
+        <ui:VisualElement class="mentor-select-actions">
+            <ui:Button name="MentorSelectNoneButton" text="Без наставника" class="button-primary" />
+            <ui:Button name="MentorSelectBackButton" text="Назад к персонажам" class="button-secondary" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
     <ui:VisualElement name="BuildingsScreen" class="full-screen hidden" style="flex-direction: column;">
         <ui:Label text="Здания деревни" class="title-label" />
         <ui:Label name="MetaCurrencyLabel" text="Мета-валюта: 0" class="currency-label" />
@@ -220,5 +230,21 @@
         <ui:Label name="ResultsTitleLabel" text="Победа" class="results-victory" />
         <ui:Label name="ResultsBodyLabel" text="" class="body-label" style="max-width: 500px; -unity-text-align: middle-center;" />
         <ui:Button name="ResultsContinueButton" text="В главное меню" class="button-primary" />
+    </ui:VisualElement>
+
+    <ui:VisualElement name="PauseScreen" class="pause-overlay hidden">
+        <ui:VisualElement class="pause-card">
+            <ui:Label text="Пауза" class="panel-title" />
+            <ui:Label name="PauseCharacterStatsLabel" text="" class="body-label" />
+            <ui:Label text="Навыки" class="pause-section-title" />
+            <ui:ScrollView name="PauseSkillsScrollView" class="pause-scroll" />
+            <ui:Label text="Снаряжение" class="pause-section-title" />
+            <ui:ScrollView name="PauseEquipmentScrollView" class="pause-scroll" />
+            <ui:VisualElement class="pause-actions">
+                <ui:Button name="PauseResumeButton" text="Продолжить" class="button-primary" />
+                <ui:Button name="PauseAbandonRunButton" text="Покинуть забег" class="button-secondary" />
+                <ui:Button name="PauseQuitGameButton" text="Выйти из игры" class="button-secondary" />
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -22,6 +22,10 @@ public class RunCharacterProgress
     // ("Магнум Опус"). Не левелится — прикладной прямой процент, см. design note в плане Task 3.
     public float MentorMagicDamageBonusPercent;
 
+    // Реальный наставник: уникальный пассив передаётся на 1 уровне и не прокачивается.
+    public string MentorUniquePassiveSkillName;
+    public int MentorUniquePassiveLevel;
+
     public RunCharacterProgress(CharacterData character)
     {
         Character = character;
@@ -46,6 +50,23 @@ public class RunCharacterProgress
 
         return 0;
     }
+
+    public int GetEffectiveUniquePassiveLevel(string skillName)
+    {
+        int ownLevel = Character != null && Character.uniquePassiveSkill != null &&
+            string.Equals(Character.uniquePassiveSkill.skillName, skillName, System.StringComparison.OrdinalIgnoreCase)
+            ? UniquePassiveLevel
+            : 0;
+        int mentorLevel = string.Equals(MentorUniquePassiveSkillName, skillName, System.StringComparison.OrdinalIgnoreCase)
+            ? MentorUniquePassiveLevel
+            : 0;
+        return Mathf.Max(ownLevel, mentorLevel);
+    }
+
+    public int GetMentorUniquePassiveLevel(string skillName) =>
+        string.Equals(MentorUniquePassiveSkillName, skillName, System.StringComparison.OrdinalIgnoreCase)
+            ? MentorUniquePassiveLevel
+            : 0;
 
     // 3.5: применяет бонус стартового уровня уникальных пассивного/активного навыков от лишних копий
     // гачи (см. GachaCopyBonusCalculator). Клампится потолком уровня навыка (5 пассивный / 3 активный,
