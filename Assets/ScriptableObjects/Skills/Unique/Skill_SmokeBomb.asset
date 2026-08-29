@@ -12,11 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 503f7c5e21a37e64fb68ef9f023b5215, type: 3}
   m_Name: Skill_SmokeBomb
   m_EditorClassIdentifier: Assembly-CSharp::ActiveSkillData
-  skillName: "\u0414\u044B\u043C\u043E\u0432\u0430\u044F \u0433\u0440\u0430\u043D\u0430\u0442\u0430"
-  effectDescription: "\u041A\u0414 10\u0441. \u0414\u0430\u0451\u0442 \u0421\u043A\u0440\u044B\u0442\u043D\u043E\u0441\u0442\u044C
-    \u043D\u0430 3\u0441. \u041F\u0435\u0440\u0432\u044B\u0435 N \u043E\u0431\u044B\u0447\u043D\u044B\u0445
-    \u0430\u0442\u0430\u043A \u2014 \u0433\u0430\u0440\u0430\u043D\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439
-    \u043A\u0440\u0438\u0442: 1\u0443\u0440=1, 2\u0443\u0440=2, 3\u0443\u0440=3."
+  skillName: "Дымовая граната"
+  effectDescription: "Кулдаун 5 сек. Даёт Скрытность на 3 сек. Первые N обычных атак в Скрытности гарантированно критуют: 1 ур.=1, 2=2, 3=3. Уникальный активный навык автоматически повышается на каждом 5-м уровне персонажа, максимум до 3 уровня."
   maxLevel: 3
-  cooldownSeconds: 10
+  cooldownSeconds: 5
   targetType: 0

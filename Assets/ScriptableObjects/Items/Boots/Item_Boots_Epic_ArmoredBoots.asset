@@ -20,7 +20,7 @@ MonoBehaviour:
   isTwoHanded: 0
   tier: 2
   itemLevel: 1
-  allowedClasses: 00000000
+  allowedClasses: []
   baseDamage: 0
   damageType: 0
   attackSpeed: 0
@@ -31,5 +31,5 @@ MonoBehaviour:
   rageBonusFlatPercent: 0
   bonusStat:
     type: 3
-    baseValue: 1
+    baseValue: 4
   passiveSkill: {fileID: 11400000, guid: 5a762f97354922e4a90ae218f7d552ef, type: 2}

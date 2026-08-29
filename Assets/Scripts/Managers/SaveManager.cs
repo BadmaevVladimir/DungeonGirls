@@ -60,6 +60,8 @@ public class SaveManager : MonoBehaviour
         if (data.gachaOwnedCharacters == null) data.gachaOwnedCharacters = new List<KeyCountEntry>();
         if (data.characterRunCounts == null) data.characterRunCounts = new List<KeyCountEntry>();
         if (data.seenVNScenes == null) data.seenVNScenes = new List<CharacterSceneList>();
+        if (data.relationshipPoints == null) data.relationshipPoints = new List<KeyCountEntry>();
+        if (data.seenTutorialHints == null) data.seenTutorialHints = new List<string>();
 
         // v3: Claude первоначально записал названия классов как стабильные ID двух героев.
         // По решению дизайнера персонажи называются Саша/Вайолет, а Варвар/Плут — только классы.
@@ -70,8 +72,16 @@ public class SaveManager : MonoBehaviour
         MigrateCharacterKey(data.characterRunCounts, "jennifer", "Дженифер");
         MigrateCharacterKey(data.characterRunCounts, "violet", "rogue", "Плут", "Вайолет");
         MigrateCharacterKey(data.characterRunCounts, "sasha", "barbarian", "Варвар", "Саша");
+        MigrateCharacterKey(data.relationshipPoints, "jennifer", "Дженифер");
+        MigrateCharacterKey(data.relationshipPoints, "violet", "rogue", "Плут", "Вайолет");
+        MigrateCharacterKey(data.relationshipPoints, "sasha", "barbarian", "Варвар", "Саша");
         MigrateVeteranIds(data.veteranDeck);
         MigrateSeenSceneIds(data.seenVNScenes);
+
+        // Стартовая копия Дженифер нужна и в уже созданных сохранениях, чтобы она была видна
+        // в статистике экрана персонажей. Существующие дополнительные копии не затрагиваются.
+        var jennifer = FindOrCreateEntry(data.gachaOwnedCharacters, "jennifer");
+        if (jennifer.count < 1) jennifer.count = 1;
 
         data.saveVersion = SaveData.CurrentSaveVersion;
     }
@@ -303,19 +313,97 @@ public class SaveManager : MonoBehaviour
     }
 
     // Нулевой результат всё ещё выдаёт валюту и учитывает завершённый забег, но не создаёт ветерана.
-    public bool CompleteRun(int metaCurrency, int gachaCurrency, string characterId, VeteranCharacter veteran)
+    public bool CompleteRun(int metaCurrency, int gachaCurrency, string characterId, VeteranCharacter veteran, int relationshipPoints = 0)
     {
-        if (metaCurrency < 0 || gachaCurrency < 0 || string.IsNullOrWhiteSpace(characterId)) return false;
+        if (metaCurrency < 0 || gachaCurrency < 0 || relationshipPoints < 0 || string.IsNullOrWhiteSpace(characterId)) return false;
         if (veteran != null && (!string.Equals(veteran.characterId, characterId, StringComparison.OrdinalIgnoreCase) || veteran.floorsCleared < 1)) return false;
         Data.metaCurrency += metaCurrency;
         Data.gachaCurrency += gachaCurrency;
         if (veteran != null) Data.veteranDeck.Add(veteran);
         FindOrCreateEntry(Data.characterRunCounts, characterId).count++;
+        AddRelationshipPointsInternal(characterId, relationshipPoints);
         SaveGame();
         return true;
     }
 
     public int GetRunCount(string characterId) => FindEntry(Data.characterRunCounts, characterId)?.count ?? 0;
+
+    // Отношения демо ограничены тремя уровнями: 100 очков открывают 2-й уровень,
+    // ещё 200 (всего 300) — 3-й. Значения выше не копятся, так как дальнейшие уровни
+    // дизайнером пока не определены.
+    public const int RelationshipLevelTwoThreshold = 100;
+    public const int RelationshipLevelThreeThreshold = 300;
+    public const int MaxRelationshipLevel = 3;
+
+    public int GetRelationshipPoints(string characterId) =>
+        Mathf.Clamp(FindEntry(Data.relationshipPoints, NormalizeCharacterId(characterId))?.count ?? 0, 0, RelationshipLevelThreeThreshold);
+
+    public int GetRelationshipLevel(string characterId)
+    {
+        int points = GetRelationshipPoints(characterId);
+        return points >= RelationshipLevelThreeThreshold ? 3 : points >= RelationshipLevelTwoThreshold ? 2 : 1;
+    }
+
+    public int GetRelationshipNextThreshold(string characterId)
+    {
+        int level = GetRelationshipLevel(characterId);
+        return level >= MaxRelationshipLevel ? RelationshipLevelThreeThreshold :
+            level == 1 ? RelationshipLevelTwoThreshold : RelationshipLevelThreeThreshold;
+    }
+
+    public int AddRelationshipPoints(string characterId, int amount)
+    {
+        if (string.IsNullOrWhiteSpace(characterId) || amount <= 0) return 0;
+        int added = AddRelationshipPointsInternal(characterId, amount);
+        if (added > 0) SaveGame();
+        return added;
+    }
+
+    int AddRelationshipPointsInternal(string characterId, int amount)
+    {
+        if (string.IsNullOrWhiteSpace(characterId) || amount <= 0) return 0;
+        var entry = FindOrCreateEntry(Data.relationshipPoints, NormalizeCharacterId(characterId));
+        int before = Mathf.Clamp(entry.count, 0, RelationshipLevelThreeThreshold);
+        entry.count = Mathf.Min(RelationshipLevelThreeThreshold, before + amount);
+        return entry.count - before;
+    }
+
+    // Одноразовые контекстные подсказки: стабильные строковые ID позволяют добавлять новые
+    // подсказки без сброса уже просмотренных и без изменения порядка списка.
+    public bool HasSeenTutorialHint(string hintId) =>
+        !string.IsNullOrWhiteSpace(hintId) && Data.seenTutorialHints.Exists(id =>
+            string.Equals(id, hintId, StringComparison.OrdinalIgnoreCase));
+
+    public void MarkTutorialHintSeen(string hintId)
+    {
+        if (string.IsNullOrWhiteSpace(hintId) || HasSeenTutorialHint(hintId)) return;
+        Data.seenTutorialHints.Add(hintId);
+        SaveGame();
+    }
+
+    public bool HasSeenVNScene(string characterId, string sceneId)
+    {
+        if (string.IsNullOrWhiteSpace(characterId) || string.IsNullOrWhiteSpace(sceneId)) return false;
+        var entry = Data.seenVNScenes.Find(candidate => candidate != null &&
+            string.Equals(candidate.characterId, characterId, StringComparison.OrdinalIgnoreCase));
+        return entry != null && entry.sceneIds != null && entry.sceneIds.Exists(id =>
+            string.Equals(id, sceneId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public void MarkVNSceneSeen(string characterId, string sceneId)
+    {
+        if (string.IsNullOrWhiteSpace(characterId) || string.IsNullOrWhiteSpace(sceneId) || HasSeenVNScene(characterId, sceneId)) return;
+        var entry = Data.seenVNScenes.Find(candidate => candidate != null &&
+            string.Equals(candidate.characterId, characterId, StringComparison.OrdinalIgnoreCase));
+        if (entry == null)
+        {
+            entry = new CharacterSceneList { characterId = characterId, sceneIds = new List<string>() };
+            Data.seenVNScenes.Add(entry);
+        }
+        if (entry.sceneIds == null) entry.sceneIds = new List<string>();
+        entry.sceneIds.Add(sceneId);
+        SaveGame();
+    }
 
     // 7.1: кнопка «Сбросить прогресс» в хабе — полностью очищает SaveData (мета-валюта,
     // гача-валюта, уровни зданий, гача-данные, колода ветеранов, счётчики прохождений/отношений,
@@ -326,7 +414,7 @@ public class SaveManager : MonoBehaviour
         SaveGame();
     }
 
-    static KeyCountEntry FindEntry(List<KeyCountEntry> list, string key) => list.Find(e => e.key == key);
+    static KeyCountEntry FindEntry(List<KeyCountEntry> list, string key) => list.Find(e => e != null && string.Equals(e.key, key, StringComparison.OrdinalIgnoreCase));
 
     static KeyCountEntry FindOrCreateEntry(List<KeyCountEntry> list, string key)
     {

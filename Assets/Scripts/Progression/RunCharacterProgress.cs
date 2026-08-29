@@ -16,7 +16,8 @@ public class RunCharacterProgress
 
     public int UniquePassiveLevel = 1;
     public int UniqueActiveLevel = 1;
-    public int NextActiveSkillCheckpoint = 5; // 3.5: апгрейд активного навыка становится доступен на уровнях 5, 10, 15...
+    public int LevelUpRerollsRemaining { get; private set; }
+    int lastAutoActiveUpgradeLevel;
 
     // 1, п.3: постоянный бонус к магическому урону от основного пассивного навыка наставника
     // ("Магнум Опус"). Не левелится — прикладной прямой процент, см. design note в плане Task 3.
@@ -35,8 +36,34 @@ public class RunCharacterProgress
 
     public bool HasFreeSkillSlot => KnownSkillLevels.Count < MaxKnownSkillSlots;
 
-    public bool IsActiveSkillUpgradeAvailable =>
-        UniqueActiveLevel < Character.uniqueActiveSkill.maxLevel && Level >= NextActiveSkillCheckpoint;
+    public void SetLevelUpRerolls(int amount)
+    {
+        LevelUpRerollsRemaining = Mathf.Max(0, amount);
+    }
+
+    public bool TrySpendLevelUpReroll()
+    {
+        if (LevelUpRerollsRemaining <= 0)
+        {
+            return false;
+        }
+
+        LevelUpRerollsRemaining--;
+        return true;
+    }
+
+    public bool TryAutoUpgradeUniqueActiveAtLevel(int reachedLevel)
+    {
+        if (Character == null || Character.uniqueActiveSkill == null || reachedLevel <= lastAutoActiveUpgradeLevel || reachedLevel < 5 || reachedLevel % 5 != 0 ||
+            UniqueActiveLevel >= Character.uniqueActiveSkill.maxLevel)
+        {
+            return false;
+        }
+
+        UniqueActiveLevel++;
+        lastAutoActiveUpgradeLevel = reachedLevel;
+        return true;
+    }
 
     public int GetSkillLevel(string skillName)
     {

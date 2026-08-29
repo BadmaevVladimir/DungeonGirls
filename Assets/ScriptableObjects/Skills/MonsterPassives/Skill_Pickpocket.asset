@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33564269414bad2439b83f3f7597e022, type: 3}
   m_Name: Skill_Pickpocket
   m_EditorClassIdentifier: Assembly-CSharp::PassiveSkillData
-  skillName: Карманник
+  skillName: Бронебойный клинок
   category: 4
-  effectDescription: Пассивка Гоблина-вора. При попадании по здоровью персонажа с 20% шансом ворует 5% текущей валюты забега.
+  effectDescription: Пассивка Гоблина-вора. Все его атаки игнорируют 25% физической брони цели.
   maxLevel: 1

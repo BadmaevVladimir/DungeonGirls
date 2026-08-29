@@ -21,6 +21,7 @@ public class CombatantRuntime
 {
     public string DisplayName;
     public bool IsPlayer;
+    public bool IsBoss;
 
     // 10.6: пиксель-арт спрайт персонажа/монстра (CharacterData.portrait / MonsterData.sprite),
     // для рендера в бою (CombatPanel). Может быть null (например, у Monster_Boss — арт ещё не готов).
@@ -43,6 +44,10 @@ public class CombatantRuntime
 
     // 4.3: кулдаун уникального активного навыка (только у игрока в прототипе).
     public float ActiveSkillCooldownTimer;
+
+    // Боссы независимо от обычных атак готовят «Тяжёлую атаку» 5 секунд.
+    public float BossHeavyAttackTimer;
+    public float BossHeavyAttackDamageMultiplier = 1.5f;
 
     // Уровни навыков из 3.9, известных этому участнику боя (0 = не известен).
     // На практике заполняются только у игрока через CombatantFactory.ApplyCharacterSkills.
@@ -72,7 +77,7 @@ public class CombatantRuntime
     public float ItemEvasionBonusPercent; // EvasionPercent — складывается в общую формулу уклонения
 
     // 3.10: пассивки эпических предметов, не привязанные к конкретному оружию (0 = нет предмета
-    // с этой пассивкой). Значение — уровень ПРЕДМЕТА. Вампиризм/Разрушение брони/Насквозь —
+    // с этой пассивкой). Значение — ранг эффекта предмета (1–5). Вампиризм/Разрушение брони/Насквозь —
     // per-weapon поля на WeaponAttackState (см. выше), т.к. привязаны к конкретному оружию.
     public int ItemElusivenessLevel; // Эфирный доспех — складывается с "Уклонение" при уклонении от атаки
     public int ItemGoldenTouchLevel; // Корона Мидаса — бонус к валюте забега из сундука (8.2)
@@ -81,8 +86,8 @@ public class CombatantRuntime
 
     // 3.11 (Task 6b, item-passive wiring) — armor-bound пассивки эпических предметов, character-level,
     // тем же паттерном, что и три поля выше.
-    public int ItemRiposteLevel; // "Рипост" (Капюшон Дуэльянта) — доп. флэт-урон = уровень капюшона на первой атаке после уклонения
-    public int ItemEmbraceOfNightLevel; // "Объятия ночи" — доп. маг. урон в Скрытности = уровень × обычный урон атаки × 1%
+    public int ItemRiposteLevel; // "Рипост" — доп. флэт-урон = ранг эффекта (не больше 5) на первой атаке после уклонения
+    public int ItemEmbraceOfNightLevel; // "Объятия ночи" — доп. маг. урон в Скрытности = ранг эффекта × обычный урон атаки × 1%
     public int ItemJustAScratchLevel; // "Просто царапина" (Эпический трофей) — разовое лечение в начале боя
 
     // 3.11 (Рипост) — одноразовый флаг: взводится при успешном уклонении ЭТОГО участника (если у
@@ -100,13 +105,16 @@ public class CombatantRuntime
     // SkillEvasionLevel/ItemElusivenessLevel в существующей формуле уклонения CombatManager.
     public float MonsterEvasionPercent;
 
+    // Дополнительный прямой износ брони от модификатора «Бронебойный».
+    public float MonsterGuaranteedArmorDamage;
+
     // "Оглушающий крик" (Гарпия): временный дебафф шанса крита ЭТОГО участника (обычно — игрока).
     public float CritChanceDebuffPercent;
     public float CritChanceDebuffTimer;
 
-    // "Яд" (Ядовитый паучок): стакается до 3, каждый стек 4 урона/сек, длительность 3 сек, обновляется
-    // при повторном наложении (не суммирует длительность). Структурно похоже на HasBleed/BleedTimer,
-    // но с явным счётчиком стаков вместо фиксированного урона.
+    // Вторая часть «Коррозии» Коррозийного паука: яд стакается до 3, каждый стек 4 урона/сек,
+    // длительность 3 сек, обновляется при повторном наложении (не суммирует длительность).
+    // Структурно похоже на HasBleed/BleedTimer, но с явным счётчиком стаков вместо фиксированного урона.
     public int PoisonStacks;
     public float PoisonTimer;
     public float PoisonTickAccumulator;
@@ -145,7 +153,7 @@ public class CombatantRuntime
     public int UniqueShadowLevel; // пассивка "Тень" (только Плут)
 
     // 3.11 (Плут) — "Отравленный клинок" накладывает СВОЙ яд на цель, отдельная сущность от
-    // монстрового PoisonStacks/PoisonTimer (Ядовитый паучок, 2.4) — не суммируются, тикают независимо.
+    // монстрового PoisonStacks/PoisonTimer (Коррозийный паук, 2.4) — не суммируются, тикают независимо.
     public int RoguePoisonStacksOnTarget; // хранится на ЦЕЛИ (симметрично PoisonStacks у монстров)
     public float RoguePoisonTimer;
     public float RoguePoisonTickAccumulator;
@@ -177,6 +185,7 @@ public class CombatantRuntime
     // ЛЮБОЙ разрешённый удар по цели, включая полностью заблокированный (не только прошедший по HP) —
     // см. CombatManager.ResolveAttack, где инкремент стоит безусловно после блока/урона.
     public int HitsTakenSinceLastRegen;
+    public float CombatRegenCooldownRemaining;
 
     // 3.11 (Берсерк) — ручной тумблер, не кулдаун-навык. Уровень 0 = навык не изучен = тумблер
     // недоступен (UI должен это учитывать так же, как ActiveSkillButton.SetEnabled для обычных

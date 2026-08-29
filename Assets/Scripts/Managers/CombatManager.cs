@@ -19,7 +19,6 @@ public class CombatManager : MonoBehaviour
     public event System.Action<string> LogMessage;
 
     // "Карманник" (2.4): (жертва, украденный % текущей валюты забега).
-    public event System.Action<CombatantRuntime, float> MonsterStoleCurrency;
 
     // 4.7: визуальный фидбэк боя. (цель, урон по HP [0, если полностью заблокировано], крит?,
     // заблокировано?) — единая точка для всплывающих цифр урона и тряски спрайта цели.
@@ -192,6 +191,10 @@ public class CombatManager : MonoBehaviour
         foreach (var enemy in Enemies)
         {
             ResetAttackTimers(enemy);
+            if (enemy.IsBoss)
+            {
+                enemy.BossHeavyAttackTimer = 5f;
+            }
         }
 
         // 4.3 (НОВОЕ): активный навык уходит в полный кулдаун сразу при старте боя, а не в 0 —
@@ -205,7 +208,7 @@ public class CombatManager : MonoBehaviour
         // только у игрока (у монстров предметов нет — ItemJustAScratchLevel всегда 0).
         if (Player.ItemJustAScratchLevel > 0)
         {
-            Player.CurrentHP = Mathf.Min(Player.MaxHP, Player.CurrentHP + Player.MaxHP * Player.ItemJustAScratchLevel * 0.01f);
+            Player.CurrentHP = Mathf.Min(Player.MaxHP, Player.CurrentHP + Player.MaxHP * ItemEffectBalance.JustAScratchHealPercent(Player.ItemJustAScratchLevel) / 100f);
         }
 
         Log($"[Combat] Бой начался: {Player.DisplayName} (HP {Player.CurrentHP:F1}) против {Enemies.Count} противников.");
@@ -222,10 +225,45 @@ public class CombatManager : MonoBehaviour
 
         // 3.3: магический щит восстанавливается до максимума после каждого боя; физ. защита — нет.
         Player.RestoreMagicShield();
+        ResetTemporaryStatuses(Player);
 
         Log(Player.IsAlive
             ? $"[Combat] Бой окончен. {Player.DisplayName} побеждает."
             : $"[Combat] Бой окончен. {Player.DisplayName} погибает.");
+    }
+
+    // 4.5: всё временное боевое состояние заканчивается вместе с боем. Физическая броня
+    // намеренно не входит в этот список — её износ сохраняется на весь забег.
+    static void ResetTemporaryStatuses(CombatantRuntime combatant)
+    {
+        if (combatant == null) return;
+        combatant.ActiveDebuffs.Clear();
+        combatant.CritChanceDebuffPercent = 0f;
+        combatant.CritChanceDebuffTimer = 0f;
+        combatant.PoisonStacks = 0;
+        combatant.PoisonTimer = 0f;
+        combatant.PoisonTickAccumulator = 0f;
+        combatant.RoguePoisonStacksOnTarget = 0;
+        combatant.RoguePoisonTimer = 0f;
+        combatant.RoguePoisonTickAccumulator = 0f;
+        combatant.HasBleed = false;
+        combatant.BleedDamagePerSecond = 0f;
+        combatant.BleedTimer = 0f;
+        combatant.BleedTickAccumulator = 0f;
+        combatant.FreezeStacks = 0;
+        combatant.FreezeStackTimer = 0f;
+        combatant.IsFrozen = false;
+        combatant.FreezeTimer = 0f;
+        combatant.FreezeImmune = false;
+        combatant.FreezeImmuneTimer = 0f;
+        combatant.IsStealthed = false;
+        combatant.StealthTimer = 0f;
+        combatant.SmokeBombGuaranteedCritsRemaining = 0;
+        combatant.RiposteArmed = false;
+        combatant.HitsTakenSinceLastRegen = 0;
+        combatant.CombatRegenCooldownRemaining = 0f;
+        combatant.IsBerserkActive = false;
+        combatant.BerserkTickAccumulator = 0f;
     }
 
     void Update()
@@ -278,6 +316,7 @@ public class CombatManager : MonoBehaviour
         }
 
         TickMonsterPeriodicPassives(deltaTime); // "Тёмное исцеление" / "Двойной удар" (2.4)
+        TickBossHeavyAttacks(deltaTime);
 
         CheckCombatEnd();
         if (!IsCombatActive)
@@ -316,6 +355,37 @@ public class CombatManager : MonoBehaviour
         }
     }
 
+    // Боссы продолжают обычные атаки и параллельно готовят отдельную «Тяжёлую атаку».
+    // Первый и каждый следующий удар происходят через 5 секунд; сила растёт 150% -> 175% ->
+    // 200% на этажах 1-3 / 4-6 / 7-10.
+    void TickBossHeavyAttacks(float deltaTime)
+    {
+        foreach (var enemy in Enemies)
+        {
+            if (!IsCombatActive || !Player.IsAlive)
+            {
+                return;
+            }
+
+            if (!enemy.IsAlive || !enemy.IsBoss || enemy.Weapons.Count == 0)
+            {
+                continue;
+            }
+
+            enemy.BossHeavyAttackTimer -= deltaTime;
+            if (enemy.BossHeavyAttackTimer > 0f)
+            {
+                continue;
+            }
+
+            enemy.BossHeavyAttackTimer += 5f;
+            float multiplier = enemy.BossHeavyAttackDamageMultiplier;
+            ActiveSkillActivated?.Invoke(enemy, "Тяжёлая атака");
+            Log($"[Combat] {enemy.DisplayName} завершает подготовку «Тяжёлой атаки» ({multiplier * 100f:F0}% урона).");
+            ResolveAttack(enemy, enemy.Weapons[0], multiplier, isRegularAttack: false);
+        }
+    }
+
     // 3.9 "Амбидекстрия": у каждого оружия персонажа свой независимый таймер атаки по своей
     // собственной скорости — обрабатываются в отдельных циклах, а не слитно одним таймером.
     void TickCombatant(CombatantRuntime attacker, float deltaTime)
@@ -342,6 +412,7 @@ public class CombatManager : MonoBehaviour
     // тикают независимо от того, атакует ли участник в этом кадре.
     void UpdateStatusEffects(CombatantRuntime combatant, float deltaTime)
     {
+        combatant.CombatRegenCooldownRemaining = Mathf.Max(0f, combatant.CombatRegenCooldownRemaining - deltaTime);
         for (int i = combatant.ActiveDebuffs.Count - 1; i >= 0; i--)
         {
             var debuff = combatant.ActiveDebuffs[i];
@@ -423,6 +494,7 @@ public class CombatManager : MonoBehaviour
         {
             target.BleedTickAccumulator -= 1f;
             target.CurrentHP -= target.BleedDamagePerSecond;
+            HitResolved?.Invoke(target, target.BleedDamagePerSecond, false, false);
             Log($"[Combat] {target.DisplayName} получает {target.BleedDamagePerSecond:F1} урона от кровотечения (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
             if (!target.IsAlive)
@@ -458,7 +530,9 @@ public class CombatManager : MonoBehaviour
         // "Ускользание" (3.11, Плут, собственный бонус шанса уклонения) + "Тень" (3.11, уникальная
         // пассивка Плута, только пока активна Скрытность) — складываются: шанс полностью
         // проигнорировать атаку (любого типа урона).
-        float evadeChancePercent = target.SkillEvasionLevel * 5f + target.ItemElusivenessLevel * 1f + target.MonsterEvasionPercent + target.ItemEvasionBonusPercent; // 5/10/15/20/25% + 1%/уровень предмета + "Порхание" (2.4)
+        float itemEvasionPercent = BalanceClamps.ClampItemEvasionPercent(
+            ItemEffectBalance.ElusivenessEvasionPercent(target.ItemElusivenessLevel) + target.ItemEvasionBonusPercent);
+        float evadeChancePercent = target.SkillEvasionLevel * 5f + itemEvasionPercent + target.MonsterEvasionPercent;
 
         float slipAwayBonus = target.SkillSlipAwayLevel switch { 1 => 1f, 2 => 2f, 3 => 3f, 4 => 4f, 5 => 5f, _ => 0f };
         evadeChancePercent += slipAwayBonus;
@@ -467,6 +541,8 @@ public class CombatManager : MonoBehaviour
         {
             evadeChancePercent += target.UniqueShadowLevel switch { 1 => 10f, 2 => 15f, 3 => 20f, 4 => 25f, 5 => 30f, _ => 0f };
         }
+
+        evadeChancePercent = BalanceClamps.ClampEvasionChancePercent(evadeChancePercent);
 
         if (evadeChancePercent > 0f && Random.value * 100f < evadeChancePercent)
         {
@@ -535,7 +611,7 @@ public class CombatManager : MonoBehaviour
         if (weapon.ExecutionLevel > 0 && weapon.DamageType == DamageType.Physical)
         {
             float missingHpPercent = target.MaxHP > 0f ? (1f - target.CurrentHP / target.MaxHP) : 0f;
-            damage += target.MaxHP * missingHpPercent * (weapon.ExecutionLevel * 0.01f);
+            damage += target.MaxHP * missingHpPercent * (ItemEffectBalance.ExecutionMissingHealthPercent(weapon.ExecutionLevel) / 100f);
         }
 
         // 3.11 (Task 6b, Головоруб): "Убийца великанов" — +5% урона за уровень против цели с БОЛЬШИМ
@@ -550,7 +626,7 @@ public class CombatManager : MonoBehaviour
         // сбрасывается — не копится, не бьёт немедленно в момент уклонения.
         if (attacker.RiposteArmed)
         {
-            damage += attacker.ItemRiposteLevel;
+            damage += damage * ItemEffectBalance.RiposteDamageMultiplier(attacker.ItemRiposteLevel);
             attacker.RiposteArmed = false;
         }
 
@@ -628,13 +704,26 @@ public class CombatManager : MonoBehaviour
         // раньше игнорировалось. "Против бронированных целей урон считается на +N больше" — флэт-
         // бонус к урону только для целей ПРОБИТИЯ брони, добавляется прямо перед проверкой брони.
         float armorPenetrationDamage = weapon.DamageType == DamageType.Physical ? weapon.ArmorPenetrationFlat : 0f;
+        float armorBeforeAttack = target.PhysicalDefenseCurrent;
         var result = DamageCalculator.ApplyDamage(target, damage + armorPenetrationDamage, weapon.DamageType, weapon.ArmorIgnorePercent);
+        float normalArmorLost = armorBeforeAttack - target.PhysicalDefenseCurrent;
+
+        // «Бронебойный» снимает дополнительную гарантированную броню после любой неуклонённой
+        // атаки, даже если обычный урон полностью заблокирован или был магическим.
+        if (!attacker.IsPlayer && attacker.MonsterGuaranteedArmorDamage > 0f && target.PhysicalDefenseCurrent > 0f)
+        {
+            float armorBeforeModifier = target.PhysicalDefenseCurrent;
+            target.PhysicalDefenseCurrent = Mathf.Max(0f, armorBeforeModifier - attacker.MonsterGuaranteedArmorDamage);
+            float modifierArmorLost = armorBeforeModifier - target.PhysicalDefenseCurrent;
+            if (modifierArmorLost > 0f)
+            {
+                Log($"[Combat] «Бронебойный» дополнительно снижает физ. защиту {target.DisplayName} на {modifierArmorLost:F1}.");
+            }
+        }
 
         if (result.WasBlocked)
         {
-            // 3.3 «Износ брони при блокированном уроне»: лог отдельно показывает случай, когда
-            // блок всё же снял с брони 1 единицу, от полной блокировки без последствий.
-            string blockSuffix = result.ArmorWornOnBlock ? ", броня истёрлась (-1)" : string.Empty;
+            string blockSuffix = normalArmorLost > 0f ? $", броня истёрлась (-{normalArmorLost:F0})" : string.Empty;
             Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: урон {damage:F1} полностью заблокирован{blockSuffix}.");
         }
         else
@@ -653,7 +742,7 @@ public class CombatManager : MonoBehaviour
         // число (HitResolved), но НЕ крит (isCrit жёстко false для этого удара).
         if (attacker.IsStealthed && attacker.ItemEmbraceOfNightLevel > 0)
         {
-            float bonusMagicDamage = damage * attacker.ItemEmbraceOfNightLevel * 0.01f;
+            float bonusMagicDamage = damage * ItemEffectBalance.EmbraceOfNightMagicDamagePercent(attacker.ItemEmbraceOfNightLevel) / 100f;
             var embraceResult = DamageCalculator.ApplyDamage(target, bonusMagicDamage, DamageType.Magical);
             HitResolved?.Invoke(target, embraceResult.DamageToHP, false, embraceResult.WasBlocked);
         }
@@ -661,20 +750,20 @@ public class CombatManager : MonoBehaviour
         // "Вампиризм" (3.10, Кровавый меч): при крите восстанавливает атакующему часть урона крита здоровьем.
         if (isCrit && weapon.VampirismLevel > 0)
         {
-            float healAmount = damage * 0.02f * weapon.VampirismLevel; // 2% от урона крита за уровень предмета
+            float healAmount = damage * ItemEffectBalance.VampirismHealPercentOfCritDamage(weapon.VampirismLevel) / 100f;
             attacker.CurrentHP = Mathf.Min(attacker.MaxHP, attacker.CurrentHP + healAmount);
             Log($"[Combat] «Вампиризм» восстанавливает {attacker.DisplayName} {healAmount:F1} HP.");
         }
 
-        // "Разрушение брони" (3.10, Рубило): при пробитии физ. защиты снижает её ещё на 1 за каждые
-        // 5 уровней оружия, сверх обычной деградации на 1 из DamageCalculator.
+        // «Разрушение брони» (Рубило): после физического попадания есть 25/50/75/100/100% шанс
+        // снять ещё 1 ед. брони сверх обычной деградации DamageCalculator.
         if (!result.WasBlocked && weapon.DamageType == DamageType.Physical && weapon.ArmorBreakLevel > 0)
         {
-            int extraDegrade = weapon.ArmorBreakLevel / 5;
-            if (extraDegrade > 0)
+            float extraWearChance = ItemEffectBalance.ArmorBreakExtraWearChancePercent(weapon.ArmorBreakLevel);
+            if (Random.value * 100f < extraWearChance)
             {
-                target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - extraDegrade);
-                Log($"[Combat] «Разрушение брони» снижает физ. защиту {target.DisplayName} ещё на {extraDegrade}.");
+                target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - 1f);
+                Log($"[Combat] «Разрушение брони» снижает физ. защиту {target.DisplayName} ещё на 1.");
             }
         }
 
@@ -682,7 +771,7 @@ public class CombatManager : MonoBehaviour
         // остальным живым противникам в комнате, помимо выбранной цели.
         if (attacker.IsPlayer && weapon.PiercingLevel > 0)
         {
-            float splashDamage = damage * weapon.PiercingLevel * 0.01f; // 1% урона за уровень предмета
+            float splashDamage = damage * ItemEffectBalance.PiercingSplashPercent(weapon.PiercingLevel) / 100f;
             if (splashDamage > 0f)
             {
                 foreach (var other in Enemies)
@@ -693,16 +782,17 @@ public class CombatManager : MonoBehaviour
                     }
 
                     var splashResult = DamageCalculator.ApplyDamage(other, splashDamage, weapon.DamageType);
+                    HitResolved?.Invoke(other, splashResult.DamageToHP, false, splashResult.WasBlocked);
                     Log($"[Combat] «Насквозь» задевает {other.DisplayName}: {splashResult.DamageToHP:F1} урона по HP.");
                 }
             }
         }
 
         // "Шипы": если атака не пробила броню (полный блок) — отражается часть заблокированного
-        // урона; на 5 уровне также отражает 50% урона, даже если атака пробила броню.
+        // урона. Прогрессия 10/20/30/40/50%, жёсткий потолок — 50%.
         if (target.SkillThornsLevel > 0 && weapon.DamageType == DamageType.Physical)
         {
-            float reflectPercent = target.SkillThornsLevel * 0.20f; // 20/40/60/80/100%
+            float reflectPercent = BalanceClamps.ThornsReflectPercent(target.SkillThornsLevel) / 100f;
             float reflectedDamage = 0f;
 
             if (result.WasBlocked)
@@ -717,6 +807,7 @@ public class CombatManager : MonoBehaviour
             if (reflectedDamage > 0f)
             {
                 attacker.CurrentHP -= reflectedDamage;
+                HitResolved?.Invoke(attacker, reflectedDamage, false, false);
                 Log($"[Combat] Шипы {target.DisplayName} отражают {reflectedDamage:F1} урона по {attacker.DisplayName}.");
                 if (!attacker.IsAlive)
                 {
@@ -747,7 +838,7 @@ public class CombatManager : MonoBehaviour
 
         // 2.4: пассивки монстров, срабатывающие ПРИ АТАКЕ (симметрично блоку выше, но для
         // не-игрока — у игрока нет MonsterPassiveName).
-        ApplyMonsterPassiveOnAttack(attacker, target, result);
+        ApplyMonsterPassiveOnAttack(attacker, target, result, damage);
 
         if (!target.IsAlive)
         {
@@ -757,17 +848,18 @@ public class CombatManager : MonoBehaviour
         // 3.11 "Боевая регенерация" (Варвар): каждый N-й ПОЛУЧЕННЫЙ удар (блокированный или нет —
         // ГДД "каждые N полученных ударов", читаем как любую разрешённую атаку по цели, а не только
         // прошедшую по HP; [ПРЕДПОЛОЖЕНИЕ] — если задумывалось иначе, это расхождение с ГДД, не
-        // угаданное молча) восстанавливает 10% MaxHP, если цель выжила. Урон -> потом восстановление
+        // угаданное молча) восстанавливает 6% MaxHP, если цель выжила. Урон -> потом восстановление
         // (ГДД: "сначала урон... затем, если персонаж выжил — восстановление").
         if (target.SkillCombatRegenLevel > 0)
         {
             target.HitsTakenSinceLastRegen++;
-            int regenThreshold = target.SkillCombatRegenLevel switch { 1 => 5, 2 => 4, 3 => 3, 4 => 2, 5 => 1, _ => int.MaxValue };
-            if (target.HitsTakenSinceLastRegen >= regenThreshold && target.IsAlive)
+            int regenThreshold = BalanceClamps.CombatRegenHitsRequired(target.SkillCombatRegenLevel);
+            if (target.HitsTakenSinceLastRegen >= regenThreshold && target.IsAlive && target.CombatRegenCooldownRemaining <= 0f)
             {
                 target.HitsTakenSinceLastRegen = 0;
-                float regenAmount = target.MaxHP * 0.10f;
+                float regenAmount = target.MaxHP * (BalanceClamps.CombatRegenHealPercent / 100f);
                 target.CurrentHP = Mathf.Min(target.MaxHP, target.CurrentHP + regenAmount);
+                target.CombatRegenCooldownRemaining = BalanceClamps.CombatRegenCooldownSeconds;
                 Log($"[Combat] «Боевая регенерация» восстанавливает {target.DisplayName} {regenAmount:F1} HP (HP {target.CurrentHP:F1}/{target.MaxHP:F1}).");
             }
         }
@@ -908,6 +1000,7 @@ public class CombatManager : MonoBehaviour
         {
             target.RoguePoisonTickAccumulator -= 1f;
             target.CurrentHP -= damagePerSecond;
+            HitResolved?.Invoke(target, damagePerSecond, false, false);
             Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от «Отравленного клинка» (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
             if (!target.IsAlive)
@@ -924,7 +1017,7 @@ public class CombatManager : MonoBehaviour
 
     // 2.4: пассивки монстров, срабатывающие ПРИ АТАКЕ (в отличие от периодических — см.
     // TickMonsterPeriodicPassives). attacker всегда монстр здесь (у игрока нет MonsterPassiveName).
-    void ApplyMonsterPassiveOnAttack(CombatantRuntime attacker, CombatantRuntime target, DamageCalculator.DamageResult result)
+    void ApplyMonsterPassiveOnAttack(CombatantRuntime attacker, CombatantRuntime target, DamageCalculator.DamageResult result, float attackDamage)
     {
         if (attacker.IsPlayer || attacker.MonsterPassiveName == null)
         {
@@ -933,18 +1026,26 @@ public class CombatManager : MonoBehaviour
 
         switch (attacker.MonsterPassiveName)
         {
-            case MonsterSkillEffectMap.Pickpocket:
-                // "При попадании по здоровью персонажа с 20% шансом ворует 5% текущей валюты забега."
-                if (!result.WasBlocked && Random.value < 0.20f)
+            case MonsterSkillEffectMap.Corrosion:
+                // «Коррозия»: при каждой атаке паука 15% силы удара напрямую изнашивает
+                // физическую защиту цели. Эффект не зависит от того, пробил ли сам удар броню.
+                // Яд прежнего паучка сохранён как вторая часть этой пассивки и, как раньше,
+                // накладывается только при попадании по HP.
+                float armorDamage = Mathf.Max(0f, attackDamage) * 0.15f;
+                if (armorDamage > 0f)
                 {
-                    MonsterStoleCurrency?.Invoke(target, 5f);
-                    Log($"[Combat] {attacker.DisplayName} обчищает карманы {target.DisplayName} (Карманник)!");
+                    float armorBefore = target.PhysicalDefenseCurrent;
+                    target.PhysicalDefenseCurrent = Mathf.Max(0f, armorBefore - armorDamage);
+                    float armorLost = armorBefore - target.PhysicalDefenseCurrent;
+                    if (armorLost > 0f)
+                    {
+                        Log($"[Combat] Коррозия {attacker.DisplayName} разъедает физ. защиту {target.DisplayName} на {armorLost:F1}.");
+                    }
                 }
-                break;
 
-            case MonsterSkillEffectMap.Poison:
-                // "При попадании по здоровью накладывает яд (3 сек, 4 урона/сек, стакается до 3 раз)."
-                // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель полностью игнорирует новый яд.
+                // При попадании по здоровью накладывает яд (3 сек, 4 урона/сек, до 3 стаков).
+                // 3.11 «Упёртость»: при достаточной Ярости цель игнорирует только дебафф яда,
+                // но не прямой урон коррозии по броне.
                 if (!result.WasBlocked && !IgnoresDebuffs(target))
                 {
                     target.PoisonStacks = Mathf.Min(target.PoisonStacks + 1, 3);
@@ -1066,6 +1167,7 @@ public class CombatManager : MonoBehaviour
         {
             target.PoisonTickAccumulator -= 1f;
             target.CurrentHP -= damagePerSecond;
+            HitResolved?.Invoke(target, damagePerSecond, false, false);
             Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от яда (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
             if (!target.IsAlive)

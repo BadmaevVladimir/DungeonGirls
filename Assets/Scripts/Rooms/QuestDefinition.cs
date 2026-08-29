@@ -26,6 +26,14 @@ public class QuestDefinition
     public string SuccessText;
     public string FailText;
     public string SkipText;
+    public string AttemptButtonText = "Попытаться";
+    public string SkipButtonText = "Пройти мимо";
+
+    // Необязательная предметная награда за успех. Три поля намеренно задают точный архетип,
+    // чтобы будущий предмет того же тира не подменил авторскую награду квеста.
+    public string SuccessRewardItemName;
+    public ItemTier SuccessRewardItemTier;
+    public WeaponSubtype SuccessRewardWeaponSubtype;
 
     public List<QuestChoiceOption> Choices; // используется только для MultipleChoice
 }

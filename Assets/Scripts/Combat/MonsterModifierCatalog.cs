@@ -1,17 +1,18 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 2.8: каталог из 4 модификаторов монстров + формула шанса/лимита по этажам + русские формы
+// 2.8: каталог модификаторов монстров + формула шанса/лимита по этажам + русские формы
 // прилагательных по роду (MonsterData.gender).
 public static class MonsterModifierCatalog
 {
     static readonly MonsterModifierType[] AllTypes =
     {
-        MonsterModifierType.Fast, MonsterModifierType.Big, MonsterModifierType.Armored, MonsterModifierType.Fierce
+        MonsterModifierType.Fast, MonsterModifierType.Big, MonsterModifierType.Armored,
+        MonsterModifierType.Fierce, MonsterModifierType.ArmorPiercing
     };
 
     // 2.8: лимит модификаторов на монстра по этажам. Этаж 1 = 0; 2-5 = 1; 6-9 = 2; 10 = без лимита
-    // (реалистичный потолок = 4, размер каталога — дублирование одного модификатора не предусмотрено).
+    // (реалистичный потолок = размер каталога; дублирование одного модификатора не предусмотрено).
     public static int ModifierCapForFloor(int floorNumber)
     {
         if (floorNumber <= 1) return 0;
@@ -62,7 +63,7 @@ public static class MonsterModifierCatalog
     }
 
     // 2.8: применяется ПОВЕРХ уже отмасштабированных по этажу (2.6) и уровню монстра (2.7) статов.
-    public static void ApplyToRuntime(CombatantRuntime runtime, MonsterModifierType modifier)
+    public static void ApplyToRuntime(CombatantRuntime runtime, MonsterModifierType modifier, int floorNumber = 1)
     {
         switch (modifier)
         {
@@ -91,6 +92,12 @@ public static class MonsterModifierCatalog
                     weapon.DamageMax *= 1.25f;
                 }
                 break;
+
+            case MonsterModifierType.ArmorPiercing:
+                // Дополнительный прямой износ за каждую неуклонённую атаку: 2 на этажах 1–2,
+                // 3 на 3–5, 4 на 6–8 и 5 на 9–10. Срабатывает даже при полном блоке по HP.
+                runtime.MonsterGuaranteedArmorDamage = 2f + Mathf.Floor(Mathf.Max(floorNumber, 1) / 3f);
+                break;
         }
     }
 
@@ -106,8 +113,10 @@ public static class MonsterModifierCatalog
                 return gender == MonsterGender.Masculine ? "Большой" : gender == MonsterGender.Feminine ? "Большая" : "Большое";
             case MonsterModifierType.Armored:
                 return gender == MonsterGender.Masculine ? "Бронированный" : gender == MonsterGender.Feminine ? "Бронированная" : "Бронированное";
-            default:
+            case MonsterModifierType.Fierce:
                 return gender == MonsterGender.Masculine ? "Свирепый" : gender == MonsterGender.Feminine ? "Свирепая" : "Свирепое";
+            default:
+                return gender == MonsterGender.Masculine ? "Бронебойный" : gender == MonsterGender.Feminine ? "Бронебойная" : "Бронебойное";
         }
     }
 }

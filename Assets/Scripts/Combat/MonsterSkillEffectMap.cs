@@ -7,8 +7,8 @@ public static class MonsterSkillEffectMap
 {
     public const string SlowCurse = "Проклятие замедления"; // Колдун — уже существовавший ассет
     public const string Fluttering = "Порхание"; // Летучая мышь
-    public const string Pickpocket = "Карманник"; // Гоблин-вор
-    public const string Poison = "Яд"; // Ядовитый паучок
+    public const string ArmorPiercingBlade = "Бронебойный клинок"; // Гоблин-вор: игнор части брони
+    public const string Corrosion = "Коррозия"; // Коррозийный паук
     public const string StunningScream = "Оглушающий крик"; // Гарпия
     public const string DarkHeal = "Тёмное исцеление"; // Жрец тьмы
     public const string DoubleStrike = "Двойной удар"; // Рыцарь тьмы

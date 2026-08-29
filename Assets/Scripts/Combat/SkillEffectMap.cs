@@ -15,7 +15,7 @@ public static class SkillEffectMap
     public const string Bleed = "Кровотечение";
 
     // 3.10: пассивки эпических предметов (ItemData.passiveSkill.skillName). Каждая масштабируется
-    // с уровнем ПРЕДМЕТА (item.itemLevel), а не с уровнем персонажа/навыка.
+    // с рангом эффекта предмета (1–5, зависит от item.itemLevel), а не с уровнем персонажа/навыка.
     public const string Vampirism = "Вампиризм"; // Кровавый меч
     public const string ArmorBreak = "Разрушение брони"; // Рубило
     public const string Piercing = "Насквозь"; // Стремительное копьё
@@ -44,7 +44,7 @@ public static class SkillEffectMap
     public const string ChampionOfTheTribe = "Чемпион племени"; // Варвар, уникальная пассивка
     public const string Berserk = "Берсерк"; // Варвар, уникальная активка (тумблер)
 
-    // 3.11: пассивки эпических предметов новых классов (масштабируются с item.itemLevel, как 3.10).
+    // 3.11: пассивки эпических предметов новых классов (масштабируются рангом эффекта 1–5, как 3.10).
     public const string Riposte = "Рипост"; // Капюшон Дуэльянта
     public const string EmbraceOfNight = "Объятия ночи"; // Кожанка "Объятия ночи"
     public const string Execution = "Казнь"; // Клинок "Моменто Мори"

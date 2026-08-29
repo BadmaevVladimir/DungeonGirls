@@ -37,6 +37,7 @@ public static class CombatantFactory
             out List<WeaponAttackState> weapons,
             out float physicalDefense,
             out float maxPhysicalDefenseBonus,
+            out float accessoryPhysicalDefenseBonus,
             out float magicShield,
             out float critChanceBonus,
             out int elusivenessLevel,
@@ -60,7 +61,16 @@ public static class CombatantFactory
         runtime.CurrentHP = runtime.MaxHP;
         runtime.RageFlatBonusPercent = rageBonusFlatPercentSum; // 3.11 (Пояс титана): флэт-линейный бонус к Ярости
 
-        runtime.PhysicalDefenseMax = physicalDefense + maxPhysicalDefenseBonus + BuildingCatalog.ForgeArmorBonus(forgeLevel);
+        int sturdyLevel = progress != null ? progress.GetSkillLevel(SkillEffectMap.Sturdy) : 0;
+        float coreArmor = physicalDefense + maxPhysicalDefenseBonus;
+        float sturdyMultiplier = 1f + sturdyLevel * 0.05f;
+        // Кузница и «Прочный» усиливают только защитное снаряжение: нагрудник, шлем, сапоги и щит.
+        // Универсальные кольца/амулет добавляются после множителей и не разгоняют их друг другом.
+        runtime.PhysicalDefenseMax = coreArmor
+            * BuildingCatalog.ForgeEquipmentArmorMultiplier(forgeLevel)
+            * sturdyMultiplier
+            + BuildingCatalog.ForgeArmorBonus(forgeLevel)
+            + accessoryPhysicalDefenseBonus;
         runtime.PhysicalDefenseCurrent = runtime.PhysicalDefenseMax;
 
         runtime.MagicShieldMax = magicShield + BuildingCatalog.TempleMagicShieldBonus(templeLevel);
@@ -78,7 +88,7 @@ public static class CombatantFactory
 
         runtime.ItemAttackSpeedBonusPercent = attackSpeedBonusPercent;
         runtime.ItemDamageBonusPercent = damageBonusPercent;
-        runtime.ItemEvasionBonusPercent = evasionBonusPercent;
+        runtime.ItemEvasionBonusPercent = BalanceClamps.ClampItemEvasionPercent(evasionBonusPercent);
 
         if (progress != null)
         {
@@ -120,6 +130,8 @@ public static class CombatantFactory
         {
             DisplayName = monster.monsterName,
             IsPlayer = false,
+            IsBoss = monster.isBoss,
+            BossHeavyAttackDamageMultiplier = BossHeavyAttackMultiplierForFloor(floorIndex),
             Sprite = monster.sprite,
             MaxHP = hp,
             PhysicalDefenseMax = armor,
@@ -141,6 +153,12 @@ public static class CombatantFactory
         // (флэт-бонус уклонения "Порхание", стартовый кулдаун периодических пассивок).
         runtime.MonsterPassiveName = monster.passiveSkill != null ? monster.passiveSkill.skillName : null;
 
+        if (runtime.MonsterPassiveName == MonsterSkillEffectMap.ArmorPiercingBlade)
+        {
+            // Та же механика, что у клинков Вайолет, но фиксированное значение монстра.
+            runtime.Weapons[0].ArmorIgnorePercent = 25f;
+        }
+
         if (runtime.MonsterPassiveName == MonsterSkillEffectMap.Fluttering)
         {
             runtime.MonsterEvasionPercent = 20f;
@@ -161,7 +179,7 @@ public static class CombatantFactory
         var rolledModifiers = MonsterModifierCatalog.RollModifiers(floorIndex, level);
         foreach (var modifier in rolledModifiers)
         {
-            MonsterModifierCatalog.ApplyToRuntime(runtime, modifier);
+            MonsterModifierCatalog.ApplyToRuntime(runtime, modifier, floorIndex);
             runtime.DisplayName = $"{MonsterModifierCatalog.AdjectiveFor(modifier, monster.gender)} {runtime.DisplayName}";
         }
 
@@ -172,18 +190,21 @@ public static class CombatantFactory
     // общая для HP/урона/брони монстров (каждому передаётся свой per-floor коэффициент).
     static float FloorScalingMultiplier(float perFloorMultiplier, int floorIndex) => Mathf.Pow(perFloorMultiplier, floorIndex - 1);
 
+    // Боссовая «Тяжёлая атака» растёт вместе с этажами, но не превращает раннего босса в
+    // практически гарантированную смерть Вайолет после пары обычных ударов.
+    static float BossHeavyAttackMultiplierForFloor(int floorNumber)
+    {
+        if (floorNumber <= 3) return 1.5f;
+        if (floorNumber <= 6) return 1.75f;
+        return 2f;
+    }
+
     // 3.9: "Прочный" (% к физ. защите) и "Я — стена" (часть бонуса брони от щита -> флэт урон)
     // запекаются в базовые статы один раз при постройке боевого юнита. Остальные навыки —
     // динамические эффекты боя, поэтому здесь только копируются их уровни на рантайм-объект.
     static void ApplyCharacterSkills(CombatantRuntime runtime, RunCharacterProgress progress, ItemData[] equippedItems)
     {
         int sturdyLevel = progress.GetSkillLevel(SkillEffectMap.Sturdy);
-        if (sturdyLevel > 0)
-        {
-            float bonusPct = sturdyLevel * 0.05f; // 5/10/15/20/25%
-            runtime.PhysicalDefenseMax *= 1f + bonusPct;
-            runtime.PhysicalDefenseCurrent = runtime.PhysicalDefenseMax;
-        }
 
         int wallLevel = progress.GetSkillLevel(SkillEffectMap.IAmTheWall);
         if (wallLevel > 0)
@@ -296,6 +317,7 @@ public static class CombatantFactory
         out List<WeaponAttackState> weapons,
         out float physicalDefense,
         out float maxPhysicalDefenseBonus,
+        out float accessoryPhysicalDefenseBonus,
         out float magicShield,
         out float critChanceBonus,
         out int elusivenessLevel,
@@ -315,6 +337,7 @@ public static class CombatantFactory
         weapons = new List<WeaponAttackState>();
         physicalDefense = 0f;
         maxPhysicalDefenseBonus = 0f;
+        accessoryPhysicalDefenseBonus = 0f;
         magicShield = 0f;
         critChanceBonus = 0f;
         elusivenessLevel = 0;
@@ -340,11 +363,12 @@ public static class CombatantFactory
         // урона оружия, суммируется по ВСЕМУ снаряжению до сборки weaponов, добавляется каждому
         // оружию ниже (та же точка, что и tavernFlatDamage — оба флэт-бонуса ДО диапазона/брони).
         float weaponDamageFlatBonus = 0f;
+        int armorRingsSeen = 0;
         foreach (var item in items)
         {
             if (item != null && item.bonusStat != null && item.bonusStat.type == BonusStatType.WeaponDamageFlat)
             {
-                weaponDamageFlatBonus += item.bonusStat.baseValue * item.itemLevel;
+                weaponDamageFlatBonus += StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel);
             }
         }
 
@@ -392,7 +416,7 @@ public static class CombatantFactory
             // 3.10 (ФИКС): BonusStatType.ArmorPenetrationFlat ("Пробивание", Топор/Молот редкого+
             // тира) раньше молча игнорировался — привязан к конкретному оружию, не суммируется.
             float armorPenetrationFlat = item.bonusStat != null && item.bonusStat.type == BonusStatType.ArmorPenetrationFlat
-                ? item.bonusStat.baseValue * item.itemLevel
+                ? StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel)
                 : 0f;
             // 3.11 (Плут, Клинок): BonusStatType.ArmorIgnorePercent ("Зазубренный клинок"/"Моменто
             // Мори", Редкий+/Эпик тир Клинка) — ранее не имел ветки здесь вовсе и молча
@@ -401,7 +425,7 @@ public static class CombatantFactory
             // потребление в CombatManager/DamageCalculator уже существуют с Task 1/2 — здесь
             // единственное недостающее звено, заполняющее поле из данных предмета.
             float armorIgnorePercent = item.bonusStat != null && item.bonusStat.type == BonusStatType.ArmorIgnorePercent
-                ? item.bonusStat.baseValue * item.itemLevel
+                ? StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel)
                 : 0f;
             weapons.Add(new WeaponAttackState
             {
@@ -409,18 +433,18 @@ public static class CombatantFactory
                 DamageMax = damageMax,
                 DamageType = item.damageType,
                 AttackSpeed = item.attackSpeed,
-                VampirismLevel = passiveName == SkillEffectMap.Vampirism ? item.itemLevel : 0,
-                ArmorBreakLevel = passiveName == SkillEffectMap.ArmorBreak ? item.itemLevel : 0,
-                PiercingLevel = passiveName == SkillEffectMap.Piercing ? item.itemLevel : 0,
+                VampirismLevel = passiveName == SkillEffectMap.Vampirism ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
+                ArmorBreakLevel = passiveName == SkillEffectMap.ArmorBreak ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
+                PiercingLevel = passiveName == SkillEffectMap.Piercing ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
                 ArmorPenetrationFlat = armorPenetrationFlat,
                 ArmorIgnorePercent = armorIgnorePercent,
-                ExecutionLevel = passiveName == SkillEffectMap.Execution ? item.itemLevel : 0,
-                GiantSlayerLevel = passiveName == SkillEffectMap.GiantSlayer ? item.itemLevel : 0
+                ExecutionLevel = passiveName == SkillEffectMap.Execution ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
+                GiantSlayerLevel = passiveName == SkillEffectMap.GiantSlayer ? StatScaling.ItemEffectRank(item.itemLevel) : 0
             });
 
             if (passiveName == SkillEffectMap.Repair)
             {
-                repairLevel += item.itemLevel;
+                repairLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
         }
 
@@ -450,11 +474,11 @@ public static class CombatantFactory
             // масштабируется через StatScaling (HpBonusEffective). rageBonusFlatPercent (Пояс титана)
             // НЕ идёт через StatScaling — по ГДД это флэт-линейный бонус, просто ×itemLevel.
             hpBonusSum += item.HpBonusEffective;
-            rageBonusFlatPercentSum += item.rageBonusFlatPercent * item.itemLevel;
+            rageBonusFlatPercentSum += StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.itemLevel);
 
             if (item.bonusStat != null)
             {
-                float scaledBonus = item.bonusStat.baseValue * item.itemLevel;
+                float scaledBonus = StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel);
                 switch (item.bonusStat.type)
                 {
                     case BonusStatType.MagicShieldFlat:
@@ -466,8 +490,17 @@ public static class CombatantFactory
                     // 3.10 (ФИКС): следующие 5 типов раньше не имели ветки здесь вовсе и молча
                     // игнорировались — затрагивает почти все кольца/аксессуары и часть Редких/
                     // Эпических шлемов/сапог/оружия (см. Assets/ScriptableObjects/Items).
-                    case BonusStatType.MaxPhysicalDefenseFlat: // Кольцо/Амулет брони
-                        maxPhysicalDefenseBonus += scaledBonus;
+                    case BonusStatType.MaxPhysicalDefenseFlat: // Кольцо брони / Амулет стойкости
+                        float accessoryArmor = ItemEffectBalance.ArmorAccessoryMaxDefense(item.bonusStat.baseValue, item.itemLevel);
+                        if (item.slot == EquipmentSlot.Ring)
+                        {
+                            if (armorRingsSeen > 0)
+                            {
+                                accessoryArmor *= ItemEffectBalance.SecondArmorRingMultiplier;
+                            }
+                            armorRingsSeen++;
+                        }
+                        accessoryPhysicalDefenseBonus += accessoryArmor;
                         break;
                     case BonusStatType.FlatHP: // Кольцо здоровья/Амулет живучести/HP-броня/HP-молот
                         flatHPBonus += scaledBonus;
@@ -487,27 +520,27 @@ public static class CombatantFactory
             string passiveName = item.passiveSkill != null ? item.passiveSkill.skillName : null;
             if (passiveName == SkillEffectMap.Elusiveness)
             {
-                elusivenessLevel += item.itemLevel;
+                elusivenessLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
             else if (passiveName == SkillEffectMap.GoldenTouch)
             {
-                goldenTouchLevel += item.itemLevel;
+                goldenTouchLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
             else if (passiveName == SkillEffectMap.ToughSole)
             {
-                toughSoleLevel += item.itemLevel;
+                toughSoleLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
             else if (passiveName == SkillEffectMap.Riposte)
             {
-                riposteLevel += item.itemLevel;
+                riposteLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
             else if (passiveName == SkillEffectMap.EmbraceOfNight)
             {
-                embraceOfNightLevel += item.itemLevel;
+                embraceOfNightLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
             else if (passiveName == SkillEffectMap.JustAScratch)
             {
-                justAScratchLevel += item.itemLevel;
+                justAScratchLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
         }
     }

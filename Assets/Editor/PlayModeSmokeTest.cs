@@ -108,17 +108,16 @@ public static class PlayModeSmokeTest
 
     static void RunPureLogicChecks()
     {
-        // 3.3: строгая блокировка урона < 0.5×брони, броня не теряет единицу (урон=2 < 2.5=0.5×5,
-        // ниже порога "износа при блокировке" — иначе тест столкнулся бы с этим более новым
-        // правилом и получил бы -1 брони вместо "без последствий").
+        // 3.3: любой положительный физический удар изнашивает броню минимум на 1, даже при блоке.
         var target = new CombatantRuntime { PhysicalDefenseMax = 5f, PhysicalDefenseCurrent = 5f, MaxHP = 20f, CurrentHP = 20f };
         var blockedResult = DamageCalculator.ApplyPhysicalDamage(target, 2f);
-        Check(blockedResult.WasBlocked && blockedResult.DamageToHP == 0f && target.CurrentHP == 20f && target.PhysicalDefenseCurrent == 5f,
-            $"3.3 блокировка: WasBlocked={blockedResult.WasBlocked}, DamageToHP={blockedResult.DamageToHP}, HP={target.CurrentHP}, Defense={target.PhysicalDefenseCurrent} (ожидалось true/0/20/5)");
+        Check(blockedResult.WasBlocked && blockedResult.ArmorWornOnBlock && blockedResult.DamageToHP == 0f && target.CurrentHP == 20f && target.PhysicalDefenseCurrent == 4f,
+            $"3.3 гарантированный износ при блокировке: WasBlocked={blockedResult.WasBlocked}, DamageToHP={blockedResult.DamageToHP}, HP={target.CurrentHP}, Defense={target.PhysicalDefenseCurrent} (ожидалось true/0/20/4)");
 
-        var passResult = DamageCalculator.ApplyPhysicalDamage(target, 8f);
-        Check(!passResult.WasBlocked && passResult.DamageToHP == 3f && target.PhysicalDefenseCurrent == 4f,
-            $"3.3 пробитие: WasBlocked={passResult.WasBlocked}, DamageToHP={passResult.DamageToHP}, Defense={target.PhysicalDefenseCurrent} (ожидалось false/3/4)");
+        var passTarget = new CombatantRuntime { PhysicalDefenseMax = 5f, PhysicalDefenseCurrent = 5f, MaxHP = 20f, CurrentHP = 20f };
+        var passResult = DamageCalculator.ApplyPhysicalDamage(passTarget, 8f);
+        Check(!passResult.WasBlocked && passResult.DamageToHP == 3f && passTarget.PhysicalDefenseCurrent == 4f,
+            $"3.3 пробитие: WasBlocked={passResult.WasBlocked}, DamageToHP={passResult.DamageToHP}, Defense={passTarget.PhysicalDefenseCurrent} (ожидалось false/3/4)");
 
         // 3.3 "Износ брони при блокировке": урон >= 0.5×брони но < брони — 0 урона по HP, но -1 брони.
         var wearTarget = new CombatantRuntime { PhysicalDefenseMax = 10f, PhysicalDefenseCurrent = 10f, MaxHP = 20f, CurrentHP = 20f };
@@ -126,10 +125,10 @@ public static class PlayModeSmokeTest
         Check(wearResult.WasBlocked && wearResult.ArmorWornOnBlock && wearResult.DamageToHP == 0f && wearTarget.PhysicalDefenseCurrent == 9f,
             $"3.3 износ при блокировке (урон=6, броня=10): WasBlocked={wearResult.WasBlocked}, ArmorWornOnBlock={wearResult.ArmorWornOnBlock}, DamageToHP={wearResult.DamageToHP}, Defense={wearTarget.PhysicalDefenseCurrent} (ожидалось true/true/0/9)");
 
-        var noWearTarget = new CombatantRuntime { PhysicalDefenseMax = 10f, PhysicalDefenseCurrent = 10f, MaxHP = 20f, CurrentHP = 20f };
-        var noWearResult = DamageCalculator.ApplyPhysicalDamage(noWearTarget, 3f); // < 5 (0.5*10)
-        Check(noWearResult.WasBlocked && !noWearResult.ArmorWornOnBlock && noWearTarget.PhysicalDefenseCurrent == 10f,
-            $"3.3 полная блокировка без последствий (урон=3, броня=10): ArmorWornOnBlock={noWearResult.ArmorWornOnBlock}, Defense={noWearTarget.PhysicalDefenseCurrent} (ожидалось false/10)");
+        var strongWearTarget = new CombatantRuntime { PhysicalDefenseMax = 200f, PhysicalDefenseCurrent = 200f, MaxHP = 20f, CurrentHP = 20f };
+        var strongWearResult = DamageCalculator.ApplyPhysicalDamage(strongWearTarget, 100f);
+        Check(strongWearResult.WasBlocked && strongWearResult.ArmorWornOnBlock && strongWearTarget.PhysicalDefenseCurrent == 195f,
+            $"3.3 сильный блокированный удар изнашивает броню по floor(урон/20): Defense={strongWearTarget.PhysicalDefenseCurrent} (ожидалось 195)");
 
         // 3.3 "Полное пробитие": урон >= 2×брони — -2 брони вместо -1.
         var fullPierceTarget = new CombatantRuntime { PhysicalDefenseMax = 10f, PhysicalDefenseCurrent = 10f, MaxHP = 20f, CurrentHP = 20f };
@@ -197,7 +196,7 @@ public static class PlayModeSmokeTest
         var armorRing = ScriptableObject.CreateInstance<ItemData>();
         armorRing.slot = EquipmentSlot.Ring;
         armorRing.itemLevel = 1;
-        armorRing.bonusStat = new BonusStat { type = BonusStatType.MaxPhysicalDefenseFlat, baseValue = 8f };
+        armorRing.bonusStat = new BonusStat { type = BonusStatType.MaxPhysicalDefenseFlat, baseValue = 2f };
 
         var speedBoots = ScriptableObject.CreateInstance<ItemData>();
         speedBoots.slot = EquipmentSlot.Boots;
@@ -230,8 +229,31 @@ public static class PlayModeSmokeTest
         var bonusTestEquipment = new List<ItemData> { hpRing, armorRing, speedBoots, damageHelmet, evasionAccessory, mightRing, pierceAxe };
         var bonusTestRuntime = CombatantFactory.CreatePlayerCombatant(bonusTestCharacter, 1, null, bonusTestEquipment);
 
-        Check(bonusTestRuntime.MaxHP == 130f, $"3.10 FlatHP от кольца (баз.15, ур.2): MaxHP={bonusTestRuntime.MaxHP} (ожидалось 130 = 100+15×2)");
-        Check(bonusTestRuntime.PhysicalDefenseMax == 8f, $"3.10 MaxPhysicalDefenseFlat от кольца: PhysicalDefenseMax={bonusTestRuntime.PhysicalDefenseMax} (ожидалось 8)");
+        Check(bonusTestRuntime.MaxHP == 115f, $"8.6 FlatHP использует ранг эффекта: MaxHP={bonusTestRuntime.MaxHP} (ожидалось 115 = 100+15×ранг 1)");
+        Check(bonusTestRuntime.PhysicalDefenseMax == 4f, $"3.10 кольцо брони ранга I: PhysicalDefenseMax={bonusTestRuntime.PhysicalDefenseMax} (ожидалось 4)");
+        Check(ItemEffectBalance.ArmorAccessoryMaxDefense(2f, 1) == 4f && ItemEffectBalance.ArmorAccessoryMaxDefense(2f, 13) == 12f &&
+            ItemEffectBalance.ArmorAccessoryMaxDefense(3f, 1) == 6f && ItemEffectBalance.ArmorAccessoryMaxDefense(3f, 13) == 18f,
+            "Баланс украшений: кольцо 4→12, амулет 6→18 по рангам I–V");
+
+        var armorChest = ScriptableObject.CreateInstance<ItemData>();
+        armorChest.slot = EquipmentSlot.Armor;
+        armorChest.physicalDefense = 100f;
+        armorChest.itemLevel = 1;
+        var secondArmorRing = ScriptableObject.CreateInstance<ItemData>();
+        secondArmorRing.slot = EquipmentSlot.Ring;
+        secondArmorRing.itemLevel = 1;
+        secondArmorRing.bonusStat = new BonusStat { type = BonusStatType.MaxPhysicalDefenseFlat, baseValue = 2f };
+        var resilienceAmulet = ScriptableObject.CreateInstance<ItemData>();
+        resilienceAmulet.slot = EquipmentSlot.Accessory;
+        resilienceAmulet.itemLevel = 1;
+        resilienceAmulet.bonusStat = new BonusStat { type = BonusStatType.MaxPhysicalDefenseFlat, baseValue = 3f };
+        var separatedArmorRuntime = CombatantFactory.CreatePlayerCombatant(bonusTestCharacter, 1, null,
+            new List<ItemData> { armorChest, armorRing, secondArmorRing, resilienceAmulet }, forgeLevel: 4);
+        Check(Mathf.Approximately(separatedArmorRuntime.PhysicalDefenseMax, 142f),
+            $"Баланс брони: Кузница ×1.2 применяется только к защитному снаряжению; кольца 4+2 и амулет 6 идут после множителя: {separatedArmorRuntime.PhysicalDefenseMax} (ожидалось 142)");
+        UnityEngine.Object.DestroyImmediate(armorChest);
+        UnityEngine.Object.DestroyImmediate(secondArmorRing);
+        UnityEngine.Object.DestroyImmediate(resilienceAmulet);
         Check(bonusTestRuntime.ItemAttackSpeedBonusPercent == 10f, $"3.10 AttackSpeedPercent от сапог: {bonusTestRuntime.ItemAttackSpeedBonusPercent} (ожидалось 10)");
         Check(bonusTestRuntime.ItemDamageBonusPercent == 5f, $"3.10 DamagePercent от шлема: {bonusTestRuntime.ItemDamageBonusPercent} (ожидалось 5)");
         Check(bonusTestRuntime.ItemEvasionBonusPercent == 8f, $"3.10 EvasionPercent от аксессуара: {bonusTestRuntime.ItemEvasionBonusPercent} (ожидалось 8)");
@@ -240,6 +262,31 @@ public static class PlayModeSmokeTest
         // WeaponDamageFlat: базовый урон топора 10 + WeaponDamageFlat(2) = 12 -> диапазон [floor(12*0.8); ceil(12*1.2)] = [9;15].
         Check(bonusTestRuntime.Weapons.Count == 1 && bonusTestRuntime.Weapons[0].DamageMin == 9f && bonusTestRuntime.Weapons[0].DamageMax == 15f,
             $"3.10 WeaponDamageFlat от кольца силы: диапазон {(bonusTestRuntime.Weapons.Count > 0 ? $"{bonusTestRuntime.Weapons[0].DamageMin}-{bonusTestRuntime.Weapons[0].DamageMax}" : "нет оружия")} (ожидалось 9-15)");
+        Check(StatScaling.ItemEffectRank(1) == 1 && StatScaling.ItemEffectRank(3) == 1 && StatScaling.ItemEffectRank(4) == 2 && StatScaling.ItemEffectRank(16) == 5 &&
+            Mathf.Approximately(StatScaling.ScaleItemEffect(8f, 16), 40f),
+            "8.6 вторичные эффекты предметов растут по рангу 1-5, а не линейно до уровня лута");
+        Check(
+            ItemEffectBalance.ToughSoleTrapReductionPercent(0) == 0f && ItemEffectBalance.ToughSoleTrapReductionPercent(1) == 10f && ItemEffectBalance.ToughSoleTrapReductionPercent(5) == 30f &&
+            ItemEffectBalance.GoldenTouchCurrencyBonusPercent(0) == 0f && ItemEffectBalance.GoldenTouchCurrencyBonusPercent(1) == 10f && ItemEffectBalance.GoldenTouchCurrencyBonusPercent(5) == 30f &&
+            ItemEffectBalance.RepairCampArmorPercent(1) == 5f && ItemEffectBalance.RepairCampArmorPercent(5) == 25f &&
+            ItemEffectBalance.ElusivenessEvasionPercent(1) == 4f && ItemEffectBalance.ElusivenessEvasionPercent(5) == 20f,
+            "баланс предметов: ловушки/валюта/ремонт/уклонение заметны уже на ранге I и не работают без предмета");
+        Check(
+            ItemEffectBalance.PiercingSplashPercent(1) == 6f && ItemEffectBalance.PiercingSplashPercent(5) == 30f &&
+            ItemEffectBalance.EmbraceOfNightMagicDamagePercent(1) == 8f && ItemEffectBalance.EmbraceOfNightMagicDamagePercent(5) == 40f &&
+            ItemEffectBalance.VampirismHealPercentOfCritDamage(1) == 8f && ItemEffectBalance.VampirismHealPercentOfCritDamage(5) == 40f &&
+            ItemEffectBalance.ExecutionMissingHealthPercent(1) == 3f && ItemEffectBalance.ExecutionMissingHealthPercent(5) == 15f &&
+            ItemEffectBalance.RiposteDamageMultiplier(1) == 0.25f && ItemEffectBalance.RiposteDamageMultiplier(5) == 1.25f &&
+            ItemEffectBalance.JustAScratchHealPercent(1) == 3f && ItemEffectBalance.JustAScratchHealPercent(5) == 15f &&
+            ItemEffectBalance.ArmorBreakExtraWearChancePercent(1) == 25f && ItemEffectBalance.ArmorBreakExtraWearChancePercent(4) == 100f,
+            "баланс предметных пассивок: новые пределы рангов и шанс «Разрушения брони» корректны");
+        Check(BalanceClamps.ClampItemEvasionPercent(40f) == 30f && BalanceClamps.ClampEvasionChancePercent(120f) == 75f,
+            "8.6 уклонение ограничено: предметы 30%, общий шанс 75%");
+        Check(BalanceClamps.ThornsReflectPercent(1) == 10f && BalanceClamps.ThornsReflectPercent(4) == 40f && BalanceClamps.ThornsReflectPercent(99) == 50f,
+            "8.6 «Шипы» растут 10/20/30/40/50% и не превышают потолок 50%");
+        Check(BalanceClamps.CombatRegenHitsRequired(1) == 6 && BalanceClamps.CombatRegenHitsRequired(5) == 2 &&
+            Mathf.Approximately(BalanceClamps.CombatRegenHealPercent, 6f) && Mathf.Approximately(BalanceClamps.CombatRegenCooldownSeconds, 2f),
+            "8.6 «Боевая регенерация»: 6/5/4/3/2 ударов, 6% HP, кулдаун 2 сек.");
 
         foreach (var item in bonusTestEquipment) UnityEngine.Object.DestroyImmediate(item);
         UnityEngine.Object.DestroyImmediate(bonusTestCharacter);
@@ -247,12 +294,14 @@ public static class PlayModeSmokeTest
         // 8.1 (ФИКС, 2026-08-26): бонусы зданий деревни по уровням — раньше только Кузница ур.1/3
         // (стартовое снаряжение) и Таверна ур.1 (флэт-урон) реально считались, остальные 6 из 8
         // численных бонусов были только текстом в BuildingCatalog.LevelBonuses без эффекта.
-        Check(BuildingCatalog.ForgeArmorBonus(1) == 0f && BuildingCatalog.ForgeArmorBonus(2) == 10f && BuildingCatalog.ForgeArmorBonus(4) == 30f,
-            $"8.1 Кузница ур.2/4 (+10/+20 брони): ур.1={BuildingCatalog.ForgeArmorBonus(1)}, ур.2={BuildingCatalog.ForgeArmorBonus(2)}, ур.4={BuildingCatalog.ForgeArmorBonus(4)} (ожидалось 0/10/30)");
-        Check(BuildingCatalog.ForgeCampArmorRestorePercent(4) == 0f && BuildingCatalog.ForgeCampArmorRestorePercent(5) == 50f,
-            $"8.1 Кузница ур.5 (50% брони на привале): ур.4={BuildingCatalog.ForgeCampArmorRestorePercent(4)}, ур.5={BuildingCatalog.ForgeCampArmorRestorePercent(5)} (ожидалось 0/50)");
+        Check(BuildingCatalog.ForgeArmorBonus(1) == 0f && BuildingCatalog.ForgeArmorBonus(2) == 10f && BuildingCatalog.ForgeArmorBonus(4) == 10f && BuildingCatalog.ForgeEquipmentArmorMultiplier(4) == 1.20f,
+            $"8.1 Кузница ур.2/4 (+10 брони, +20% от экипировки): ур.1={BuildingCatalog.ForgeArmorBonus(1)}, ур.2={BuildingCatalog.ForgeArmorBonus(2)}, ур.4={BuildingCatalog.ForgeArmorBonus(4)}, множитель={BuildingCatalog.ForgeEquipmentArmorMultiplier(4)}");
+        Check(BuildingCatalog.ForgeCampArmorRestorePercent(4) == 0f && BuildingCatalog.ForgeCampArmorRestorePercent(5) == 30f,
+            $"8.1 Кузница ур.5 (30% брони на привале): ур.4={BuildingCatalog.ForgeCampArmorRestorePercent(4)}, ур.5={BuildingCatalog.ForgeCampArmorRestorePercent(5)} (ожидалось 0/30)");
         Check(BuildingCatalog.TempleMagicShieldBonus(1) == 10f && BuildingCatalog.TempleMagicShieldBonus(3) == 30f,
             $"8.1 Храм ур.1/3 (+10/+20 маг.щита): ур.1={BuildingCatalog.TempleMagicShieldBonus(1)}, ур.3={BuildingCatalog.TempleMagicShieldBonus(3)} (ожидалось 10/30)");
+        Check(BuildingCatalog.TempleLevelUpRerolls(1) == 0 && BuildingCatalog.TempleLevelUpRerolls(2) == 1 && BuildingCatalog.TempleLevelUpRerolls(4) == 2,
+            "8.1 Храм ур.2/4 даёт общий запас перебросов 1/2 на забег");
         Check(BuildingCatalog.TavernRationsBonus(1) == 5 && BuildingCatalog.TavernRationsBonus(3) == 10,
             $"8.1 Таверна ур.1/3 (+5/+10 рационов): ур.1={BuildingCatalog.TavernRationsBonus(1)}, ур.3={BuildingCatalog.TavernRationsBonus(3)} (ожидалось 5/10)");
         Check(BuildingCatalog.TavernCampHealBonusPercent(2) == 10f && BuildingCatalog.TavernCampHealBonusPercent(4) == 30f,
@@ -265,14 +314,24 @@ public static class PlayModeSmokeTest
         campBuildingTestManager.BeginRun(3); // Таверна ур.3 -> +10 рационов
         Check(campBuildingTestManager.RationsRemaining == CampManager.StartingRations + 10,
             $"8.1 CampManager.BeginRun(3) учитывает бонус Таверны: RationsRemaining={campBuildingTestManager.RationsRemaining} (ожидалось {CampManager.StartingRations + 10})");
+        int rationsBeforeSpend = campBuildingTestManager.RationsRemaining;
+        Check(campBuildingTestManager.TrySpendRation() && campBuildingTestManager.RationsRemaining == rationsBeforeSpend - 1,
+            "VN-привал: рацион можно потратить до показа сцены и до применения лечения");
+        campBuildingTestManager.AddRations(5);
+        Check(campBuildingTestManager.RationsRemaining == rationsBeforeSpend + 4,
+            "Квест «Добыча»: успех добавляет пять рационов");
         UnityEngine.Object.DestroyImmediate(campBuildingTestGO);
+
+        Check(QuestCatalog.Hunt.Level == 3 && QuestCatalog.Hunt.InteractionType == QuestInteractionType.TryOrSkip &&
+              QuestCatalog.Hunt.AttemptButtonText == "Пойти охотиться на кабана" && QuestCatalog.Hunt.SkipButtonText == "Не тратить на это время",
+            "Квест «Добыча» имеет сложность 3 и утверждённые варианты выбора");
 
         // 8.1 (ФИКС): CombatantFactory.CreatePlayerCombatant реально прибавляет броню Кузницы/маг.
         // щит Храма — раньше forgeLevel/templeLevel не принимались этим методом вовсе.
         var buildingStatsCharacter = ScriptableObject.CreateInstance<CharacterData>();
         buildingStatsCharacter.baseHealth = 50;
         var buildingStatsRuntime = CombatantFactory.CreatePlayerCombatant(buildingStatsCharacter, 1, null, null, 0, 4, 3);
-        Check(buildingStatsRuntime.PhysicalDefenseMax == 30f, $"8.1 Кузница ур.4 добавляет броню в CreatePlayerCombatant: PhysicalDefenseMax={buildingStatsRuntime.PhysicalDefenseMax} (ожидалось 30)");
+        Check(buildingStatsRuntime.PhysicalDefenseMax == 10f, $"8.6 Кузница ур.4 без брони экипировки даёт только базовые +10: PhysicalDefenseMax={buildingStatsRuntime.PhysicalDefenseMax} (ожидалось 10)");
         Check(buildingStatsRuntime.MagicShieldMax == 30f, $"8.1 Храм ур.3 добавляет маг.щит в CreatePlayerCombatant: MagicShieldMax={buildingStatsRuntime.MagicShieldMax} (ожидалось 30)");
         UnityEngine.Object.DestroyImmediate(buildingStatsCharacter);
 
@@ -300,7 +359,23 @@ public static class PlayModeSmokeTest
         {
             Check(bossData.sprite != null && bossData.sprite == darkKnightData.sprite, "2.2 Monster_Boss.sprite временно переиспользует спрайт Рыцаря тьмы");
             Check(bossData.hp == 150f && bossData.physicalDefense == 12f, "2.2 статы босса не изменились подменой спрайта");
+            var bossRuntime = CombatantFactory.CreateMonsterCombatant(bossData, 1);
+            var midBossRuntime = CombatantFactory.CreateMonsterCombatant(bossData, 4);
+            var lateBossRuntime = CombatantFactory.CreateMonsterCombatant(bossData, 7);
+            Check(bossRuntime.IsBoss && bossRuntime.BossHeavyAttackDamageMultiplier == 1.5f && midBossRuntime.BossHeavyAttackDamageMultiplier == 1.75f && lateBossRuntime.BossHeavyAttackDamageMultiplier == 2f,
+                "2.2 фабрика помечает босса и задаёт ступени «Тяжёлой атаки» 150%/175%/200%");
         }
+
+        var goblinThiefData = AssetDatabase.LoadAssetAtPath<MonsterData>("Assets/ScriptableObjects/Monsters/Monster_GoblinThief.asset");
+        if (Check(goblinThiefData != null, "Monster_GoblinThief.asset загрузился"))
+        {
+            var goblinRuntime = CombatantFactory.CreateMonsterCombatant(goblinThiefData, 1);
+            Check(goblinRuntime.MonsterPassiveName == MonsterSkillEffectMap.ArmorPiercingBlade && goblinRuntime.Weapons.Count == 1 && goblinRuntime.Weapons[0].ArmorIgnorePercent == 25f,
+                "2.4 Гоблин-вор вместо кражи валюты игнорирует 25% физической брони");
+        }
+
+        var smokeBombAsset = AssetDatabase.LoadAssetAtPath<ActiveSkillData>("Assets/ScriptableObjects/Skills/Unique/Skill_SmokeBomb.asset");
+        Check(smokeBombAsset != null && smokeBombAsset.cooldownSeconds == 5f, "3.11 «Дымовая граната» имеет кулдаун 5 секунд");
 
         // Баг #8 (2026-08-26): CombatantFactory должен копировать CharacterData.portrait /
         // MonsterData.sprite в CombatantRuntime.Sprite, иначе бою нечего рендерить в PlayerBox/
@@ -370,6 +445,103 @@ public static class PlayModeSmokeTest
         Check(offers.Count == 5, $"5.2 торговец предлагает 5 предметов: {offers.Count}");
         int discountedCount = offers.FindAll(o => o.HasDiscount).Count;
         Check(discountedCount <= 1, $"5.2 максимум 1 предмет со скидкой за визит: {discountedCount}");
+
+        var warriorOnlyItem = ScriptableObject.CreateInstance<ItemData>();
+        warriorOnlyItem.itemName = "Smoke Warrior Item";
+        warriorOnlyItem.tier = ItemTier.Common;
+        warriorOnlyItem.allowedClasses = new[] { CharacterClass.Warrior };
+        var rogueOnlyItem = ScriptableObject.CreateInstance<ItemData>();
+        rogueOnlyItem.itemName = "Smoke Rogue Item";
+        rogueOnlyItem.tier = ItemTier.Common;
+        rogueOnlyItem.allowedClasses = new[] { CharacterClass.Rogue };
+        var classCatalog = ScriptableObject.CreateInstance<ItemCatalogData>();
+        classCatalog.items = new[] { warriorOnlyItem, rogueOnlyItem };
+        var merchantSerialized = new SerializedObject(merchantRewardManager);
+        merchantSerialized.FindProperty("itemCatalog").objectReferenceValue = classCatalog;
+        merchantSerialized.ApplyModifiedPropertiesWithoutUndo();
+        bool gotRogueItem = classCatalog.TryGetRandomItem(ItemTier.Common, CharacterClass.Rogue, out var classFilteredItem);
+        Check(gotRogueItem && classFilteredItem == rogueOnlyItem,
+            "3.1/8.2 фильтр каталога исключает несовместимый классу предмет до ролла");
+        var rogueOffers = merchantRewardManager.GenerateMerchantOffers(1, CharacterClass.Rogue);
+        Check(rogueOffers.All(offer => offer.Item == null || Array.IndexOf(offer.Item.allowedClasses, CharacterClass.Rogue) >= 0),
+            "5.2 торговец предлагает Плуту только совместимые предметы");
+        var universalBoots = AssetDatabase.LoadAssetAtPath<ItemData>("Assets/ScriptableObjects/Items/Boots/Item_Boots_Common_SturdyBoots.asset");
+        var universalRing = AssetDatabase.LoadAssetAtPath<ItemData>("Assets/ScriptableObjects/Items/Rings/Item_Ring_Agility.asset");
+        var universalAccessory = AssetDatabase.LoadAssetAtPath<ItemData>("Assets/ScriptableObjects/Items/Accessories/Item_Accessory_Dexterity.asset");
+        var warriorBarbarianAxe = AssetDatabase.LoadAssetAtPath<ItemData>("Assets/ScriptableObjects/Items/Weapons/Axe/Item_Axe_Common_IronAxe.asset");
+        var sharedSword = AssetDatabase.LoadAssetAtPath<ItemData>("Assets/ScriptableObjects/Items/Weapons/Sword/Item_Sword_Common_IronSword.asset");
+        var warriorShield = AssetDatabase.LoadAssetAtPath<ItemData>("Assets/ScriptableObjects/Items/Weapons/Shield/Item_Shield_Common_WoodenShield.asset");
+        Check(universalBoots != null && universalBoots.allowedClasses.Length == 0 && universalRing != null && universalRing.allowedClasses.Length == 0 &&
+            universalAccessory != null && universalAccessory.allowedClasses.Length == 0 && warriorBarbarianAxe != null &&
+            Array.IndexOf(warriorBarbarianAxe.allowedClasses, CharacterClass.Warrior) >= 0 && Array.IndexOf(warriorBarbarianAxe.allowedClasses, CharacterClass.Barbarian) >= 0 &&
+            sharedSword != null && Array.IndexOf(sharedSword.allowedClasses, CharacterClass.Warrior) >= 0 &&
+            Array.IndexOf(sharedSword.allowedClasses, CharacterClass.Rogue) >= 0 && Array.IndexOf(sharedSword.allowedClasses, CharacterClass.Barbarian) >= 0 &&
+            warriorShield != null && Array.IndexOf(warriorShield.allowedClasses, CharacterClass.Barbarian) < 0,
+            "8.6 сапоги/кольца/аксессуары универсальны; меч доступен Воину/Плуту/Варвару; Варвар не использует щит");
+
+        var productionCatalog = AssetDatabase.LoadAssetAtPath<ItemCatalogData>("Assets/ScriptableObjects/Items/ItemCatalog.asset");
+        string[] classItemPaths =
+        {
+            "Assets/ScriptableObjects/Items/Blades/Item_Blade_Common_Blade.asset",
+            "Assets/ScriptableObjects/Items/Blades/Item_Blade_Rare_JaggedBlade.asset",
+            "Assets/ScriptableObjects/Items/Blades/Item_Blade_Epic_MomentoMori.asset",
+            "Assets/ScriptableObjects/Items/Hoods/Item_Hood_Common_Hood.asset",
+            "Assets/ScriptableObjects/Items/Hoods/Item_Hood_Rare_DarkHood.asset",
+            "Assets/ScriptableObjects/Items/Hoods/Item_Hood_Epic_DuelistHood.asset",
+            "Assets/ScriptableObjects/Items/Leathers/Item_Leather_Common_Leather.asset",
+            "Assets/ScriptableObjects/Items/Leathers/Item_Leather_Rare_ThickLeather.asset",
+            "Assets/ScriptableObjects/Items/Leathers/Item_Leather_Epic_EmbraceOfNight.asset",
+            "Assets/ScriptableObjects/Items/TwoHandedAxes/Item_TwoHandedAxe_Common_GreatAxe.asset",
+            "Assets/ScriptableObjects/Items/TwoHandedAxes/Item_TwoHandedAxe_Rare_TemperedGreatAxe.asset",
+            "Assets/ScriptableObjects/Items/TwoHandedAxes/Item_TwoHandedAxe_Epic_Headsplitter.asset",
+            "Assets/ScriptableObjects/Items/Belts/Item_Belt_Common_Belt.asset",
+            "Assets/ScriptableObjects/Items/Belts/Item_Belt_Rare_ChampionBelt.asset",
+            "Assets/ScriptableObjects/Items/Belts/Item_Belt_Epic_TitanBelt.asset",
+            "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Common_Trophy.asset",
+            "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Rare_RareTrophy.asset",
+            "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Epic_EpicTrophy.asset"
+        };
+        var classItems = classItemPaths.Select(AssetDatabase.LoadAssetAtPath<ItemData>).ToArray();
+        Check(productionCatalog != null && productionCatalog.items != null && productionCatalog.items.Length == 54 &&
+            classItems.All(item => item != null && Array.IndexOf(productionCatalog.items, item) >= 0),
+            "8.2 каталог содержит все 54 предмета, включая 18 классовых предметов Вайолет и Саши");
+
+        Check(QuestCatalog.SwordInStone.SuccessRewardItemName == "Кровавый меч" &&
+            QuestCatalog.SwordInStone.SuccessRewardItemTier == ItemTier.Epic &&
+            QuestCatalog.SwordInStone.SuccessRewardWeaponSubtype == WeaponSubtype.Sword,
+            "5.4 «Меч в камне» хранит точную предметную награду: эпический Кровавый меч");
+        ItemData bloodSwordRewardBase = null;
+        bool foundSwordReward = productionCatalog != null && productionCatalog.TryGetItem(
+            QuestCatalog.SwordInStone.SuccessRewardItemName,
+            QuestCatalog.SwordInStone.SuccessRewardItemTier,
+            QuestCatalog.SwordInStone.SuccessRewardWeaponSubtype,
+            CharacterClass.Rogue,
+            out bloodSwordRewardBase);
+        int bloodSwordBaseLevel = foundSwordReward ? bloodSwordRewardBase.itemLevel : 0;
+        var exactLevelSwordReward = foundSwordReward
+            ? merchantRewardManager.CreateItemAtExactLevel(bloodSwordRewardBase, 7)
+            : null;
+        Check(foundSwordReward && exactLevelSwordReward != null && exactLevelSwordReward != bloodSwordRewardBase &&
+            exactLevelSwordReward.itemLevel == 7 && bloodSwordRewardBase.itemLevel == bloodSwordBaseLevel,
+            "5.4 награда «Меча в камне» создаётся runtime-копией точного уровня персонажа и не мутирует ассет");
+        if (exactLevelSwordReward != null) UnityEngine.Object.DestroyImmediate(exactLevelSwordReward);
+
+        var violetReelPool = productionCatalog != null
+            ? productionCatalog.GetCompatibleItems(CharacterClass.Rogue)
+            : new List<ItemData>();
+        var sashaReelPool = productionCatalog != null
+            ? productionCatalog.GetCompatibleItems(CharacterClass.Barbarian)
+            : new List<ItemData>();
+        Check(violetReelPool.Count > 0 && violetReelPool.All(item => ItemCatalogData.IsAllowedForClass(item, CharacterClass.Rogue)) &&
+            classItems.Take(9).All(violetReelPool.Contains) && sharedSword != null && violetReelPool.Contains(sharedSword),
+            "8.2 рулетка Вайолет содержит её 9 классовых предметов и мечи, но не содержит запрещённый лут");
+        Check(sashaReelPool.Count > 0 && sashaReelPool.All(item => ItemCatalogData.IsAllowedForClass(item, CharacterClass.Barbarian)) &&
+            classItems.Skip(9).All(sashaReelPool.Contains) && warriorBarbarianAxe != null && sashaReelPool.Contains(warriorBarbarianAxe) &&
+            warriorShield != null && !sashaReelPool.Contains(warriorShield),
+            "8.2 рулетка Саши содержит его 9 классовых предметов и оружие Воина, но не щит");
+        UnityEngine.Object.DestroyImmediate(classCatalog);
+        UnityEngine.Object.DestroyImmediate(warriorOnlyItem);
+        UnityEngine.Object.DestroyImmediate(rogueOnlyItem);
         UnityEngine.Object.DestroyImmediate(merchantRewardManagerGO);
 
         // 5.2: формула цены (Редкий, ур.5) — независимая от рандома проверка.
@@ -400,13 +572,18 @@ public static class PlayModeSmokeTest
         Check(MonsterModifierCatalog.ModifierCapForFloor(1) == 0, "2.8 лимит модификаторов этаж 1 = 0");
         Check(MonsterModifierCatalog.ModifierCapForFloor(2) == 1 && MonsterModifierCatalog.ModifierCapForFloor(5) == 1, "2.8 лимит модификаторов этажи 2-5 = 1");
         Check(MonsterModifierCatalog.ModifierCapForFloor(6) == 2 && MonsterModifierCatalog.ModifierCapForFloor(9) == 2, "2.8 лимит модификаторов этажи 6-9 = 2");
-        Check(MonsterModifierCatalog.ModifierCapForFloor(10) == 4, "2.8 лимит модификаторов этаж 10 = 4 (весь каталог)");
+        Check(MonsterModifierCatalog.ModifierCapForFloor(10) == 5, "2.8 лимит модификаторов этаж 10 = 5 (весь каталог)");
 
         Check(MonsterModifierCatalog.RollChancePercentForLevel(1) == 0f, "2.8 шанс модификатора ур.1 монстра = 0%");
         Check(MonsterModifierCatalog.RollChancePercentForLevel(4) == 30f, "2.8 шанс модификатора ур.4 монстра = 30%");
 
         Check(MonsterModifierCatalog.AdjectiveFor(MonsterModifierType.Big, MonsterGender.Feminine) == "Большая", "2.8 согласование рода: Большая Слизь");
         Check(MonsterModifierCatalog.AdjectiveFor(MonsterModifierType.Fast, MonsterGender.Masculine) == "Быстрый", "2.8 согласование рода: Быстрый Скелет");
+        Check(MonsterModifierCatalog.AdjectiveFor(MonsterModifierType.ArmorPiercing, MonsterGender.Feminine) == "Бронебойная", "2.8 согласование рода: Бронебойная Слизь");
+
+        var armorPiercingRuntime = new CombatantRuntime();
+        MonsterModifierCatalog.ApplyToRuntime(armorPiercingRuntime, MonsterModifierType.ArmorPiercing, 10);
+        Check(armorPiercingRuntime.MonsterGuaranteedArmorDamage == 5f, "2.8 Бронебойный на 10-м этаже гарантированно снимает дополнительно 5 брони за атаку");
 
         var rollsOnFloor1 = MonsterModifierCatalog.RollModifiers(1, 4);
         Check(rollsOnFloor1.Count == 0, $"2.8 этаж 1 никогда не даёт модификаторов даже при ур.4: получено {rollsOnFloor1.Count}");
@@ -416,6 +593,7 @@ public static class PlayModeSmokeTest
         // 2.4: фильтр пула монстров по minFloorTier — тиры суммируются, не заменяют друг друга.
         var tier1 = ScriptableObject.CreateInstance<MonsterData>(); tier1.minFloorTier = 1;
         var tier7 = ScriptableObject.CreateInstance<MonsterData>(); tier7.minFloorTier = 7;
+        var tier10 = ScriptableObject.CreateInstance<MonsterData>(); tier10.minFloorTier = 10;
         var pool = new List<MonsterData> { tier1, tier7 };
 
         var eligibleFloor3 = pool.FindAll(m => m.minFloorTier <= 3);
@@ -423,9 +601,15 @@ public static class PlayModeSmokeTest
 
         var eligibleFloor7 = pool.FindAll(m => m.minFloorTier <= 7);
         Check(eligibleFloor7.Count == 2, "2.4 фильтр пула монстров: этаж 7 видит тир-1 И тир-7 (суммируются)");
+        Check(MonsterEncounterBudget.GetThreatBudget(1) == 1 && MonsterEncounterBudget.GetThreatBudget(10) == 10 &&
+            MonsterEncounterBudget.GetThreatCost(tier1) == 1 && MonsterEncounterBudget.GetThreatCost(tier7) == 4 && MonsterEncounterBudget.GetThreatCost(tier10) == 5,
+            "8.6 бюджет угрозы растёт от 1 до 10 и делает поздних монстров дороже");
+        Check(MonsterEncounterBudget.GetThreatBudget(10) / MonsterEncounterBudget.GetThreatCost(tier10) == 2,
+            "8.6 на 10-м этаже бюджет не допускает трёх тир-10 монстров в одной комнате");
 
         UnityEngine.Object.DestroyImmediate(tier1);
         UnityEngine.Object.DestroyImmediate(tier7);
+        UnityEngine.Object.DestroyImmediate(tier10);
 
         Info.Add("Проверки фильтра пула монстров по этажам (2.4) выполнены.");
 
@@ -452,6 +636,20 @@ public static class PlayModeSmokeTest
         var bonusManyCopies = GachaCopyBonusCalculator.CalculateBonus(1 + 4 * 10); // 40 лишних копий -> 10 полных циклов -> 10 пассивки без клампа
         Check(bonusManyCopies.PassiveLevelBonus == 4, $"3.5 кламп бонуса пассивки на 4 (макс. ур. 5): {bonusManyCopies.PassiveLevelBonus}");
         Check(bonusManyCopies.ActiveLevelBonus == 2, $"3.5 кламп бонуса активки на 2 (макс. ур. 3): {bonusManyCopies.ActiveLevelBonus}");
+
+        var autoActiveCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        autoActiveCharacter.uniqueActiveSkill = ScriptableObject.CreateInstance<ActiveSkillData>();
+        autoActiveCharacter.uniqueActiveSkill.maxLevel = 3;
+        var autoActiveProgress = new RunCharacterProgress(autoActiveCharacter);
+        Check(!autoActiveProgress.TryAutoUpgradeUniqueActiveAtLevel(4) && autoActiveProgress.TryAutoUpgradeUniqueActiveAtLevel(5) &&
+            autoActiveProgress.UniqueActiveLevel == 2 && !autoActiveProgress.TryAutoUpgradeUniqueActiveAtLevel(5) &&
+            autoActiveProgress.TryAutoUpgradeUniqueActiveAtLevel(10) && autoActiveProgress.UniqueActiveLevel == 3,
+            "8.6 уникальный активный навык автоматически повышается на уровнях 5 и 10, один раз на каждый порог");
+        autoActiveProgress.SetLevelUpRerolls(2);
+        Check(autoActiveProgress.TrySpendLevelUpReroll() && autoActiveProgress.TrySpendLevelUpReroll() && !autoActiveProgress.TrySpendLevelUpReroll() && autoActiveProgress.LevelUpRerollsRemaining == 0,
+            "8.6 перебросы Храма — конечный общий запас на забег");
+        UnityEngine.Object.DestroyImmediate(autoActiveCharacter.uniqueActiveSkill);
+        UnityEngine.Object.DestroyImmediate(autoActiveCharacter);
 
         // 7.2: LevelUpOption.Description берётся из effectDescription (пассивка/активка).
         var descTestSkill = ScriptableObject.CreateInstance<PassiveSkillData>();
@@ -549,6 +747,22 @@ public static class PlayModeSmokeTest
             $"3.11 Двуручное оружие заменяет ОБА слота оружия/рук сразу: EquippedItems.Count={equippedAfterTwoHanded.Count}" +
             (equippedAfterTwoHanded.Count == 1 ? $", содержит={equippedAfterTwoHanded[0].itemName}" : string.Empty) +
             " (ожидалось 1 предмет = только топор, ни меч, ни щит не остались)");
+
+        var armorCharacterManager = new GameObject("SmokeTest_ArmorEquip").AddComponent<CharacterManager>();
+        var armorCharacter = ScriptableObject.CreateInstance<CharacterData>();
+        armorCharacter.startingEquipment = Array.Empty<ItemData>();
+        armorCharacterManager.BeginRun(armorCharacter);
+        armorCharacterManager.Combatant.PhysicalDefenseCurrent = 0f;
+        var replacementArmor = ScriptableObject.CreateInstance<ItemData>();
+        replacementArmor.itemName = "Smoke Chest Armor";
+        replacementArmor.slot = EquipmentSlot.Armor;
+        replacementArmor.physicalDefense = 25f;
+        armorCharacterManager.EquipItem(replacementArmor, null);
+        Check(Mathf.Approximately(armorCharacterManager.Combatant.PhysicalDefenseCurrent, armorCharacterManager.Combatant.PhysicalDefenseMax),
+            "3.3 смена нагрудника восстанавливает физическую броню до нового максимума");
+        UnityEngine.Object.DestroyImmediate(armorCharacterManager.gameObject);
+        UnityEngine.Object.DestroyImmediate(armorCharacter);
+        UnityEngine.Object.DestroyImmediate(replacementArmor);
 
         UnityEngine.Object.DestroyImmediate(twoHandedTestGO);
         UnityEngine.Object.DestroyImmediate(twoHandedCharacter);
@@ -865,17 +1079,36 @@ public static class PlayModeSmokeTest
             $"9.4 новый SaveData имеет текущую версию: saveVersion={freshSave.saveVersion} (ожидалось {SaveData.CurrentSaveVersion})");
         Check(freshSave.veteranDeck != null && freshSave.veteranDeck.Count == 0,
             "9.4 veteranDeck инициализирован пустым списком");
-        Check(freshSave.characterRunCounts != null && freshSave.gachaOwnedCharacters != null && freshSave.seenVNScenes != null,
-            "9.4 characterRunCounts/gachaOwnedCharacters/seenVNScenes инициализированы (не null)");
+        Check(freshSave.characterRunCounts != null && freshSave.gachaOwnedCharacters != null && freshSave.seenVNScenes != null && freshSave.relationshipPoints != null && freshSave.seenTutorialHints != null,
+            "9.4/отношения: characterRunCounts/gachaOwnedCharacters/seenVNScenes/relationshipPoints/seenTutorialHints инициализированы (не null)");
+        Check(freshSave.gachaOwnedCharacters.Exists(entry => entry != null && entry.key == "jennifer" && entry.count == 1),
+            "Отношения: новая игра содержит одну стартовую копию Дженифер для статистики");
+
+        string[] tutorialIds =
+        {
+            TutorialContent.Intro, TutorialContent.CharacterSelection, TutorialContent.MentorSelection,
+            TutorialContent.RunStart, TutorialContent.CombatBasics, TutorialContent.Defenses,
+            TutorialContent.JenniferActive, TutorialContent.VioletActive, TutorialContent.SashaActive,
+            TutorialContent.Reward, TutorialContent.Equipment, TutorialContent.LevelUp, TutorialContent.Camp,
+            TutorialContent.RiskRoom, TutorialContent.Merchant, TutorialContent.Boss, TutorialContent.Pause,
+            TutorialContent.Results, TutorialContent.VeteranCreated, TutorialContent.Buildings,
+            TutorialContent.Gacha, TutorialContent.Characters, TutorialContent.Veterans, TutorialContent.Relationships,
+            TutorialContent.HotSprings
+        };
+        Check(tutorialIds.All(id => TutorialContent.TryGet(id, out var entry) && !string.IsNullOrWhiteSpace(entry.Title) && !string.IsNullOrWhiteSpace(entry.Body)),
+            "Туториал: каждый стабильный ID имеет заполненные заголовок и текст");
+        Check(TutorialContent.HelpEntries.Count >= 20,
+            $"Туториал: постоянная справка заполнена всеми основными механиками ({TutorialContent.HelpEntries.Count} разделов)");
 
         // 9.4/Codex P2: миграция старого сохранения без saveVersion (симулирует файл с диска до
         // этого фикса — JsonUtility молча оставит новые поля в дефолте, а не упадёт, но saveVersion
         // будет 0) — TryMigrate должен довести его до текущей версии без потери уже прочитанных полей.
         var staleSave = new SaveData { saveVersion = 0, metaCurrency = 500 };
         staleSave.veteranDeck = null; // симулируем JSON без этого поля вовсе (JsonUtility даёт null для отсутствующих списков в старом файле)
+        staleSave.seenTutorialHints = null;
         SaveManager.MigrateIfNeeded(staleSave);
-        Check(staleSave.saveVersion == SaveData.CurrentSaveVersion && staleSave.metaCurrency == 500 && staleSave.veteranDeck != null,
-            $"9.4 миграция старого save: saveVersion={staleSave.saveVersion}, metaCurrency сохранена={staleSave.metaCurrency}, veteranDeck заполнен дефолтом={staleSave.veteranDeck != null} (ожидалось true/500/true)");
+        Check(staleSave.saveVersion == SaveData.CurrentSaveVersion && staleSave.metaCurrency == 500 && staleSave.veteranDeck != null && staleSave.seenTutorialHints != null,
+            $"9.4 миграция старого save: saveVersion={staleSave.saveVersion}, metaCurrency сохранена={staleSave.metaCurrency}, списки ветеранов/подсказок восстановлены (ожидалось true/500/true)");
 
         var legacyNamedSave = new SaveData { saveVersion = 2 };
         legacyNamedSave.gachaOwnedCharacters.Add(new KeyCountEntry { key = "rogue", count = 2 });
@@ -888,6 +1121,8 @@ public static class PlayModeSmokeTest
             "9.4 v3 миграция объединяет классовые/displayName ключи Плута в стабильный violet");
         Check(legacyNamedSave.characterRunCounts[0].key == "sasha" && legacyNamedSave.veteranDeck[0].characterId == "sasha" && legacyNamedSave.seenVNScenes[0].characterId == "violet",
             "9.4 v3 миграция переводит ветеранов, прохождения и VN-историю на ID sasha/violet");
+        Check(legacyNamedSave.gachaOwnedCharacters.Exists(entry => entry != null && entry.key == "jennifer" && entry.count >= 1),
+            "Отношения: миграция добавляет стартовую копию Дженифер, не затрагивая полученных героев");
 
         // GDD 11.1: 15% персонаж, 85% мета-валюта; предметного результата в структуре нет.
         Check(GachaPool.RollResult(0.01f, 0.5f, out var firstCharacter) && firstCharacter.IsCharacter && firstCharacter.CharacterIndex == 0,
@@ -973,6 +1208,16 @@ public static class PlayModeSmokeTest
         int deckBeforeZeroFloorRun = veteranSaveManager.Data.veteranDeck.Count;
         Check(veteranSaveManager.CompleteRun(1, 0, "violet", null) && veteranSaveManager.Data.veteranDeck.Count == deckBeforeZeroFloorRun && veteranSaveManager.GetRunCount("violet") == 1,
             "1 п.8 забег без полностью зачищенного этажа выдаёт награду/счётчик, но не создаёт ветерана");
+
+        veteranSaveManager.Data.relationshipPoints.Clear();
+        Check(veteranSaveManager.AddRelationshipPoints("violet", 99) == 99 && veteranSaveManager.GetRelationshipLevel("violet") == 1,
+            "Отношения: до 100 очков сохраняется 1-й уровень");
+        Check(veteranSaveManager.AddRelationshipPoints("violet", 1) == 1 && veteranSaveManager.GetRelationshipLevel("violet") == 2,
+            "Отношения: 100 очков открывают 2-й уровень");
+        Check(veteranSaveManager.AddRelationshipPoints("violet", 200) == 200 && veteranSaveManager.GetRelationshipLevel("violet") == 3,
+            "Отношения: 300 очков открывают 3-й уровень");
+        Check(veteranSaveManager.AddRelationshipPoints("violet", 10) == 0 && veteranSaveManager.GetRelationshipPoints("violet") == 300,
+            "Отношения: демо ограничивает прогресс максимумом 3-го уровня (300 очков)");
 
         Check(VeteranSystem.GradeForFloors(10) == "S+" && VeteranSystem.GradeForFloors(9) == "S" &&
             VeteranSystem.GradeForFloors(8) == "A" && VeteranSystem.GradeForFloors(6) == "B" &&
@@ -1080,6 +1325,41 @@ public static class PlayModeSmokeTest
         RequireElement(root, "PauseResumeButton");
         RequireElement(root, "PauseAbandonRunButton");
         RequireElement(root, "PauseQuitGameButton");
+        RequireElement(root, "LevelUpTitle");
+        RequireElement(root, "LevelUpRerollButton");
+        RequireElement(root, "HelpButton");
+        RequireElement(root, "RunHelpButton");
+        RequireElement(root, "ResultsHelpButton");
+        RequireElement(root, "TutorialOverlay");
+        RequireElement(root, "TutorialTitle");
+        RequireElement(root, "TutorialBody");
+        RequireElement(root, "TutorialContinueButton");
+        RequireElement(root, "HelpScreen");
+        RequireElement(root, "HelpScrollView");
+        RequireElement(root, "HelpCloseButton");
+        RequireElement(root, "GlobalTooltip");
+        RequireElement(root, "GlobalTooltipTitle");
+        RequireElement(root, "GlobalTooltipBody");
+        Check(UnityEngine.Object.FindFirstObjectByType<TutorialManager>() != null, "TutorialManager создан на общем UIDocument");
+        var vnManager = UnityEngine.Object.FindFirstObjectByType<VNManager>();
+        Check(vnManager != null, "VNManager создан на общем UIDocument");
+        RequireElement(root, "VNOverlay");
+        RequireElement(root, "VNBackground");
+        RequireElement(root, "VNCg");
+        RequireElement(root, "VNSkipButton");
+
+        const string smokeHintId = "smoke_tutorial_hint";
+        saveManager.Data.seenTutorialHints.RemoveAll(id => string.Equals(id, smokeHintId, StringComparison.OrdinalIgnoreCase));
+        saveManager.MarkTutorialHintSeen(smokeHintId);
+        Check(saveManager.HasSeenTutorialHint(smokeHintId), "Просмотренная подсказка записывается в SaveData и распознаётся без учёта регистра");
+
+        const string smokeSceneId = "smoke_seen_scene";
+        var jenniferScenes = saveManager.Data.seenVNScenes.Find(entry => entry != null &&
+            string.Equals(entry.characterId, "jennifer", StringComparison.OrdinalIgnoreCase));
+        jenniferScenes?.sceneIds?.RemoveAll(id => string.Equals(id, smokeSceneId, StringComparison.OrdinalIgnoreCase));
+        saveManager.MarkVNSceneSeen("jennifer", smokeSceneId);
+        Check(saveManager.HasSeenVNScene("JENNIFER", "SMOKE_SEEN_SCENE"),
+            "Завершённая или пропущенная VN-сцена сохраняется по characterId/sceneId без учёта регистра");
 
         // Task 3 (GDD 10.6): the UXML src="project://database/..." approach on CombatBackground's
         // ui:Image did NOT resolve at runtime (confirmed during Task 3 -- Image.image/.sprite stayed
@@ -1131,8 +1411,8 @@ public static class PlayModeSmokeTest
             $"1 п.2 экран содержит Дженифер и Вайолет, но не Сашу: cards={characterSelectCards.childCount} (ожидалось 2)");
         var violetSelectionPortrait = root.Q<UnityEngine.UIElements.Image>("CharacterSelectPortrait_violet");
         var violetCharacterAsset = AssetDatabase.LoadAssetAtPath<CharacterData>("Assets/ScriptableObjects/Characters/Character_Rogue.asset");
-        Check(violetSelectionPortrait != null && violetCharacterAsset != null && violetSelectionPortrait.sprite == violetCharacterAsset.selectionPortrait && violetSelectionPortrait.scaleMode == ScaleMode.ScaleAndCrop,
-            "1 п.2 карточка Вайолет показывает обрезанный диалоговый спрайт");
+        Check(violetSelectionPortrait != null && violetCharacterAsset != null && violetSelectionPortrait.sprite == violetCharacterAsset.selectionPortrait && violetSelectionPortrait.scaleMode == ScaleMode.ScaleToFit,
+            "1 п.2 карточка Вайолет показывает полный диалоговый спрайт без обрезания сверху");
         var violetPassiveLabel = root.Q<Label>("CharacterSelectPassiveSkill_violet");
         var violetActiveLabel = root.Q<Label>("CharacterSelectActiveSkill_violet");
         Check(violetPassiveLabel != null && violetPassiveLabel.text.Contains(violetCharacterAsset.uniquePassiveSkill.skillName) && violetPassiveLabel.tooltip == violetCharacterAsset.uniquePassiveSkill.effectDescription,
@@ -1212,8 +1492,11 @@ public static class PlayModeSmokeTest
         // floorsFullyCleared = 9 -> 50*9 + 5*11 = 505 -- must NOT be capped at the old 70.
         Check(uncappedReward.MetaCurrency == 505, $"8.5 потолок снят: {uncappedReward.MetaCurrency} (ожидалось 505, старый потолок был 70)");
 
-        var victoryReward = rewardManager.CalculateRunCompletionReward(true, 0);
-        Check(victoryReward.MetaCurrency == 80 && victoryReward.GachaCurrency == 15, $"8.5 победа фиксированная: {victoryReward.MetaCurrency}/{victoryReward.GachaCurrency} (ожидалось 80/15)");
+        var victoryReward = rewardManager.CalculateRunCompletionReward(true, totalRoomsCleared: 120, currentFloorNumber: 10, roomsClearedOnDeathFloor: 11);
+        // База за зачистку 10 этажей = 50*10 + 5*11 = 555; бонус зачистки = 25%, округлённый = 139.
+        Check(victoryReward.MetaCurrency == 694 && victoryReward.GachaCurrency == 18 &&
+            victoryReward.ClearBonusMetaCurrency == 139 && victoryReward.ClearBonusGachaCurrency == 4,
+            $"8.5 победа добавляет 25% как отдельный бонус зачистки: {victoryReward.MetaCurrency}/{victoryReward.GachaCurrency}, бонус {victoryReward.ClearBonusMetaCurrency}/{victoryReward.ClearBonusGachaCurrency} (ожидалось 694/18, 139/4)");
 
         saveManager.AddMetaCurrency(victoryReward.MetaCurrency);
         Check(saveManager.Data.metaCurrency == metaBefore + victoryReward.MetaCurrency, "AddMetaCurrency обновляет Data.metaCurrency");
@@ -1323,6 +1606,63 @@ public static class PlayModeSmokeTest
         testCombatManager.StartCombat(testPlayer, new List<CombatantRuntime> { slowCurseMonster });
         testCombatManager.Tick(1.01f); // достаточно, чтобы оба нанесли по 1 удару (AttackSpeed=1/сек)
         Check(testPlayer.ActiveDebuffs.Exists(d => d.Id == "warlock_slow"), "2.4 Проклятие замедления применяется при попадании Колдуна по HP игрока");
+
+        testPlayer.PhysicalDefenseMax = 20f;
+        testPlayer.PhysicalDefenseCurrent = 7f;
+        testPlayer.PoisonStacks = 2;
+        testPlayer.PoisonTimer = 3f;
+        testPlayer.HasBleed = true;
+        testPlayer.BleedTimer = 3f;
+        testPlayer.IsStealthed = true;
+        testPlayer.StealthTimer = 3f;
+        testPlayer.IsBerserkActive = true;
+        testCombatManager.EndCombat();
+        Check(testPlayer.ActiveDebuffs.Count == 0 && testPlayer.PoisonStacks == 0 && !testPlayer.HasBleed &&
+            !testPlayer.IsStealthed && !testPlayer.IsBerserkActive && testPlayer.PhysicalDefenseCurrent == 7f,
+            "4.5 конец боя сбрасывает временные статусы, но сохраняет износ физической брони");
+
+        // Коррозийный паук: 15% силы его удара снимаются с брони всегда, в том числе когда
+        // физический удар не нанёс ни единицы урона по HP. Обычный износ от самого удара здесь
+        // тоже ожидаем: 100 урона против 100 брони = −5 износ, затем −15 от коррозии.
+        testPlayer.CurrentHP = 1000f;
+        testPlayer.PhysicalDefenseMax = 100f;
+        testPlayer.PhysicalDefenseCurrent = 100f;
+        var corrosiveSpider = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestCorrosiveSpider", MonsterPassiveName = MonsterSkillEffectMap.Corrosion };
+        corrosiveSpider.Weapons.Add(new WeaponAttackState { DamageMin = 100f, DamageMax = 100f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        testCombatManager.StartCombat(testPlayer, new List<CombatantRuntime> { corrosiveSpider });
+        testCombatManager.Tick(1.01f);
+        Check(Mathf.Approximately(testPlayer.CurrentHP, 1000f) && Mathf.Approximately(testPlayer.PhysicalDefenseCurrent, 80f),
+            $"2.4 Коррозия: полностью заблокированный урон не ранит HP, но снимает обычный износ и 15% силы атаки с брони (HP={testPlayer.CurrentHP:F1}, броня={testPlayer.PhysicalDefenseCurrent:F1}, ожидалось 1000/80)");
+        testCombatManager.EndCombat();
+
+        // Новый модификатор: обычный износ 1 + прямой гарантированный износ 4 на 6-м этаже.
+        testPlayer.CurrentHP = 1000f;
+        testPlayer.PhysicalDefenseMax = 100f;
+        testPlayer.PhysicalDefenseCurrent = 100f;
+        var armorPiercingMonster = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestArmorPiercing", MonsterGuaranteedArmorDamage = 4f };
+        armorPiercingMonster.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 1f });
+        testCombatManager.StartCombat(testPlayer, new List<CombatantRuntime> { armorPiercingMonster });
+        testCombatManager.Tick(1.01f);
+        Check(Mathf.Approximately(testPlayer.CurrentHP, 1000f) && Mathf.Approximately(testPlayer.PhysicalDefenseCurrent, 95f),
+            $"2.8 Бронебойный: блокированный удар снимает 1 обычного + 4 дополнительного износа (HP={testPlayer.CurrentHP:F1}, броня={testPlayer.PhysicalDefenseCurrent:F1}, ожидалось 1000/95)");
+        testCombatManager.EndCombat();
+
+        // Активный навык босса не зависит от таймера обычной атаки: через 5 секунд наносит 200%.
+        var bossSkillGO = new GameObject("SmokeTest_BossHeavyAttack");
+        var bossSkillManager = bossSkillGO.AddComponent<CombatManager>();
+        var bossSkillPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 100f, PhysicalDefenseCurrent = 100f };
+        bossSkillPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+        var bossSkillEnemy = new CombatantRuntime { IsPlayer = false, IsBoss = true, BossHeavyAttackDamageMultiplier = 2f, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestBoss" };
+        bossSkillEnemy.Weapons.Add(new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
+        int heavyAttackActivations = 0;
+        bossSkillManager.ActiveSkillActivated += (_, skillName) => { if (skillName == "Тяжёлая атака") heavyAttackActivations++; };
+        bossSkillManager.StartCombat(bossSkillPlayer, new List<CombatantRuntime> { bossSkillEnemy });
+        bossSkillManager.Tick(4.99f);
+        Check(heavyAttackActivations == 0 && bossSkillPlayer.PhysicalDefenseCurrent == 100f, "2.2 «Тяжёлая атака» не срабатывает раньше 5 секунд");
+        bossSkillManager.Tick(0.02f);
+        Check(heavyAttackActivations == 1 && bossSkillPlayer.CurrentHP == 1000f && bossSkillPlayer.PhysicalDefenseCurrent == 99f,
+            $"2.2 «Тяжёлая атака» через 5 секунд наносит 200% (20 урона заблокировано, броня 100→99): activations={heavyAttackActivations}, HP={bossSkillPlayer.CurrentHP}, armor={bossSkillPlayer.PhysicalDefenseCurrent}");
+        UnityEngine.Object.DestroyImmediate(bossSkillGO);
 
         UnityEngine.Object.DestroyImmediate(combatManagerGO);
 
@@ -1563,8 +1903,8 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(stubbornGO);
 
-        // 3.11 (Варвар) — "Боевая регенерация": срабатывает РОВНО на N-й полученный удар (ур.1 = 5),
-        // не раньше. Урон/удар фиксирован (1 урона), MaxHP=1000 -> регенерация = 100 HP на 5-м ударе.
+        // 8.6 (Варвар) — "Боевая регенерация": срабатывает на N-й полученный удар (ур.1 = 6),
+        // не раньше, лечит 6% HP и получает двухсекундный кулдаун.
         var combatRegenGO = new GameObject("SmokeTest_CombatRegen");
         var combatRegenCombatManager = combatRegenGO.AddComponent<CombatManager>();
         var combatRegenAttacker = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
@@ -1573,14 +1913,15 @@ public static class PlayModeSmokeTest
         combatRegenTarget.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
 
         combatRegenCombatManager.StartCombat(combatRegenAttacker, new List<CombatantRuntime> { combatRegenTarget });
-        for (int hit = 0; hit < 4; hit++)
+        for (int hit = 0; hit < 5; hit++)
         {
-            combatRegenCombatManager.Tick(1.01f); // 4 удара по 1 урону, регенерация ещё не должна сработать
+            combatRegenCombatManager.Tick(1.01f); // 5 ударов по 1 урону, регенерация ещё не должна сработать
         }
-        Check(combatRegenTarget.HitsTakenSinceLastRegen == 4 && Mathf.Approximately(combatRegenTarget.CurrentHP, 496f), $"3.11 «Боевая регенерация» не срабатывает раньше N-го удара (счётчик={combatRegenTarget.HitsTakenSinceLastRegen}, HP={combatRegenTarget.CurrentHP}, ожидалось счётчик=4, HP=496)");
+        Check(combatRegenTarget.HitsTakenSinceLastRegen == 5 && Mathf.Approximately(combatRegenTarget.CurrentHP, 495f), $"8.6 «Боевая регенерация» не срабатывает раньше N-го удара (счётчик={combatRegenTarget.HitsTakenSinceLastRegen}, HP={combatRegenTarget.CurrentHP}, ожидалось счётчик=5, HP=495)");
 
-        combatRegenCombatManager.Tick(1.01f); // 5-й удар -> регенерация 10% от 1000 = 100 HP
-        Check(combatRegenTarget.HitsTakenSinceLastRegen == 0 && Mathf.Approximately(combatRegenTarget.CurrentHP, 595f), $"3.11 «Боевая регенерация» срабатывает ровно на 5-й удар и восстанавливает 10% MaxHP (счётчик={combatRegenTarget.HitsTakenSinceLastRegen}, HP={combatRegenTarget.CurrentHP}, ожидалось счётчик=0, HP=595)");
+        combatRegenCombatManager.Tick(1.01f); // 6-й удар -> регенерация 6% от 1000 = 60 HP
+        Check(combatRegenTarget.HitsTakenSinceLastRegen == 0 && Mathf.Approximately(combatRegenTarget.CurrentHP, 554f) && combatRegenTarget.CombatRegenCooldownRemaining > 0f,
+            $"8.6 «Боевая регенерация» срабатывает на 6-й удар, лечит 6% и ставит кулдаун (счётчик={combatRegenTarget.HitsTakenSinceLastRegen}, HP={combatRegenTarget.CurrentHP}, CD={combatRegenTarget.CombatRegenCooldownRemaining})");
 
         UnityEngine.Object.DestroyImmediate(combatRegenGO);
 
@@ -1666,9 +2007,8 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(championZeroRageGO);
 
-        // 3.11 (Task 6b, Моменто Мори) — "Казнь": физ. урон += MaxHP(цели) × %недостающего HP × 1%/уровень.
-        // Оружие: фикс. урон 10, ExecutionLevel=5 (5%). Цель: MaxHP=1000, CurrentHP=500 (50% недостающего) ->
-        // бонус = 1000×0.5×0.05 = 25 -> итоговый урон 35.
+        // После рангового ребаланса «Казнь» даёт 3–15% недостающего HP. Ранг V: бонус
+        // 1000×0.5×0.15 = 75, плюс 10 обычного урона = 85.
         var executionGO = new GameObject("SmokeTest_Execution");
         var executionCombatManager = executionGO.AddComponent<CombatManager>();
         var executionPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
@@ -1678,7 +2018,7 @@ public static class PlayModeSmokeTest
 
         executionCombatManager.StartCombat(executionPlayer, new List<CombatantRuntime> { executionDummy });
         executionCombatManager.Tick(1.01f);
-        Check(Mathf.Approximately(executionDummy.CurrentHP, 465f), $"3.11 «Казнь» доб. урон = MaxHP×%недостающего HP×1%/ур.: HP болвана={executionDummy.CurrentHP} (ожидалось 465, т.е. 500-35)");
+        Check(Mathf.Approximately(executionDummy.CurrentHP, 415f), $"3.11 «Казнь» ранга V: 15% недостающего HP + обычный урон: HP болвана={executionDummy.CurrentHP} (ожидалось 415, т.е. 500-85)");
 
         UnityEngine.Object.DestroyImmediate(executionGO);
 
@@ -1714,9 +2054,8 @@ public static class PlayModeSmokeTest
 
         // 3.11 (Task 6b, Капюшон Дуэльянта) — "Рипост": взводится на успешном уклонении, применяется
         // ТОЛЬКО на следующей атаке (не немедленно), затем сбрасывается (не копится/не бьёт повторно
-        // без свежего уклонения). Player.ItemElusivenessLevel=100 -> гарантированное уклонение от
-        // атак болвана; порядок в CombatManager.Tick — сперва Player, потом враги, так что в ОДНОМ и
-        // том же Tick() собственная атака игрока идёт РАНЬШЕ уклонения того же тика (доказывает "не немедленно").
+        // без свежего уклонения). Уклонение теперь жёстко ограничено 75%, поэтому тест не использует
+        // случайность: флаг взводится напрямую после проверки, что он не срабатывает немедленно.
         var riposteGO = new GameObject("SmokeTest_Riposte");
         var riposteCombatManager = riposteGO.AddComponent<CombatManager>();
         var riposteDefender = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 1000f, ItemElusivenessLevel = 100, ItemRiposteLevel = 5 };
@@ -1726,36 +2065,36 @@ public static class PlayModeSmokeTest
         riposteEnemy.Weapons.Add(riposteEnemyWeapon);
 
         riposteCombatManager.StartCombat(riposteDefender, new List<CombatantRuntime> { riposteEnemy });
-        riposteCombatManager.Tick(1.01f); // игрок бьёт первым (без бонуса) -> потом враг уклонён -> взводит флаг
+        riposteCombatManager.Tick(1.01f); // игрок бьёт первым без бонуса
         Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9990f), $"3.11 «Рипост» НЕ применяется немедленно на той же атаке, что взвела флаг: HP болвана={riposteEnemy.CurrentHP} (ожидалось 9990, т.е. без бонуса)");
-        Check(riposteDefender.RiposteArmed, "3.11 «Рипост»: успешное уклонение взводит RiposteArmed");
+        riposteDefender.RiposteArmed = true;
 
-        riposteCombatManager.Tick(1.01f); // игрок бьёт с учётом взведённого флага -> +5 к урону
-        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9975f), $"3.11 «Рипост» применяется РОВНО на следующей атаке (+5 флэт): HP болвана={riposteEnemy.CurrentHP} (ожидалось 9975, т.е. 9990-15)");
+        riposteCombatManager.Tick(1.01f); // ранг V: +125% собственного урона, итого 22.5
+        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9967.5f), $"3.11 «Рипост» применяется РОВНО на следующей атаке (+125%): HP болвана={riposteEnemy.CurrentHP} (ожидалось 9967.5, т.е. 9990-22.5)");
 
         riposteDefender.RiposteArmed = false; // имитируем отсутствие нового уклонения (враг уже перевзвёл флаг своим ходом в этом же тике)
         riposteEnemyWeapon.AttackSpeed = 0.0001f; // враг больше не атакует в пределах теста -> новых уклонений не будет
         riposteCombatManager.Tick(1.01f);
-        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9965f), $"3.11 «Рипост» не бьёт повторно без свежего уклонения: HP болвана={riposteEnemy.CurrentHP} (ожидалось 9965, т.е. 9975-10 без бонуса)");
+        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9957.5f), $"3.11 «Рипост» не бьёт повторно без свежего уклонения: HP болвана={riposteEnemy.CurrentHP} (ожидалось 9957.5, т.е. 9967.5-10 без бонуса)");
 
         UnityEngine.Object.DestroyImmediate(riposteGO);
 
         // 3.11 (Task 6b, Кожанка) — "Объятия ночи": доп. МАГИЧЕСКИЙ урон отдельным попаданием,
-        // ТОЛЬКО пока атакующий в Скрытности. Урон оружия фикс. 20 (физ.) + бонус 20×10×1%=2 (маг.).
+        // ТОЛЬКО пока атакующий в Скрытности. После ребаланса ранг V даёт 40%: 20 физ. + 8 маг.
         var embraceGO = new GameObject("SmokeTest_EmbraceOfNight");
         var embraceCombatManager = embraceGO.AddComponent<CombatManager>();
-        var embraceAttacker = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, IsStealthed = true, StealthTimer = 999f, ItemEmbraceOfNightLevel = 10 };
+        var embraceAttacker = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, IsStealthed = true, StealthTimer = 999f, ItemEmbraceOfNightLevel = 5 };
         embraceAttacker.Weapons.Add(new WeaponAttackState { DamageMin = 20f, DamageMax = 20f, DamageType = DamageType.Physical, AttackSpeed = 1f });
         var embraceDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 10000f, CurrentHP = 10000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
         embraceDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
 
         embraceCombatManager.StartCombat(embraceAttacker, new List<CombatantRuntime> { embraceDummy });
         embraceCombatManager.Tick(1.01f);
-        Check(Mathf.Approximately(embraceDummy.CurrentHP, 9978f), $"3.11 «Объятия ночи» в Скрытности: физ. 20 + отдельный маг. бонус 2 = -22: HP болвана={embraceDummy.CurrentHP} (ожидалось 9978)");
+        Check(Mathf.Approximately(embraceDummy.CurrentHP, 9972f), $"8.6 «Объятия ночи» ранга V в Скрытности: физ. 20 + отдельный маг. бонус 8 = -28: HP болвана={embraceDummy.CurrentHP} (ожидалось 9972)");
 
         embraceAttacker.IsStealthed = false; // выходим из Скрытности -> бонус больше не должен срабатывать
         embraceCombatManager.Tick(1.01f);
-        Check(Mathf.Approximately(embraceDummy.CurrentHP, 9958f), $"3.11 «Объятия ночи» НЕ срабатывает вне Скрытности: HP болвана={embraceDummy.CurrentHP} (ожидалось 9958, т.е. 9978-20 без маг. бонуса)");
+        Check(Mathf.Approximately(embraceDummy.CurrentHP, 9952f), $"8.6 «Объятия ночи» НЕ срабатывает вне Скрытности: HP болвана={embraceDummy.CurrentHP} (ожидалось 9952, т.е. 9972-20 без маг. бонуса)");
 
         UnityEngine.Object.DestroyImmediate(embraceGO);
 
@@ -1763,13 +2102,13 @@ public static class PlayModeSmokeTest
         // (не при Tick), только у игрока (у монстров этих предметов не существует).
         var justAScratchGO = new GameObject("SmokeTest_JustAScratch");
         var justAScratchCombatManager = justAScratchGO.AddComponent<CombatManager>();
-        var justAScratchPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 50f, ItemJustAScratchLevel = 20 };
+        var justAScratchPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 50f, ItemJustAScratchLevel = 5 };
         justAScratchPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
         var justAScratchDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestDummy" };
         justAScratchDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
 
         justAScratchCombatManager.StartCombat(justAScratchPlayer, new List<CombatantRuntime> { justAScratchDummy });
-        Check(Mathf.Approximately(justAScratchPlayer.CurrentHP, 70f), $"3.11 «Просто царапина» лечит РОВНО при StartCombat (20% от MaxHP): HP игрока={justAScratchPlayer.CurrentHP} (ожидалось 70, т.е. 50+20)");
+        Check(Mathf.Approximately(justAScratchPlayer.CurrentHP, 65f), $"8.6 «Просто царапина» лечит РОВНО при StartCombat, ранг V = 15% MaxHP: HP игрока={justAScratchPlayer.CurrentHP} (ожидалось 65)");
 
         UnityEngine.Object.DestroyImmediate(justAScratchGO);
 

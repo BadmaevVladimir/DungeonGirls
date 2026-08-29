@@ -30,5 +30,5 @@ MonoBehaviour:
   rageBonusFlatPercent: 0
   bonusStat:
     type: 4
-    baseValue: 1
+    baseValue: 3
   passiveSkill: {fileID: 0}

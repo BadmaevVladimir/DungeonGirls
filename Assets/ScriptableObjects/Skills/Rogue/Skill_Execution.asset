@@ -12,11 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33564269414bad2439b83f3f7597e022, type: 3}
   m_Name: Skill_Execution
   m_EditorClassIdentifier: Assembly-CSharp::PassiveSkillData
-  skillName: "\u041A\u0430\u0437\u043D\u044C"
+  skillName: "Казнь"
   category: 3
-  effectDescription: "\u041D\u0430\u043D\u043E\u0441\u0438\u0442 \u0444\u0438\u0437.
-    \u0443\u0440\u043E\u043D = 1% \u043E\u0442 \u043D\u0435\u0434\u043E\u0441\u0442\u0430\u044E\u0449\u0435\u0433\u043E
-    HP \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430 \u0437\u0430
-    \u043A\u0430\u0436\u0434\u044B\u0439 \u0443\u0440\u043E\u0432\u0435\u043D\u044C
-    \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u0430."
+  effectDescription: "Наносит дополнительный физический урон, равный 3% недостающего HP цели за ранг эффекта предмета, максимум 15% недостающего HP. Ранг: I на ур. предмета 1–3, затем +I за каждые 3 ур., максимум V."
   maxLevel: 5

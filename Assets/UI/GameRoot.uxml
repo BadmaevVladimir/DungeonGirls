@@ -8,6 +8,7 @@
         <ui:Button name="GachaButton" text="Гача" class="button-secondary" />
         <ui:Button name="VeteranDeckButton" text="Ветераны" class="button-secondary" />
         <ui:Button name="CharactersButton" text="Персонажи" class="button-secondary" />
+        <ui:Button name="HelpButton" text="Справка" class="button-secondary" />
         <ui:Button name="ResetProgressButton" text="Сбросить прогресс" class="button-secondary" />
         <ui:VisualElement name="ResetProgressConfirmPopup" class="panel hidden" style="max-width: 400px; flex-grow: 0;">
             <ui:Label text="Сбросить прогресс?" class="panel-title" />
@@ -103,6 +104,7 @@
             <ui:Label name="FloorLabel" text="Этаж 1/10" class="top-bar-label" />
             <ui:VisualElement name="RoomProgressContainer" class="room-progress-row" />
             <ui:Label name="RationsLabel" text="Рационы: 5" class="top-bar-label" />
+            <ui:Button name="RunHelpButton" text="?" class="help-inline-button" />
         </ui:VisualElement>
 
         <ui:VisualElement name="MainRow" class="main-row">
@@ -161,8 +163,9 @@
             </ui:VisualElement>
 
             <ui:VisualElement name="LevelUpPanel" class="panel hidden">
-                <ui:Label text="Выберите навык" class="panel-title" />
+                <ui:Label name="LevelUpTitle" text="Выберите навык" class="panel-title" />
                 <ui:VisualElement name="LevelUpCardsContainer" />
+                <ui:Button name="LevelUpRerollButton" text="Перебросить варианты" class="button-secondary hidden" />
             </ui:VisualElement>
 
             <ui:VisualElement name="CampPanel" class="panel hidden">
@@ -229,6 +232,7 @@
     <ui:VisualElement name="ResultsScreen" class="full-screen hidden" style="flex-direction: column;">
         <ui:Label name="ResultsTitleLabel" text="Победа" class="results-victory" />
         <ui:Label name="ResultsBodyLabel" text="" class="body-label" style="max-width: 500px; -unity-text-align: middle-center;" />
+        <ui:Button name="ResultsHelpButton" text="Справка" class="button-secondary" />
         <ui:Button name="ResultsContinueButton" text="В главное меню" class="button-primary" />
     </ui:VisualElement>
 
@@ -246,5 +250,26 @@
                 <ui:Button name="PauseQuitGameButton" text="Выйти из игры" class="button-secondary" />
             </ui:VisualElement>
         </ui:VisualElement>
+    </ui:VisualElement>
+
+    <ui:VisualElement name="TutorialOverlay" class="tutorial-overlay hidden">
+        <ui:VisualElement class="tutorial-card">
+            <ui:Label name="TutorialTitle" text="Подсказка" class="tutorial-title" />
+            <ui:Label name="TutorialBody" text="" class="tutorial-body" />
+            <ui:Button name="TutorialContinueButton" text="Понятно" class="button-primary" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <ui:VisualElement name="HelpScreen" class="help-overlay hidden">
+        <ui:VisualElement class="help-card">
+            <ui:Label text="Справка" class="title-label" />
+            <ui:ScrollView name="HelpScrollView" class="help-scroll" />
+            <ui:Button name="HelpCloseButton" text="Закрыть" class="button-primary" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <ui:VisualElement name="GlobalTooltip" class="global-tooltip hidden">
+        <ui:Label name="GlobalTooltipTitle" text="" class="global-tooltip-title" />
+        <ui:Label name="GlobalTooltipBody" text="" class="global-tooltip-body" />
     </ui:VisualElement>
 </ui:UXML>

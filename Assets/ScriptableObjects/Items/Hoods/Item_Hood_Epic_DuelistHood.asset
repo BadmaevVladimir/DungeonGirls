@@ -30,5 +30,5 @@ MonoBehaviour:
   rageBonusFlatPercent: 0
   bonusStat:
     type: 9
-    baseValue: 1
+    baseValue: 4
   passiveSkill: {fileID: 11400000, guid: 8382391d5ceb6d34399bf811b0799ea2, type: 2}

@@ -93,11 +93,13 @@ public enum MonsterGender
     Neuter
 }
 
-// 2.8: 4 модификатора монстров (роллятся по формуле шанса/лимита в MonsterModifierCatalog).
+// 2.8: модификаторы монстров (роллятся по формуле шанса/лимита в MonsterModifierCatalog).
 public enum MonsterModifierType
 {
     Fast,
     Big,
     Armored,
-    Fierce
+    Fierce,
+    // Добавлен в конец, чтобы не менять сериализованные числовые значения старых модификаторов.
+    ArmorPiercing
 }

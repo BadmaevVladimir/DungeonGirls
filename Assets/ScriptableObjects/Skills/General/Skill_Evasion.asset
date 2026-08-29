@@ -12,10 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33564269414bad2439b83f3f7597e022, type: 3}
   m_Name: Skill_Evasion
   m_EditorClassIdentifier: Assembly-CSharp::PassiveSkillData
-  skillName: "\u0423\u043A\u043B\u043E\u043D\u0435\u043D\u0438\u0435"
+  skillName: "Уклонение"
   category: 0
-  effectDescription: "\u0428\u0430\u043D\u0441 \u043F\u043E\u043B\u043D\u043E\u0441\u0442\u044C\u044E
-    \u043F\u0440\u043E\u0438\u0433\u043D\u043E\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C
-    \u0430\u0442\u0430\u043A\u0443 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430:
-    1\u0443\u0440=5%, 2\u0443\u0440=10%, 3\u0443\u0440=15%, 4\u0443\u0440=20%, 5\u0443\u0440=25%."
+  effectDescription: "Шанс полностью проигнорировать атаку противника: 1 ур.=5%, 2=10%, 3=15%, 4=20%, 5=25%. Складывается с другими источниками, но итоговый шанс уклонения не может превышать 75%."
   maxLevel: 5

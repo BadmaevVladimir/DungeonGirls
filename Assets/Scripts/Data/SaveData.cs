@@ -63,7 +63,7 @@ public class VeteranCharacter
 [Serializable]
 public class SaveData
 {
-    public const int CurrentSaveVersion = 4; // 4 = полный снимок ветерана, этажи и буквенная оценка.
+    public const int CurrentSaveVersion = 6; // 6 = очки отношений по стабильному characterId.
 
     public int saveVersion = SaveData.CurrentSaveVersion;
 
@@ -75,8 +75,15 @@ public class SaveData
     public int tavernLevel;
 
     [FormerlySerializedAs("characterCopies")]
-    public List<KeyCountEntry> gachaOwnedCharacters = new List<KeyCountEntry>();
+    // Для демо Дженифер есть у игрока с первого запуска: это стартовая копия для статистики,
+    // а не результат гачи.
+    public List<KeyCountEntry> gachaOwnedCharacters = new List<KeyCountEntry>
+    {
+        new KeyCountEntry { key = "jennifer", count = 1 }
+    };
     public List<VeteranCharacter> veteranDeck = new List<VeteranCharacter>();
     public List<KeyCountEntry> characterRunCounts = new List<KeyCountEntry>();
     public List<CharacterSceneList> seenVNScenes = new List<CharacterSceneList>();
+    public List<KeyCountEntry> relationshipPoints = new List<KeyCountEntry>();
+    public List<string> seenTutorialHints = new List<string>();
 }

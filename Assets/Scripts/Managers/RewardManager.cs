@@ -22,6 +22,8 @@ public struct RunCompletionReward
 {
     public int MetaCurrency;
     public int GachaCurrency;
+    public int ClearBonusMetaCurrency;
+    public int ClearBonusGachaCurrency;
 }
 
 // 5.2: один предмет в ассортименте торговца — цена уже с учётом возможной скидки (Price), и
@@ -83,8 +85,17 @@ public class RewardManager : MonoBehaviour
     {
         if (baseItem == null) return null;
 
+        return CreateItemAtExactLevel(baseItem, Random.Range(characterLevel, characterLevel + 3)); // [char; char+2] включительно
+    }
+
+    // Квестовые/гарантированные награды задают точный уровень. Всегда клонируем общий ассет,
+    // чтобы изменение itemLevel не утекло в каталог, стартовое снаряжение или будущие роллы.
+    public ItemData CreateItemAtExactLevel(ItemData baseItem, int itemLevel)
+    {
+        if (baseItem == null) return null;
+
         var clone = Instantiate(baseItem);
-        clone.itemLevel = Random.Range(characterLevel, characterLevel + 3); // [char; char+2] включительно
+        clone.itemLevel = Mathf.Max(1, itemLevel);
         return clone;
     }
 
@@ -119,12 +130,17 @@ public class RewardManager : MonoBehaviour
     // получит скидку (роллится один раз на весь визит, не по каждому предмету).
     public List<MerchantOffer> GenerateMerchantOffers(int characterLevel)
     {
+        return GenerateMerchantOffers(characterLevel, null);
+    }
+
+    public List<MerchantOffer> GenerateMerchantOffers(int characterLevel, CharacterClass? characterClass)
+    {
         var offers = new List<MerchantOffer>();
         for (int i = 0; i < 5; i++)
         {
             ItemTier tier = RollItemRarity(false);
             ItemData item = null;
-            if (itemCatalog != null && itemCatalog.TryGetRandomItem(tier, out var baseItem))
+            if (itemCatalog != null && itemCatalog.TryGetRandomItem(tier, characterClass, out var baseItem))
             {
                 item = RollItemLevel(baseItem, characterLevel);
             }
@@ -149,13 +165,14 @@ public class RewardManager : MonoBehaviour
 
     // currencyBonus/noCurrency — модификаторы от квестов (5.4: "Загадка сфинкса" даёт +200
     // валюты забега в следующем бою при верном ответе). goldenTouchLevel — пассивка "Золотое
-    // касание" (3.10, Корона Мидаса): +1% к валюте забега из сундука за уровень предмета.
-    public ChestReward CalculateRewards(int floorNumber, bool isBoss, int characterLevel, int luckSkillLevel = 0, int currencyBonus = 0, bool noCurrency = false, int goldenTouchLevel = 0)
+    // касание" (3.10, Корона Мидаса): +10/15/20/25/30% к валюте забега из сундука по рангу эффекта.
+    public ChestReward CalculateRewards(int floorNumber, bool isBoss, int characterLevel, int luckSkillLevel = 0, int currencyBonus = 0, bool noCurrency = false, int goldenTouchLevel = 0, CharacterClass? characterClass = null)
     {
-        int currency = noCurrency ? 0 : Mathf.RoundToInt((CalculateCurrencyReward(floorNumber, isBoss) + currencyBonus) * (1f + goldenTouchLevel * 0.01f));
+        float goldenTouchMultiplier = 1f + ItemEffectBalance.GoldenTouchCurrencyBonusPercent(goldenTouchLevel) / 100f;
+        int currency = noCurrency ? 0 : Mathf.RoundToInt((CalculateCurrencyReward(floorNumber, isBoss) + currencyBonus) * goldenTouchMultiplier);
         ItemTier itemRarity = RollItemRarity(isBoss);
         ItemData rolledItem = null;
-        if (itemCatalog != null && itemCatalog.TryGetRandomItem(itemRarity, out var baseItem))
+        if (itemCatalog != null && itemCatalog.TryGetRandomItem(itemRarity, characterClass, out var baseItem))
         {
             rolledItem = RollItemLevel(baseItem, characterLevel);
         }
@@ -173,8 +190,7 @@ public class RewardManager : MonoBehaviour
         return reward;
     }
 
-    // 8.5 [ОБНОВЛЕНО 2026-08-25, под цель "20-30 поражений на полный макс всех 3 зданий"]:
-    // победа = 80 мета/15 гача (без изменений). Поражение: мета-валюта переработана —
+    // 8.5: Поражение даёт базовую награду: мета-валюта переработана —
     // 50 x (число ПОЛНОСТЬЮ пройденных этажей) + 5 x (комнат пройдено НА этаже смерти), потолок
     // снят (раньше был 70). "Полностью пройденных этажей" = currentFloorNumber - 1, т.к. этаж
     // засчитывается только после победы над его боссом (DungeonManager.AdvanceToNextFloor).
@@ -183,28 +199,22 @@ public class RewardManager : MonoBehaviour
     // за ВЕСЬ забег (totalRoomsCleared), потолок 14.
     public RunCompletionReward CalculateRunCompletionReward(bool victory, int totalRoomsCleared, int currentFloorNumber = 0, int roomsClearedOnDeathFloor = 0)
     {
-        int metaCurrency;
-        int gachaCurrency;
-
-        if (victory)
-        {
-            metaCurrency = 80;
-            gachaCurrency = 15;
-        }
-        else
-        {
-            int floorsFullyCleared = Mathf.Max(0, currentFloorNumber - 1);
-            metaCurrency = 50 * floorsFullyCleared + 5 * Mathf.Max(0, roomsClearedOnDeathFloor);
-            gachaCurrency = Mathf.Min(totalRoomsCleared * 2, 14);
-        }
+        // При победе текущий этаж уже зачищен боссом, при смерти — ещё нет.
+        int floorsFullyCleared = Mathf.Max(0, currentFloorNumber - (victory ? 0 : 1));
+        int baseMetaCurrency = 50 * floorsFullyCleared + 5 * Mathf.Max(0, roomsClearedOnDeathFloor);
+        int baseGachaCurrency = Mathf.Min(totalRoomsCleared * 2, 14);
+        int clearBonusMetaCurrency = victory ? Mathf.RoundToInt(baseMetaCurrency * 0.25f) : 0;
+        int clearBonusGachaCurrency = victory ? Mathf.RoundToInt(baseGachaCurrency * 0.25f) : 0;
 
         var reward = new RunCompletionReward
         {
-            MetaCurrency = metaCurrency,
-            GachaCurrency = gachaCurrency
+            MetaCurrency = baseMetaCurrency + clearBonusMetaCurrency,
+            GachaCurrency = baseGachaCurrency + clearBonusGachaCurrency,
+            ClearBonusMetaCurrency = clearBonusMetaCurrency,
+            ClearBonusGachaCurrency = clearBonusGachaCurrency
         };
 
-        Debug.Log($"[Reward] Итог забега: {reward.MetaCurrency} мета-валюты, {reward.GachaCurrency} гача-валюты (этажей пройдено: {Mathf.Max(0, currentFloorNumber - 1)}, комнат на этаже смерти: {roomsClearedOnDeathFloor}, комнат всего: {totalRoomsCleared}).");
+        Debug.Log($"[Reward] Итог забега: {reward.MetaCurrency} мета-валюты, {reward.GachaCurrency} гача-валюты (бонус зачистки: +{reward.ClearBonusMetaCurrency}/+{reward.ClearBonusGachaCurrency}; этажей пройдено: {floorsFullyCleared}, комнат на этаже смерти: {roomsClearedOnDeathFloor}, комнат всего: {totalRoomsCleared}).");
 
         return reward;
     }

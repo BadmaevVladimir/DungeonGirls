@@ -51,6 +51,7 @@ public class CharacterManager : MonoBehaviour
         tavernLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Tavern) : 0;
         forgeLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Forge) : 0;
         templeLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Temple) : 0;
+        Progress.SetLevelUpRerolls(BuildingCatalog.TempleLevelUpRerolls(templeLevelThisRun));
 
         if (equipmentManager != null)
         {
@@ -130,6 +131,13 @@ public class CharacterManager : MonoBehaviour
 
         EquippedItems.Add(newItem);
         RefreshCombatStats();
+
+        // Смена нагрудника — намеренное исключение из обычного правила износа: новый комплект
+        // брони сразу приводит физическую защиту к его новому максимуму.
+        if (newItem.slot == EquipmentSlot.Armor)
+        {
+            Combatant.PhysicalDefenseCurrent = Combatant.PhysicalDefenseMax;
+        }
     }
 
     public void AddCurrency(int amount)

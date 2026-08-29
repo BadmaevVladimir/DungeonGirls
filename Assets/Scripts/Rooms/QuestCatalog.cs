@@ -35,8 +35,24 @@ public static class QuestCatalog
         DescriptionText = "В комнате стоит меч, воткнутый в камень. Можно попытаться его вытащить.",
         SuccessText = "Меч поддаётся! Получен предмет: Кровавый меч (Эпический).",
         FailText = "Дженифер теряет уверенность в себе — в следующем бою она наносит на 10% меньше урона.",
-        SkipText = "Дженифер решает не искушать судьбу и проходит мимо."
+        SkipText = "Дженифер решает не искушать судьбу и проходит мимо.",
+        SuccessRewardItemName = "Кровавый меч",
+        SuccessRewardItemTier = ItemTier.Epic,
+        SuccessRewardWeaponSubtype = WeaponSubtype.Sword
     };
 
-    public static readonly QuestDefinition[] All = { Sphinx, FairyRing, SwordInStone };
+    public static readonly QuestDefinition Hunt = new QuestDefinition
+    {
+        Name = "Добыча",
+        InteractionType = QuestInteractionType.TryOrSkip,
+        Level = 3,
+        DescriptionText = "Во время исследования подземелья вам удалось заметить следы кабана, который каким-то образом забрался так глубоко. Если повезёт, его мясо можно будет использовать в качестве еды ещё некоторое время.",
+        SuccessText = "Охота на кабана оказалась быстрой, а мясо, хоть и жёстким, но съедобным.",
+        FailText = "Кабан оказался вам не по зубам. После короткого сражения он сбежал, оставив вам только шрамы на память.",
+        SkipText = "Вы решаете не тратить на это время и продолжаете путь.",
+        AttemptButtonText = "Пойти охотиться на кабана",
+        SkipButtonText = "Не тратить на это время"
+    };
+
+    public static readonly QuestDefinition[] All = { Sphinx, FairyRing, SwordInStone, Hunt };
 }

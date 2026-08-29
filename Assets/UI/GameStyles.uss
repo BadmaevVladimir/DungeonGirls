@@ -3,9 +3,20 @@
    только окно левел-апа, как явно предпочитает ГДД ("и желательно — во всём UI"). Обводка сменена
    со светлой на тёмную (светлая обводка на светлом тексте почти не давала контраста, наоборот
    смазывала буквы) — стандартный игровой приём "светлый текст + тёмный контур". */
-Label, Button {
-    -unity-text-outline-width: 1px;
-    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
+/* UI Toolkit по умолчанию рисует часть программно созданных Label чёрным. В тёмном
+   интерфейсе это делает, например, статистику предмета и карточки наставников
+   практически невидимыми. Базовый светлый цвет обязателен, а локальные классы
+   ниже могут его намеренно переопределять. */
+Label {
+    color: rgb(242, 242, 246);
+    -unity-text-outline-width: 0.75px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.92);
+}
+
+Button {
+    color: rgb(250, 250, 252);
+    -unity-text-outline-width: 0.75px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.92);
 }
 
 .full-screen {
@@ -67,7 +78,7 @@ Label, Button {
 }
 
 .title-label {
-    font-size: 48px;
+    font-size: 52px;
     color: rgb(240, 240, 240);
     -unity-font-style: bold;
     margin-bottom: 40px;
@@ -79,7 +90,7 @@ Label, Button {
     border-width: 0;
     border-radius: 4px;
     padding: 10px 20px;
-    font-size: 18px;
+    font-size: 20px;
     margin: 6px;
 }
 
@@ -93,7 +104,7 @@ Label, Button {
     border-width: 0;
     border-radius: 4px;
     padding: 8px 16px;
-    font-size: 16px;
+    font-size: 18px;
     margin: 6px;
 }
 
@@ -122,7 +133,7 @@ Label, Button {
 
 .top-bar-label {
     color: rgb(230, 230, 230);
-    font-size: 16px;
+    font-size: 18px;
     -unity-font-style: bold;
 }
 
@@ -168,7 +179,7 @@ Label, Button {
 }
 
 .run-log-panel {
-    width: 300px;
+    width: 340px;
     flex-shrink: 0;
     background-color: rgb(26, 26, 32);
     padding: 12px;
@@ -184,15 +195,15 @@ Label, Button {
 }
 
 .panel-title {
-    font-size: 22px;
+    font-size: 26px;
     -unity-font-style: bold;
     color: rgb(240, 240, 240);
     margin-bottom: 10px;
 }
 
 .body-label {
-    font-size: 15px;
-    color: rgb(210, 210, 210);
+    font-size: 17px;
+    color: rgb(232, 232, 236);
     white-space: normal;
     margin-bottom: 10px;
 }
@@ -218,7 +229,9 @@ Label, Button {
 }
 
 .combatant-box {
-    background-color: rgb(40, 40, 48);
+    background-color: rgba(24, 24, 31, 0.94);
+    border-width: 1px;
+    border-color: rgba(150, 150, 165, 0.45);
     border-radius: 4px;
     padding: 8px;
     margin-bottom: 6px;
@@ -232,7 +245,7 @@ Label, Button {
 
 .combatant-name {
     color: rgb(240, 240, 240);
-    font-size: 15px;
+    font-size: 18px;
     -unity-font-style: bold;
 }
 
@@ -287,21 +300,34 @@ Label, Button {
     position: absolute;
     left: 50%;
     top: 10%;
-    font-size: 20px;
+    min-width: 40px;
+    padding: 4px 9px;
+    font-size: 22px;
     -unity-font-style: bold;
-    color: rgb(230, 230, 230);
-    -unity-text-outline-width: 1px;
-    -unity-text-outline-color: rgba(0, 0, 0, 0.75);
+    color: rgb(255, 245, 220);
+    background-color: rgba(12, 10, 14, 0.88);
+    border-width: 1px;
+    border-color: rgba(255, 226, 156, 0.9);
+    border-radius: 8px;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+    -unity-text-outline-width: 1.5px;
+    -unity-text-outline-color: rgb(0, 0, 0);
 }
 
 .floating-combat-text-crit {
-    font-size: 28px;
-    color: rgb(255, 165, 40);
+    font-size: 30px;
+    color: rgb(255, 212, 78);
+    background-color: rgba(60, 22, 10, 0.94);
+    border-color: rgb(255, 168, 46);
 }
 
 .floating-combat-text-block {
-    font-size: 16px;
-    color: rgb(190, 190, 190);
+    min-width: 68px;
+    font-size: 18px;
+    color: rgb(205, 230, 255);
+    background-color: rgba(14, 30, 52, 0.94);
+    border-color: rgb(105, 175, 244);
 }
 
 /* 4.7 [ОБНОВЛЕНО]: список баффов/дебаффов участника боя — под спрайтом. Прошлая пастель почти не
@@ -314,7 +340,7 @@ Label, Button {
     bottom: -4px;
     left: 50%;
     translate: -50% 0;
-    font-size: 10px;
+    font-size: 13px;
     padding: 2px 6px;
     border-radius: 6px;
     background-color: rgba(10, 10, 14, 0.55);
@@ -355,20 +381,33 @@ Label, Button {
 }
 
 .hp-text {
-    color: rgb(220, 220, 220);
-    font-size: 11px;
+    color: rgb(245, 245, 245);
+    font-size: 15px;
     margin-top: 2px;
 }
 
 .stat-text {
-    color: rgb(180, 190, 210);
-    font-size: 10px;
+    color: rgb(215, 225, 245);
+    font-size: 14px;
     margin-top: 1px;
 }
 
 .item-compare-row {
     flex-direction: row;
     justify-content: space-between;
+    align-items: stretch;
+    flex-wrap: wrap;
+    max-height: 180px;
+    overflow: hidden;
+}
+
+.item-slot-choice {
+    flex-grow: 1;
+    flex-basis: 260px;
+    min-height: 92px;
+    max-height: 150px;
+    margin-right: 8px;
+    overflow: hidden;
 }
 
 /* 7.2/8.2 [НОВОЕ]: презентация награды модальным окном поверх текущей сцены (обычно боя) —
@@ -461,7 +500,7 @@ Label, Button {
 }
 
 .merchant-offer-card {
-    width: 180px;
+    width: 220px;
     margin: 6px;
     padding: 10px;
     background-color: rgb(40, 40, 48);
@@ -469,20 +508,20 @@ Label, Button {
 }
 
 .merchant-offer-price {
-    font-size: 14px;
+    font-size: 17px;
     color: rgb(230, 200, 60);
     -unity-font-style: bold;
     margin-top: 6px;
 }
 
 .merchant-offer-price-original {
-    font-size: 11px;
+    font-size: 14px;
     color: rgb(150, 150, 150);
     -unity-font-style: italic;
 }
 
 .merchant-offer-discount-tag {
-    font-size: 11px;
+    font-size: 14px;
     color: rgb(90, 200, 100);
     -unity-font-style: bold;
 }
@@ -495,17 +534,21 @@ Label, Button {
     flex-grow: 1;
     margin: 4px;
     padding: 8px;
-    background-color: rgb(40, 40, 48);
+    background-color: rgb(47, 47, 58);
+    border-width: 1px;
+    border-color: rgb(105, 105, 122);
     border-radius: 6px;
 }
 
 .item-card-header {
-    font-size: 11px;
-    color: rgb(160, 160, 170);
+    font-size: 14px;
+    color: rgb(202, 202, 214);
+    -unity-font-style: bold;
 }
 
 .item-card-name {
-    font-size: 15px;
+    font-size: 18px;
+    color: rgb(255, 232, 156);
     -unity-font-style: bold;
     margin-bottom: 4px;
 }
@@ -523,8 +566,8 @@ Label, Button {
 }
 
 .combat-log-text {
-    color: rgb(190, 190, 190);
-    font-size: 12px;
+    color: rgb(225, 225, 230);
+    font-size: 15px;
     white-space: normal;
     padding: 6px;
 }
@@ -543,7 +586,10 @@ Label, Button {
 /* --- Карточки левел-апа / выбора --- */
 
 .choice-card {
-    background-color: rgb(45, 45, 54);
+    background-color: rgb(55, 55, 68);
+    color: rgb(248, 248, 252);
+    border-width: 1px;
+    border-color: rgb(135, 135, 150);
     border-radius: 4px;
     padding: 12px;
     margin-bottom: 8px;
@@ -553,7 +599,7 @@ Label, Button {
 }
 
 .choice-card:hover {
-    background-color: rgb(60, 60, 72);
+    background-color: rgb(75, 75, 92);
 }
 
 /* --- Редкость (8.2): серый/синий/фиолетовый --- */
@@ -606,7 +652,7 @@ Label, Button {
 /* --- Хаб / здания / гача (Фаза 5) --- */
 
 .currency-label {
-    font-size: 18px;
+    font-size: 21px;
     color: rgb(230, 200, 60);
     -unity-font-style: bold;
     margin-bottom: 20px;
@@ -622,11 +668,11 @@ Label, Button {
     border-radius: 6px;
     padding: 16px;
     margin: 8px;
-    width: 280px;
+    width: 320px;
 }
 
 .building-card-title {
-    font-size: 20px;
+    font-size: 24px;
     -unity-font-style: bold;
     color: rgb(240, 240, 240);
     margin-bottom: 8px;
@@ -642,8 +688,8 @@ Label, Button {
 }
 
 .character-select-card {
-    width: 300px;
-    min-height: 610px;
+    width: 330px;
+    min-height: 640px;
     margin: 8px;
     padding: 14px;
     background-color: rgb(30, 30, 36);
@@ -654,7 +700,7 @@ Label, Button {
 }
 
 .character-select-portrait-frame {
-    height: 320px;
+    height: 350px;
     overflow: hidden;
     background-color: rgb(18, 18, 22);
     border-radius: 6px;
@@ -669,20 +715,20 @@ Label, Button {
 
 .character-select-class {
     color: rgb(190, 200, 220);
-    font-size: 16px;
+    font-size: 18px;
     -unity-font-style: bold;
     margin-bottom: 8px;
 }
 
 .character-select-stat {
     color: rgb(215, 215, 215);
-    font-size: 14px;
+    font-size: 16px;
     margin-bottom: 3px;
 }
 
 .character-select-skill {
     color: rgb(230, 200, 90);
-    font-size: 14px;
+    font-size: 16px;
     -unity-font-style: bold;
     margin-top: 6px;
     padding: 4px;
@@ -707,7 +753,7 @@ Label, Button {
 
 .character-skill-tooltip-text {
     color: rgb(240, 240, 240);
-    font-size: 14px;
+    font-size: 16px;
     white-space: normal;
 }
 
@@ -722,7 +768,7 @@ Label, Button {
 .mentor-select-card {
     margin: 6px;
     padding: 14px;
-    background-color: rgb(30, 30, 36);
+    background-color: rgb(37, 37, 46);
     border-width: 1px;
     border-color: rgb(70, 70, 82);
     border-radius: 8px;
@@ -730,11 +776,120 @@ Label, Button {
 
 .mentor-select-grade {
     color: rgb(255, 215, 90);
-    font-size: 20px;
+    font-size: 22px;
     -unity-font-style: bold;
 }
 
 .mentor-select-actions {
     flex-direction: row;
     justify-content: center;
+}
+
+/* --- Обучение, постоянная справка и контекстные тултипы --- */
+
+.help-inline-button {
+    width: 36px;
+    min-width: 36px;
+    height: 30px;
+    margin-left: 10px;
+    padding: 2px;
+    font-size: 17px;
+    -unity-font-style: bold;
+}
+
+.tutorial-overlay,
+.help-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(7, 7, 10, 0.88);
+    align-items: center;
+    justify-content: center;
+}
+
+.tutorial-card {
+    width: 640px;
+    max-width: 90%;
+    padding: 28px;
+    background-color: rgb(27, 27, 34);
+    border-width: 2px;
+    border-color: rgb(184, 142, 62);
+    border-radius: 10px;
+}
+
+.tutorial-title {
+    color: rgb(255, 218, 115);
+    font-size: 28px;
+    -unity-font-style: bold;
+    margin-bottom: 14px;
+}
+
+.tutorial-body {
+    color: rgb(235, 235, 238);
+    font-size: 19px;
+    white-space: normal;
+    margin-bottom: 20px;
+}
+
+.help-card {
+    width: 900px;
+    max-width: 92%;
+    height: 86%;
+    padding: 24px;
+    background-color: rgb(24, 24, 30);
+    border-width: 2px;
+    border-color: rgb(95, 105, 128);
+    border-radius: 10px;
+}
+
+.help-scroll {
+    flex-grow: 1;
+    margin-top: 8px;
+    margin-bottom: 14px;
+}
+
+.help-section {
+    padding: 12px;
+    margin-bottom: 8px;
+    background-color: rgb(34, 34, 42);
+    border-radius: 5px;
+}
+
+.help-section-title {
+    color: rgb(255, 218, 115);
+    font-size: 21px;
+    -unity-font-style: bold;
+    margin-bottom: 5px;
+}
+
+.help-section-body {
+    color: rgb(220, 220, 225);
+    font-size: 16px;
+    white-space: normal;
+}
+
+.global-tooltip {
+    position: absolute;
+    width: 390px;
+    max-width: 45%;
+    padding: 12px;
+    background-color: rgba(18, 18, 23, 0.98);
+    border-width: 1px;
+    border-color: rgb(184, 142, 62);
+    border-radius: 6px;
+}
+
+.global-tooltip-title {
+    color: rgb(255, 218, 115);
+    font-size: 17px;
+    -unity-font-style: bold;
+    margin-bottom: 4px;
+}
+
+.global-tooltip-body {
+    color: rgb(238, 238, 240);
+    font-size: 15px;
+    white-space: normal;
 }

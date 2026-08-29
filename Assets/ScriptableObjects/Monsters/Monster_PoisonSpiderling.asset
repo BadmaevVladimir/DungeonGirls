@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 37c73bb7b20f0774db1d325b77fd4879, type: 3}
   m_Name: Monster_PoisonSpiderling
   m_EditorClassIdentifier: Assembly-CSharp::MonsterData
-  monsterName: "\u042F\u0434\u043E\u0432\u0438\u0442\u044B\u0439 \u043F\u0430\u0443\u0447\u043E\u043A"
+  monsterName: "\u041A\u043E\u0440\u0440\u043E\u0437\u0438\u0439\u043D\u044B\u0439 \u043F\u0430\u0443\u043A"
   sprite: {fileID: 21300000, guid: ab7832d2285b0564a9b75f09e99c3039, type: 3}
   isBoss: 0
   hp: 25

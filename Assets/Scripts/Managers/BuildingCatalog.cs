@@ -30,16 +30,16 @@ public static class BuildingCatalog
             "1: +1 уровень стартового снаряжения персонажа",
             "2: +10 физической защиты (брони)",
             "3: +2 уровня стартового снаряжения (итого +3 суммарно с 1 уровнем)",
-            "4: +20 физической защиты (брони)",
-            "5: Восстанавливает 50% брони на привале"
+            "4: +20% физической защиты от снаряжения",
+            "5: Восстанавливает 30% брони на привале"
         },
         [BuildingType.Temple] = new[]
         {
             "1: +10 магический щит",
-            "2: Снижает/убирает дебафф 2-го этажа подземелья",
+            "2: +1 общий переброс вариантов навыков на весь забег",
             "3: +20 магический щит",
-            "4: Снижает/убирает дебафф 3-го этажа подземелья",
-            "5: 1 попытка перезапуска забега в случае смерти"
+            "4: Ещё +1 общий переброс на забег (итого +2)",
+            "5: Перезапуск после смерти — в разработке, пока не действует"
         },
         [BuildingType.Tavern] = new[]
         {
@@ -74,18 +74,20 @@ public static class BuildingCatalog
     // не реализовано), второе требует отдельного потока управления забегом (retry-flow), не просто
     // числового бонуса — оба вне скоупа этого фикса.
 
-    // Кузница ур.2/4: +10/+20 физической защиты (складывается, итого +30 на ур.4+).
+    // Кузница ур.2: +10 плоской брони. Ур.4 применяется отдельно как процент
+    // от брони снаряжения, чтобы не раздувать раннюю защиту без экипировки.
     public static float ForgeArmorBonus(int forgeLevel)
     {
         float bonus = 0f;
         if (forgeLevel >= 2) bonus += 10f;
-        if (forgeLevel >= 4) bonus += 20f;
         return bonus;
     }
 
+    public static float ForgeEquipmentArmorMultiplier(int forgeLevel) => forgeLevel >= 4 ? 1.20f : 1f;
+
     // Кузница ур.5: восстанавливает 50% брони на привале — складывается с "Полевым ремонтом"/
     // предметной пассивкой "Ремонт" в CampManager.RestAtCamp (тот же клампящийся totalRepairPercent).
-    public static float ForgeCampArmorRestorePercent(int forgeLevel) => forgeLevel >= 5 ? 50f : 0f;
+    public static float ForgeCampArmorRestorePercent(int forgeLevel) => forgeLevel >= 5 ? 30f : 0f;
 
     // Храм ур.1/3: +10/+20 магического щита (складывается, итого +30 на ур.3+).
     public static float TempleMagicShieldBonus(int templeLevel)
@@ -94,6 +96,15 @@ public static class BuildingCatalog
         if (templeLevel >= 1) bonus += 10f;
         if (templeLevel >= 3) bonus += 20f;
         return bonus;
+    }
+
+    // Храм ур.2/4: общий запас перебросов окна прокачки на весь забег.
+    public static int TempleLevelUpRerolls(int templeLevel)
+    {
+        int rerolls = 0;
+        if (templeLevel >= 2) rerolls++;
+        if (templeLevel >= 4) rerolls++;
+        return rerolls;
     }
 
     // Таверна ур.1/3: +5/+10 рационов на забег (складывается с базовыми рационами подземелья,

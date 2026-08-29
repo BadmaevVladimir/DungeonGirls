@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 public class VNManager : MonoBehaviour
 {
     [SerializeField] UIDocument uiDocument;
     [SerializeField] NarrativeVisualLibrary visualLibrary;
-    [SerializeField, Range(1f, 1.2f)] float speakingScale = 1.06f;
     [SerializeField, Range(0.1f, 1f)] float inactiveBrightness = 0.45f;
 
     readonly Dictionary<string, ActorView> actors = new Dictionary<string, ActorView>(StringComparer.OrdinalIgnoreCase);
@@ -24,9 +24,13 @@ public class VNManager : MonoBehaviour
     Label speakerLabel;
     Label dialogueLabel;
     Button continueButton;
+    Button skipButton;
+    bool pausedByScene;
+    float timeScaleBeforeScene = 1f;
 
     public bool IsPlaying => currentScene != null;
     public string CurrentSceneId => currentScene?.id;
+    public NarrativeSceneData CurrentScene => currentScene;
     public NarrativeLineData CurrentLine => IsPlaying && currentLineIndex >= 0 && currentLineIndex < currentScene.lines.Length
         ? currentScene.lines[currentLineIndex]
         : null;
@@ -34,6 +38,7 @@ public class VNManager : MonoBehaviour
     public event Action<string> SceneStarted;
     public event Action<NarrativeLineData> LineShown;
     public event Action<string, bool> SceneFinished;
+    public event Action<NarrativeSceneData, bool> SceneCompleted;
 
     void Awake()
     {
@@ -44,9 +49,10 @@ public class VNManager : MonoBehaviour
 
     void Update()
     {
-        if (!IsPlaying) return;
-        if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return)) Advance();
-        if (Input.GetKeyDown(KeyCode.Escape)) FinishScene(true);
+        if (!IsPlaying || Keyboard.current == null) return;
+        if (Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.enterKey.wasPressedThisFrame ||
+            Keyboard.current.numpadEnterKey.wasPressedThisFrame) Advance();
+        if (Keyboard.current.escapeKey.wasPressedThisFrame) FinishScene(true);
     }
 
     public void PlayScene(string sceneId)
@@ -84,7 +90,9 @@ public class VNManager : MonoBehaviour
         currentScene = scene;
         currentLineIndex = -1;
         BuildInitialStage(scene);
+        PauseTimeScale();
         overlay.style.display = DisplayStyle.Flex;
+        overlay.BringToFront();
         SceneStarted?.Invoke(scene.id);
         Advance();
         return true;
@@ -214,6 +222,16 @@ public class VNManager : MonoBehaviour
         continueButton.style.height = 46f;
         continueButton.style.fontSize = 20f;
 
+        skipButton = new Button(Skip) { name = "VNSkipButton", text = "Пропустить сцену" };
+        skipButton.style.position = Position.Absolute;
+        skipButton.style.right = 24f;
+        skipButton.style.top = 20f;
+        skipButton.style.minWidth = 190f;
+        skipButton.style.height = 42f;
+        skipButton.style.fontSize = 18f;
+        skipButton.style.backgroundColor = new Color(0.12f, 0.11f, 0.15f, 0.92f);
+        skipButton.style.color = new Color(0.88f, 0.88f, 0.9f);
+
         dialoguePanel.Add(speakerLabel);
         dialoguePanel.Add(dialogueLabel);
         dialoguePanel.Add(continueButton);
@@ -221,6 +239,7 @@ public class VNManager : MonoBehaviour
         overlay.Add(actorLayer);
         overlay.Add(cgImage);
         overlay.Add(dialoguePanel);
+        overlay.Add(skipButton);
         root.Add(overlay);
     }
 
@@ -376,8 +395,12 @@ public class VNManager : MonoBehaviour
         {
             if (!actor.visible) continue;
             bool isSpeaker = hasVisibleSpeaker && ReferenceEquals(actor, speaker);
-            actor.image.style.scale = new Scale(isSpeaker ? Vector3.one * speakingScale : Vector3.one);
-            float brightness = !hasVisibleSpeaker || isSpeaker ? 1f : inactiveBrightness;
+            // Говорящий выделяется яркостью, а не изменением масштаба. Это исключает
+            // заметное "подпрыгивание" портрета между соседними репликами.
+            actor.image.style.scale = new Scale(Vector3.one);
+            // Если говорит закадровый Герой или Рассказчик, все видимые персонажи считаются
+            // слушателями и тоже затемняются: отсутствие экранного спикера не делает их активными.
+            float brightness = isSpeaker ? 1f : inactiveBrightness;
             actor.image.style.unityBackgroundImageTintColor = new Color(brightness, brightness, brightness, 1f);
         }
     }
@@ -425,11 +448,37 @@ public class VNManager : MonoBehaviour
     void FinishScene(bool skipped)
     {
         if (!IsPlaying) return;
-        string sceneId = currentScene.id;
+        NarrativeSceneData finishedScene = currentScene;
+        string sceneId = finishedScene.id;
         currentScene = null;
         currentLineIndex = -1;
         overlay.style.display = DisplayStyle.None;
+        RestoreTimeScale();
         SceneFinished?.Invoke(sceneId, skipped);
+        SceneCompleted?.Invoke(finishedScene, skipped);
+    }
+
+    void PauseTimeScale()
+    {
+        if (pausedByScene) return;
+        timeScaleBeforeScene = Time.timeScale;
+        if (Time.timeScale > 0f)
+        {
+            Time.timeScale = 0f;
+            pausedByScene = true;
+        }
+    }
+
+    void RestoreTimeScale()
+    {
+        if (!pausedByScene) return;
+        Time.timeScale = timeScaleBeforeScene;
+        pausedByScene = false;
+    }
+
+    void OnDestroy()
+    {
+        RestoreTimeScale();
     }
 
     class ActorView

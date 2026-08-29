@@ -1,0 +1,23 @@
+{
+  "id": "violet_camp_high",
+  "title": "Вайолет: привал, уровень отношений 3",
+  "characterId": "violet",
+  "background": "Dungeon_dialog",
+  "actors": [{ "characterId": "violet", "displayName": "Вайолет", "slot": 2, "emotion": "neutral", "hidden": true }],
+  "lines": [
+    { "speaker": "narrator", "speakerName": "Рассказчик", "text": "После очередной комнаты вы встали на привал. Вайолет развела костёр и спокойно села рядом с тобой." },
+    { "speaker": "narrator", "speakerName": "Рассказчик", "text": "За последние дни её поведение сильно изменилось. По крайней мере, ты точно заметил, что она больше не ищет способ неожиданно воткнуть нож тебе в шею." },
+    { "speaker": "violet", "text": "Всё-таки я сделала правильный выбор.", "stage": [{ "action": "show", "characterId": "violet", "slot": 2, "emotion": "neutral" }] },
+    { "speaker": "hero", "speakerName": "Герой", "text": "Ты про выбор между тюрьмой и подземельем?" },
+    { "speaker": "violet", "text": "В том числе." },
+    { "speaker": "narrator", "speakerName": "Рассказчик", "text": "Девушка посмотрела на тебя, и по одним её глазам ты понял, что она улыбается." },
+    { "speaker": "hero", "speakerName": "Герой", "text": "Можно задать вопрос?" },
+    { "speaker": "violet", "text": "Дерзай." },
+    { "speaker": "hero", "speakerName": "Герой", "text": "Почему ты всегда носишь маску? Я понимаю, почему ты носила её раньше — чтобы тебя было сложнее опознать. А сейчас?" },
+    { "speaker": "narrator", "speakerName": "Рассказчик", "text": "Девушка задумчиво подняла глаза к потолку." },
+    { "speaker": "violet", "text": "Не знаю. Привычка. Мне так комфортнее. А ты что, хочешь увидеть моё лицо?" },
+    { "speaker": "hero", "speakerName": "Герой", "text": "Ну… Я точно был бы не против." },
+    { "speaker": "narrator", "speakerName": "Рассказчик", "text": "Вайолет снова улыбнулась глазами. Затем, слегка помедлив, она сняла маску и улыбнулась тебе.", "cg": "Violet_03" },
+    { "speaker": "violet", "text": "Хорошо. Только аккуратнее, смотри, не влюбись." }
+  ]
+}

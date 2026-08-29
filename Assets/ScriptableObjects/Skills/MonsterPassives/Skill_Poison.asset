@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33564269414bad2439b83f3f7597e022, type: 3}
   m_Name: Skill_Poison
   m_EditorClassIdentifier: Assembly-CSharp::PassiveSkillData
-  skillName: Яд
+  skillName: Коррозия
   category: 4
-  effectDescription: Пассивка Ядовитого паучка. При попадании по здоровью накладывает яд (3 сек, 4 урона/сек, стакается до 3 раз).
+  effectDescription: Пассивка Коррозийного паука. Каждая атака разъедает физическую защиту цели на 15% силы удара, даже если урон по HP был полностью заблокирован. При попадании по здоровью также накладывает яд (3 сек, 4 урона/сек, стакается до 3 раз).
   maxLevel: 1

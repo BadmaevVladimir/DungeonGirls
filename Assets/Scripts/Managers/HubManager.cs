@@ -13,6 +13,8 @@ public class HubManager : MonoBehaviour
 
     [Header("Менеджеры")]
     [SerializeField] SaveManager saveManager;
+    TutorialManager tutorialManager;
+    VNManager vnManager;
 
     [Header("Гача-контент (11.1: Дженифер / Вайолет / Саша)")]
     [SerializeField] CharacterData[] gachaCharacters;
@@ -24,6 +26,8 @@ public class HubManager : MonoBehaviour
     [SerializeField] ItemCatalogData currencyIconCatalog;
 
     const int GachaPullCost = 50; // 8.5
+    const string OpeningSceneId = "jennifer_intro_tavern";
+    const string VioletFirstGachaSceneId = "violet_intro_gacha";
 
     static readonly BuildingType[] BuildingOrder = { BuildingType.Forge, BuildingType.Temple, BuildingType.Tavern };
     static readonly string[] BuildingIds = { "Forge", "Temple", "Tavern" };
@@ -81,6 +85,11 @@ public class HubManager : MonoBehaviour
     {
         var root = uiDocument.rootVisualElement;
         CacheElements(root);
+        tutorialManager = TutorialManager.GetOrCreate(uiDocument, saveManager);
+        vnManager = uiDocument.GetComponent<VNManager>();
+        if (vnManager == null) vnManager = uiDocument.gameObject.AddComponent<VNManager>();
+        vnManager.SceneCompleted += OnVNSceneCompleted;
+        BindTutorialTooltips();
 
         buildingsButton.clicked += OpenBuildings;
         gachaButton.clicked += OpenGacha;
@@ -105,9 +114,36 @@ public class HubManager : MonoBehaviour
 
         RefreshBuildingsScreen();
         RefreshGachaScreen();
+        StartOpeningSequence();
         if (!HasValidGachaCharacterPool())
         {
             Debug.LogError("[Hub] GDD 11.1: gachaCharacters должен содержать ровно Дженифер, Вайолет и Сашу с непустыми characterId.");
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (vnManager != null) vnManager.SceneCompleted -= OnVNSceneCompleted;
+    }
+
+    void StartOpeningSequence()
+    {
+        if (saveManager != null && !saveManager.HasSeenVNScene("jennifer", OpeningSceneId) &&
+            vnManager != null && vnManager.TryPlayScene(OpeningSceneId))
+        {
+            return;
+        }
+
+        tutorialManager?.QueueOnce(TutorialContent.Intro);
+    }
+
+    void OnVNSceneCompleted(NarrativeSceneData scene, bool skipped)
+    {
+        if (scene == null) return;
+        saveManager?.MarkVNSceneSeen(scene.characterId, scene.id);
+        if (string.Equals(scene.id, OpeningSceneId, System.StringComparison.OrdinalIgnoreCase))
+        {
+            tutorialManager?.QueueOnce(TutorialContent.Intro);
         }
     }
 
@@ -173,6 +209,7 @@ public class HubManager : MonoBehaviour
         RefreshBuildingsScreen();
         mainMenuScreen.style.display = DisplayStyle.None;
         buildingsScreen.style.display = DisplayStyle.Flex;
+        tutorialManager?.QueueOnce(TutorialContent.Buildings);
     }
 
     public void OpenGacha()
@@ -180,6 +217,7 @@ public class HubManager : MonoBehaviour
         RefreshGachaScreen();
         mainMenuScreen.style.display = DisplayStyle.None;
         gachaScreen.style.display = DisplayStyle.Flex;
+        tutorialManager?.QueueOnce(TutorialContent.Gacha);
     }
 
     public void OpenVeteranDeck()
@@ -198,6 +236,7 @@ public class HubManager : MonoBehaviour
                 : (veteran.finalEquipment != null ? veteran.finalEquipment.Count : 0);
             var row = new Label($"{displayName} — {veteran.grade}, этажей {veteran.floorsCleared}, HP {veteran.finalHP:F0}, неуникальных навыков {skillCount}, снаряжения {equipmentCount}");
             row.AddToClassList("body-label");
+            tutorialManager?.BindTooltip(row, "Оценка ветерана", TutorialContent.TooltipGrade);
             veteranDeckScrollView.Add(row);
         }
 
@@ -207,6 +246,7 @@ public class HubManager : MonoBehaviour
             empty.AddToClassList("body-label");
             veteranDeckScrollView.Add(empty);
         }
+        tutorialManager?.QueueOnce(TutorialContent.Veterans);
     }
 
     public void OpenCharacters()
@@ -222,10 +262,17 @@ public class HubManager : MonoBehaviour
             if (copies <= 0) continue; // 7.1: экран содержит полученных в гаче персонажей.
 
             int runs = saveManager.GetRunCount(character.characterId);
+            int relationshipPoints = saveManager.GetRelationshipPoints(character.characterId);
+            int relationshipLevel = saveManager.GetRelationshipLevel(character.characterId);
+            int nextThreshold = saveManager.GetRelationshipNextThreshold(character.characterId);
             var sceneEntry = saveManager.Data.seenVNScenes.Find(entry => entry != null && entry.characterId == character.characterId);
             int seenScenes = sceneEntry != null && sceneEntry.sceneIds != null ? sceneEntry.sceneIds.Count : 0;
-            var row = new Label($"{character.characterName} ({character.characterClass}) — копий: {copies}, прохождений: {runs}, открытых сцен: {seenScenes}");
+            string relationship = relationshipLevel >= SaveManager.MaxRelationshipLevel
+                ? $"отношения: ур. {relationshipLevel}/3 (макс.)"
+                : $"отношения: ур. {relationshipLevel}/3, {relationshipPoints}/{nextThreshold}";
+            var row = new Label($"{character.characterName} ({character.characterClass}) — копий: {copies}, прохождений: {runs}, {relationship}, открытых сцен: {seenScenes}");
             row.AddToClassList("body-label");
+            tutorialManager?.BindTooltip(row, "Отношения", TutorialContent.TooltipRelationships);
             charactersScrollView.Add(row);
         }
 
@@ -235,6 +282,18 @@ public class HubManager : MonoBehaviour
             empty.AddToClassList("body-label");
             charactersScrollView.Add(empty);
         }
+        tutorialManager?.QueueOnce(TutorialContent.Characters);
+    }
+
+    void BindTutorialTooltips()
+    {
+        if (tutorialManager == null) return;
+        tutorialManager.BindTooltip(metaCurrencyLabel, "Мета-валюта", TutorialContent.TooltipMetaCurrency);
+        tutorialManager.BindTooltip(gachaCurrencyLabel, "Гача-валюта", TutorialContent.TooltipGachaCurrency);
+        tutorialManager.BindTooltip(gachaPullButton, "Призыв", "Стоит 50 гача-валюты. Шанс персонажа — 15%; pity-системы в демо нет.");
+        tutorialManager.BindTooltip(buildingBonusLabels[0], "Бонус Кузницы", "Усиливает стартовое снаряжение и восстановление физической брони в будущих забегах.");
+        tutorialManager.BindTooltip(buildingBonusLabels[1], "Бонус Храма", "Даёт магический щит и общий запас перебросов навыков на весь забег.");
+        tutorialManager.BindTooltip(buildingBonusLabels[2], "Бонус Таверны", "Увеличивает запас рационов, урон и эффективность лечения на привале.");
     }
 
     string CharacterDisplayName(string characterId)
@@ -397,6 +456,18 @@ public class HubManager : MonoBehaviour
 
         yield return new WaitForSeconds(0.3f);
         gachaRevealContainer.style.display = DisplayStyle.None;
+
+        // Первая встреча Вайолет должна начаться сразу после её первого выпадения, ещё до
+        // текстового результата гачи. Это хаб-сцена: сохраняется как просмотренная, но не
+        // начисляет отношения (отношения дают только вызовы RunFlowController внутри забега).
+        bool firstViolet = result.IsCharacter && character != null &&
+            string.Equals(character.characterId, "violet", System.StringComparison.OrdinalIgnoreCase) && copies == 1 &&
+            !saveManager.HasSeenVNScene("violet", VioletFirstGachaSceneId);
+        if (firstViolet && vnManager != null && vnManager.TryPlayScene(VioletFirstGachaSceneId))
+        {
+            while (vnManager.IsPlaying) yield return null;
+        }
+
         gachaResultPopup.style.display = DisplayStyle.Flex;
 
         if (result.IsCharacter)
@@ -454,5 +525,6 @@ public class HubManager : MonoBehaviour
         resetProgressConfirmPopup.style.display = DisplayStyle.None;
         RefreshBuildingsScreen();
         RefreshGachaScreen();
+        StartOpeningSequence();
     }
 }

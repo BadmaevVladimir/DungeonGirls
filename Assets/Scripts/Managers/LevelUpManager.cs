@@ -32,9 +32,8 @@ public class LevelUpManager : MonoBehaviour
         }
     }
 
-    // 3.5: окно из 3 вариантов на левел-апе. Часть вариантов — новые навыки, часть — апгрейды
-    // уже известных (включая уникальные пассивный/активный навыки персонажа, которые конкурируют
-    // за те же слоты). UI пока нет — вызывающая сторона получает список и выбирает программно.
+    // 3.5: окно из 3 вариантов на левел-апе. Уникальный активный навык не входит в эти
+    // варианты: он автоматически повышается на каждом пятом уровне персонажа.
     public List<LevelUpOption> GenerateLevelUpOptions(RunCharacterProgress progress)
     {
         var pool = GeneralSkillPool.Concat(GetClassPool(progress.Character.characterClass)).Concat(MentorSkillPool).ToList();
@@ -77,16 +76,6 @@ public class LevelUpManager : MonoBehaviour
                 Type = LevelUpOptionType.UpgradeUniquePassive,
                 Skill = progress.Character.uniquePassiveSkill,
                 ResultingLevel = progress.UniquePassiveLevel + 1
-            });
-        }
-
-        if (progress.IsActiveSkillUpgradeAvailable)
-        {
-            upgradeCandidates.Add(new LevelUpOption
-            {
-                Type = LevelUpOptionType.UpgradeUniqueActive,
-                ActiveSkill = progress.Character.uniqueActiveSkill,
-                ResultingLevel = progress.UniqueActiveLevel + 1
             });
         }
 
@@ -133,11 +122,6 @@ public class LevelUpManager : MonoBehaviour
                 Debug.Log($"[LevelUp] Уникальный пассивный навык повышен до ур. {option.ResultingLevel}.");
                 break;
 
-            case LevelUpOptionType.UpgradeUniqueActive:
-                progress.UniqueActiveLevel = option.ResultingLevel;
-                progress.NextActiveSkillCheckpoint += 5;
-                Debug.Log($"[LevelUp] Уникальный активный навык повышен до ур. {option.ResultingLevel}.");
-                break;
         }
     }
 }

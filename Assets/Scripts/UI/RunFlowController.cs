@@ -40,6 +40,10 @@ public class RunFlowController : MonoBehaviour
     [SerializeField] CharacterManager characterManager;
     [SerializeField] EquipmentManager equipmentManager;
     [SerializeField] SaveManager saveManager;
+    TutorialManager tutorialManager;
+    VNManager vnManager;
+    string pendingRunSceneId;
+    bool pendingRunSceneWasUnseen;
 
     // --- Экраны верхнего уровня ---
     VisualElement mainMenuScreen;
@@ -133,6 +137,8 @@ public class RunFlowController : MonoBehaviour
 
     // --- Левел-ап ---
     VisualElement levelUpCardsContainer;
+    Label levelUpTitle;
+    Button levelUpRerollButton;
 
     // --- Привал ---
     Label campText;
@@ -176,6 +182,10 @@ public class RunFlowController : MonoBehaviour
     bool chanceSucceeded;
     bool skipNextAutoCamp;
     int totalRoomsThisFloorCached;
+    bool campSceneTriggeredThisRun;
+    bool hotSpringsTriggeredThisRun;
+    bool huntQuestTriggeredThisRun;
+    bool swordInStoneSucceededThisRun;
 
     CharacterData selectedCharacter;
     VeteranCharacter selectedMentor;
@@ -186,6 +196,8 @@ public class RunFlowController : MonoBehaviour
     {
         var root = uiDocument.rootVisualElement;
         CacheElements(root);
+        tutorialManager = TutorialManager.GetOrCreate(uiDocument, saveManager);
+        BindStaticTutorialTooltips();
         startRunButton.clicked += OpenCharacterSelect;
         characterSelectBackButton.clicked += () =>
         {
@@ -209,6 +221,9 @@ public class RunFlowController : MonoBehaviour
         Time.timeScale = 1f;
         isRunPaused = false;
         UnsubscribeCombatEvents();
+        if (vnManager != null) vnManager.SceneCompleted -= OnRunVNSceneCompleted;
+        vnManager = null;
+        pendingRunSceneId = null;
     }
 
     void Update()
@@ -222,6 +237,43 @@ public class RunFlowController : MonoBehaviour
         runScreen != null && runScreen.style.display == DisplayStyle.Flex &&
         resultsScreen != null && resultsScreen.style.display != DisplayStyle.Flex;
 
+    // Точка подключения будущих ВН-сцен внутри забега. Сцена остаётся доступна для повторного
+    // просмотра, но отношение начисляется лишь за её первое завершение (пропуск считается
+    // просмотром по утверждённому правилу). Вступительная сцена хаба этот метод не использует.
+    public bool TryPlayRunVNScene(string sceneId)
+    {
+        if (!IsRunInProgress() || string.IsNullOrWhiteSpace(sceneId)) return false;
+        if (vnManager == null)
+        {
+            vnManager = uiDocument.GetComponent<VNManager>();
+            if (vnManager == null) vnManager = FindAnyObjectByType<VNManager>();
+            if (vnManager == null) return false;
+            vnManager.SceneCompleted += OnRunVNSceneCompleted;
+        }
+
+        if (vnManager.IsPlaying || !vnManager.TryPlayScene(sceneId)) return false;
+        pendingRunSceneId = sceneId;
+        pendingRunSceneWasUnseen = true; // уточняется при завершении по данным сохранения до старта.
+        if (saveManager != null && vnManager.CurrentScene != null)
+        {
+            pendingRunSceneWasUnseen = !saveManager.HasSeenVNScene(vnManager.CurrentScene.characterId, sceneId);
+        }
+        return true;
+    }
+
+    void OnRunVNSceneCompleted(NarrativeSceneData scene, bool skipped)
+    {
+        if (scene == null || !string.Equals(scene.id, pendingRunSceneId, System.StringComparison.OrdinalIgnoreCase)) return;
+        pendingRunSceneId = null;
+        if (!pendingRunSceneWasUnseen || saveManager == null || string.IsNullOrWhiteSpace(scene.characterId)) return;
+
+        const int relationshipPointsPerRunScene = 10;
+        int added = saveManager.AddRelationshipPoints(scene.characterId, relationshipPointsPerRunScene);
+        if (added <= 0) return;
+        tutorialManager?.QueueOnce(TutorialContent.Relationships);
+        LogEvent($"[Отношения] {scene.characterId}: +{added} за ВН-сцену.");
+    }
+
     void PauseRun()
     {
         if (isRunPaused || characterManager == null || characterManager.Character == null) return;
@@ -229,6 +281,7 @@ public class RunFlowController : MonoBehaviour
         isRunPaused = true;
         Time.timeScale = 0f;
         pauseScreen.style.display = DisplayStyle.Flex;
+        tutorialManager?.QueueOnce(TutorialContent.Pause);
     }
 
     void ResumeRun()
@@ -280,7 +333,7 @@ public class RunFlowController : MonoBehaviour
         pauseEquipmentScrollView.Clear();
         foreach (var item in characterManager.EquippedItems)
         {
-            if (item != null) AddPauseLine(pauseEquipmentScrollView, $"{SlotLabel(item.slot)}: {item.itemName} (ур. {item.itemLevel})\n{ItemStatsText(item)}");
+            if (item != null) AddPauseLine(pauseEquipmentScrollView, $"{SlotLabel(item)}: {item.itemName} (ур. {item.itemLevel})\n{ItemStatsText(item)}");
         }
         if (pauseEquipmentScrollView.childCount == 0) AddPauseLine(pauseEquipmentScrollView, "Нет снаряжения.");
     }
@@ -313,6 +366,7 @@ public class RunFlowController : MonoBehaviour
         mainMenuScreen.style.display = DisplayStyle.None;
         characterSelectScreen.style.display = DisplayStyle.Flex;
         HideCharacterSkillTooltip();
+        tutorialManager?.QueueOnce(TutorialContent.CharacterSelection);
 
         characterSelectCardsContainer.Clear();
         foreach (var character in availableCharacters)
@@ -327,7 +381,9 @@ public class RunFlowController : MonoBehaviour
             {
                 name = $"CharacterSelectPortrait_{character.characterId}",
                 sprite = character.selectionPortrait != null ? character.selectionPortrait : character.portrait,
-                scaleMode = ScaleMode.ScaleAndCrop
+                // Полный портрет важнее заполнения рамки: верх головы не должен теряться.
+                // Свободное место внизу допустимо и не скрывает персонажа.
+                scaleMode = ScaleMode.ScaleToFit
             };
             portraitImage.AddToClassList("character-select-portrait");
             portraitFrame.Add(portraitImage);
@@ -479,6 +535,7 @@ public class RunFlowController : MonoBehaviour
             card.AddToClassList("mentor-select-card");
             var title = new Label($"{CharacterDisplayName(veteran.characterId)} — {veteran.grade}");
             title.AddToClassList("mentor-select-grade");
+            tutorialManager?.BindTooltip(title, "Оценка ветерана", TutorialContent.TooltipGrade);
             card.Add(title);
             card.Add(new Label($"Полностью зачищено этажей: {veteran.floorsCleared}"));
             card.Add(new Label($"Гарантированный пассив: {veteran.uniquePassiveSkillName}"));
@@ -494,6 +551,7 @@ public class RunFlowController : MonoBehaviour
         }
 
         mentorSelectScreen.style.display = DisplayStyle.Flex;
+        tutorialManager?.QueueOnce(TutorialContent.MentorSelection);
     }
 
     string CharacterDisplayName(string characterId)
@@ -620,6 +678,8 @@ public class RunFlowController : MonoBehaviour
         trapContinueButton = root.Q<Button>("TrapContinueButton");
 
         levelUpCardsContainer = root.Q<VisualElement>("LevelUpCardsContainer");
+        levelUpTitle = root.Q<Label>("LevelUpTitle");
+        levelUpRerollButton = root.Q<Button>("LevelUpRerollButton");
 
         campText = root.Q<Label>("CampText");
         campAcceptButton = root.Q<Button>("CampAcceptButton");
@@ -654,6 +714,7 @@ public class RunFlowController : MonoBehaviour
     {
         mainMenuScreen.style.display = DisplayStyle.None;
         runScreen.style.display = DisplayStyle.Flex;
+        tutorialManager?.QueueOnce(TutorialContent.RunStart);
 
         levelUpManager.GeneralSkillPool = generalSkillPool;
         levelUpManager.WarriorSkillPool = warriorSkillPool;
@@ -666,6 +727,10 @@ public class RunFlowController : MonoBehaviour
         ApplySelectedMentorInheritance();
 
         campManager.BeginRun(characterManager.TavernLevelThisRun);
+        campSceneTriggeredThisRun = false;
+        hotSpringsTriggeredThisRun = false;
+        huntQuestTriggeredThisRun = false;
+        swordInStoneSucceededThisRun = false;
         dungeonManager.SetRunState(RunState.RunSetup);
         dungeonManager.GenerateDungeon();
         dungeonManager.SetRunState(RunState.InFloor);
@@ -704,6 +769,21 @@ public class RunFlowController : MonoBehaviour
 
                 if (isBossRoom)
                 {
+                    // После босса игрок получает ещё одну возможность потратить рацион перед
+                    // следующим этажом. На 10-м этаже привал уже ничего не меняет, поэтому его
+                    // не предлагаем после финального босса.
+                    if (dungeonManager.CurrentFloorNumber < DungeonManager.TotalFloors && campManager.CanCamp)
+                    {
+                        floorManager.SetFloorState(FloorState.CampPhase);
+                        yield return CampOfferAndPhaseCoroutine();
+
+                        if (!characterManager.IsAlive)
+                        {
+                            floorLost = true;
+                            break;
+                        }
+                    }
+
                     break; // этаж пройден (2.5: комната босса всегда последняя)
                 }
 
@@ -805,6 +885,7 @@ public class RunFlowController : MonoBehaviour
             // 2.7/8.4: уровень монстра растёт с позицией уже пройденных комнат этажа в мешке.
             int monsterLevel = 1 + floorManager.RoomsCompletedOnFloor / 3;
             int count = RollMonsterCount(characterManager.Level);
+            int remainingThreatBudget = MonsterEncounterBudget.GetThreatBudget(dungeonManager.CurrentFloorNumber);
 
             // 2.4: тиры суммируются — этаж 5 видит и тир-1, и тир-4 монстров, не только последний
             // открытый тир (см. "черновое распределение по этажам").
@@ -816,8 +897,14 @@ public class RunFlowController : MonoBehaviour
 
             for (int i = 0; i < count; i++)
             {
-                var data = eligibleMonsters[Random.Range(0, eligibleMonsters.Count)];
+                var data = MonsterEncounterBudget.RollAffordableMonster(eligibleMonsters, remainingThreatBudget);
+                if (data == null)
+                {
+                    break;
+                }
+
                 enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber, monsterLevel));
+                remainingThreatBudget -= MonsterEncounterBudget.GetThreatCost(data);
             }
         }
 
@@ -867,12 +954,26 @@ public class RunFlowController : MonoBehaviour
         }
 
         combatManager.LogMessage += OnCombatLog;
-        combatManager.MonsterStoleCurrency += OnMonsterStoleCurrency;
         combatManager.HitResolved += OnHitResolved;
         combatManager.ActiveSkillActivated += OnActiveSkillActivated;
         ShowOnly(combatPanel);
         combatManager.StartCombat(characterManager.Combatant, enemies);
         BuildEnemyStageEntries(enemies);
+        if (isBoss)
+        {
+            tutorialManager?.QueueOnce(TutorialContent.Boss);
+        }
+        else
+        {
+            tutorialManager?.QueueOnce(TutorialContent.CombatBasics);
+            tutorialManager?.QueueOnce(TutorialContent.Defenses);
+            tutorialManager?.QueueOnce(activeCharacter.characterClass switch
+            {
+                CharacterClass.Rogue => TutorialContent.VioletActive,
+                CharacterClass.Barbarian => TutorialContent.SashaActive,
+                _ => TutorialContent.JenniferActive
+            });
+        }
 
         while (combatManager.IsCombatActive)
         {
@@ -900,9 +1001,13 @@ public class RunFlowController : MonoBehaviour
         yield return new WaitForSeconds(0.45f);
 
         var levelsGained = characterManager.GrantExperience(rewardManager, isBoss ? ExperienceSource.Boss : ExperienceSource.CombatRoom, dungeonManager.CurrentFloorNumber);
-        foreach (var _ in levelsGained)
+        foreach (int reachedLevel in levelsGained)
         {
-            yield return LevelUpFlow();
+            bool activeUpgraded = characterManager.Progress.TryAutoUpgradeUniqueActiveAtLevel(reachedLevel);
+            string activeUpgradeNotice = activeUpgraded
+                ? $"Уникальный активный навык «{characterManager.Progress.Character.uniqueActiveSkill.skillName}» автоматически повышен до ур. {characterManager.Progress.UniqueActiveLevel}."
+                : null;
+            yield return LevelUpFlow(activeUpgradeNotice);
         }
 
         yield return ShowRewardChestFlow(dungeonManager.CurrentFloorNumber, isBoss);
@@ -911,7 +1016,6 @@ public class RunFlowController : MonoBehaviour
     void UnsubscribeCombatEvents()
     {
         combatManager.LogMessage -= OnCombatLog;
-        combatManager.MonsterStoleCurrency -= OnMonsterStoleCurrency;
         combatManager.HitResolved -= OnHitResolved;
         combatManager.ActiveSkillActivated -= OnActiveSkillActivated;
     }
@@ -919,12 +1023,6 @@ public class RunFlowController : MonoBehaviour
     void OnCombatLog(string message)
     {
         LogEvent(message);
-    }
-
-    // "Карманник" (2.4): монстр украл часть текущей валюты забега у персонажа.
-    void OnMonsterStoleCurrency(CombatantRuntime victim, float percent)
-    {
-        characterManager.StealCurrencyPercent(percent);
     }
 
     // 7.2: общий персистентный лог забега — сюда пишутся боевые события (4.5), результаты
@@ -1288,8 +1386,8 @@ public class RunFlowController : MonoBehaviour
         {
             if (trap == TrapCatalog.MinedChest)
             {
-                // "Крепкая подошва" (3.10, Бронированные сапоги): -1% урона от сработавших ловушек за уровень предмета.
-                float toughSoleReduction = characterManager.Combatant.ItemToughSoleLevel * 0.01f;
+                // «Крепкая подошва»: 10/15/20/25/30% снижения урона от сработавших ловушек.
+                float toughSoleReduction = ItemEffectBalance.ToughSoleTrapReductionPercent(characterManager.Combatant.ItemToughSoleLevel) / 100f;
                 characterManager.ApplyDirectDamage(15 * (1f - toughSoleReduction));
                 characterManager.ApplyDirectArmorLoss(20);
             }
@@ -1309,9 +1407,10 @@ public class RunFlowController : MonoBehaviour
         }
     }
 
-    IEnumerator ShowChancePopupAndWait(string description, int level, string successText, string failText, string attemptLabel, string skipLabel)
+    IEnumerator ShowChancePopupAndWait(string description, int level, string successText, string failText, string attemptLabel, string skipLabel, string skipOutcome = null)
     {
         ShowOnly(trapPopup);
+        tutorialManager?.QueueOnce(TutorialContent.RiskRoom);
         trapDescriptionLabel.text = description;
 
         int luckLevel = characterManager.Progress.GetSkillLevel(SkillEffectMap.Luck);
@@ -1334,7 +1433,7 @@ public class RunFlowController : MonoBehaviour
 
         if (!attempted)
         {
-            outcome = "Вы решаете не рисковать и идёте дальше.";
+            outcome = string.IsNullOrWhiteSpace(skipOutcome) ? "Вы решаете не рисковать и идёте дальше." : skipOutcome;
         }
         else
         {
@@ -1352,23 +1451,46 @@ public class RunFlowController : MonoBehaviour
 
     // ==================== Особая комната / квест (5.3-5.4) ====================
 
-    static QuestDefinition PickQuestForFloor(int floor)
+    QuestDefinition PickQuestForFloor(int floor)
     {
+        // «Добыча» доступна со 2-го этажа, с шансом 20% среди квестов и максимум один раз.
+        if (floor >= 2 && !huntQuestTriggeredThisRun && Random.value < 0.20f)
+        {
+            huntQuestTriggeredThisRun = true;
+            return QuestCatalog.Hunt;
+        }
+
         switch (floor)
         {
             case 1: return QuestCatalog.Sphinx;
             case 2: return QuestCatalog.FairyRing;
-            default: return QuestCatalog.SwordInStone;
+            // Награда «Меча в камне» может быть успешно получена только один раз за забег.
+            // После успеха не подменяем квест пустым исходом, а возвращаем другой полноценный
+            // квест, чтобы особая комната по-прежнему была содержательна.
+            default: return swordInStoneSucceededThisRun ? QuestCatalog.FairyRing : QuestCatalog.SwordInStone;
         }
     }
 
     IEnumerator EventRoomFlow()
     {
+        // «Горячие источники» конкурируют с квестами внутри особой комнаты: 30% на каждую
+        // подходящую особую комнату, но после первого появления больше не выбираются.
+        // Источники не могут быть первой комнатой всего забега: первый специальный узел на
+        // старте остаётся обычным квестом. Дальше их шанс — 30% среди особых комнат, максимум
+        // один раз за забег.
+        if (!hotSpringsTriggeredThisRun && characterManager.RoomsClearedThisRun > 0 && Random.value < 0.30f)
+        {
+            hotSpringsTriggeredThisRun = true;
+            yield return HotSpringsRoomFlow();
+            yield break;
+        }
+
         var quest = PickQuestForFloor(dungeonManager.CurrentFloorNumber);
 
         if (quest.InteractionType == QuestInteractionType.MultipleChoice)
         {
             ShowOnly(eventPopup);
+            tutorialManager?.QueueOnce(TutorialContent.RiskRoom);
             eventDescriptionLabel.text = quest.DescriptionText;
             eventChoicesContainer.Clear();
 
@@ -1406,7 +1528,8 @@ public class RunFlowController : MonoBehaviour
         else
         {
             trapPopupTitle.text = "Событие";
-            yield return ShowChancePopupAndWait(quest.DescriptionText, quest.Level, quest.SuccessText, quest.FailText, "Попытаться", "Пройти мимо");
+            yield return ShowChancePopupAndWait(quest.DescriptionText, quest.Level, quest.SuccessText, quest.FailText,
+                quest.AttemptButtonText, quest.SkipButtonText, quest.SkipText);
             trapPopupTitle.text = "Ловушка";
 
             if (quest == QuestCatalog.FairyRing)
@@ -1423,43 +1546,142 @@ public class RunFlowController : MonoBehaviour
             }
             else if (quest == QuestCatalog.SwordInStone)
             {
-                if (chanceAttempted && !chanceSucceeded)
+                if (chanceAttempted && chanceSucceeded)
+                {
+                    ItemData questReward = null;
+                    ItemData baseReward = null;
+                    bool rewardFound = rewardManager.itemCatalog != null && rewardManager.itemCatalog.TryGetItem(
+                        quest.SuccessRewardItemName,
+                        quest.SuccessRewardItemTier,
+                        quest.SuccessRewardWeaponSubtype,
+                        characterManager.Character.characterClass,
+                        out baseReward);
+
+                    if (rewardFound)
+                    {
+                        questReward = rewardManager.CreateItemAtExactLevel(baseReward, characterManager.Level);
+                    }
+
+                    if (questReward != null)
+                    {
+                        swordInStoneSucceededThisRun = true;
+                        LogEvent($"[Событие] Меч в камне: получен {questReward.itemName}, уровень {questReward.itemLevel}.");
+                        yield return ItemCompareFlow(questReward);
+                    }
+                    else
+                    {
+                        Debug.LogError("[Quest] Не удалось найти совместимый Кровавый меч для награды квеста «Меч в камне».");
+                        LogEvent("[Событие] Ошибка: награда «Меча в камне» не найдена в каталоге.");
+                    }
+                }
+                else if (chanceAttempted)
                 {
                     characterManager.Modifiers.NextCombatDamageMultiplier = (characterManager.Modifiers.NextCombatDamageMultiplier ?? 1f) * 0.9f;
+                }
+            }
+            else if (quest == QuestCatalog.Hunt && chanceAttempted)
+            {
+                if (chanceSucceeded)
+                {
+                    campManager.AddRations(5);
+                    LogEvent("[Событие] Добыча: +5 рационов.");
+                }
+                else
+                {
+                    characterManager.ApplyDirectDamage(20f);
+                    characterManager.ApplyDirectArmorLoss(15f);
+                    LogEvent("[Событие] Добыча: −20 HP, −15 физической защиты.");
                 }
             }
         }
     }
 
+    IEnumerator HotSpringsRoomFlow()
+    {
+        string sceneId = null;
+        if (string.Equals(characterManager.Character.characterId, "jennifer", System.StringComparison.OrdinalIgnoreCase))
+        {
+            sceneId = saveManager.GetRelationshipLevel("jennifer") >= SaveManager.MaxRelationshipLevel
+                ? "jennifer_hot_springs_high"
+                : "jennifer_hot_springs_low";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sceneId) && !saveManager.HasSeenVNScene(characterManager.Character.characterId, sceneId) && TryPlayRunVNScene(sceneId))
+        {
+            while (vnManager != null && vnManager.IsPlaying) yield return null;
+        }
+
+        ShowOnly(campPanel);
+        tutorialManager?.QueueOnce(TutorialContent.HotSprings);
+        float hpRestored = campManager.RestoreFullHealth(characterManager);
+        campText.text = $"Горячие источники восстанавливают силы...\n+{hpRestored:F0} HP\nРационы не потрачены: {campManager.RationsRemaining}";
+        LogEvent($"[Горячие источники] +{hpRestored:F0} HP, рацион не потрачен.");
+        yield return WaitForClick(campContinueButton);
+    }
+
     // ==================== Левел-ап (3.5) ====================
 
-    IEnumerator LevelUpFlow()
+    IEnumerator LevelUpFlow(string activeUpgradeNotice = null)
     {
         floorManager.SetFloorState(FloorState.LevelUpChoice);
-        var options = levelUpManager.GenerateLevelUpOptions(characterManager.Progress);
-        if (options.Count == 0)
+        ShowOnly(levelUpPanel);
+        tutorialManager?.QueueOnce(TutorialContent.LevelUp);
+        while (true)
         {
+            var options = levelUpManager.GenerateLevelUpOptions(characterManager.Progress);
+            string rerollText = characterManager.Progress.LevelUpRerollsRemaining > 0
+                ? $"Перебросить варианты (осталось: {characterManager.Progress.LevelUpRerollsRemaining})"
+                : string.Empty;
+            levelUpTitle.text = string.IsNullOrWhiteSpace(activeUpgradeNotice)
+                ? $"Выберите навык\nПеребросов: {characterManager.Progress.LevelUpRerollsRemaining}"
+                : $"Новый уровень\n{activeUpgradeNotice}\nПеребросов: {characterManager.Progress.LevelUpRerollsRemaining}";
+            levelUpCardsContainer.Clear();
+            var buttons = new List<Button>();
+            if (options.Count == 0)
+            {
+                var continueButton = new Button { text = "Продолжить" };
+                continueButton.AddToClassList("button-primary");
+                levelUpCardsContainer.Add(continueButton);
+                buttons.Add(continueButton);
+            }
+
+            foreach (var option in options)
+            {
+                string description = option.Description;
+                string cardText = string.IsNullOrWhiteSpace(description) ? option.ToString() : $"{option}\n{description}";
+                var btn = new Button { text = cardText };
+                btn.AddToClassList("choice-card");
+                levelUpCardsContainer.Add(btn);
+                buttons.Add(btn);
+            }
+
+            bool canReroll = options.Count > 0 && characterManager.Progress.LevelUpRerollsRemaining > 0;
+            levelUpRerollButton.text = rerollText;
+            levelUpRerollButton.EnableInClassList("hidden", !canReroll);
+            if (canReroll)
+            {
+                buttons.Add(levelUpRerollButton);
+            }
+
+            yield return WaitForAnyClick(buttons.ToArray());
+            if (canReroll && clickedIndex == buttons.Count - 1)
+            {
+                characterManager.Progress.TrySpendLevelUpReroll();
+                continue;
+            }
+
+            levelUpRerollButton.AddToClassList("hidden");
+            if (options.Count == 0)
+            {
+                yield break;
+            }
+
+            var chosen = options[clickedIndex];
+            levelUpManager.ApplyChoice(characterManager.Progress, chosen);
+            characterManager.RefreshCombatStats();
+            LogEvent($"[Левел-ап] {chosen} (уровень {characterManager.Level}).");
             yield break;
         }
-
-        ShowOnly(levelUpPanel);
-        levelUpCardsContainer.Clear();
-        var buttons = new List<Button>();
-        foreach (var option in options)
-        {
-            string description = option.Description;
-            string cardText = string.IsNullOrWhiteSpace(description) ? option.ToString() : $"{option}\n{description}";
-            var btn = new Button { text = cardText };
-            btn.AddToClassList("choice-card");
-            levelUpCardsContainer.Add(btn);
-            buttons.Add(btn);
-        }
-
-        yield return WaitForAnyClick(buttons.ToArray());
-        var chosen = options[clickedIndex];
-        levelUpManager.ApplyChoice(characterManager.Progress, chosen);
-        characterManager.RefreshCombatStats();
-        LogEvent($"[Левел-ап] {chosen} (уровень {characterManager.Level}).");
     }
 
     // ==================== Привал (раздел 6) ====================
@@ -1470,6 +1692,7 @@ public class RunFlowController : MonoBehaviour
     IEnumerator CampOfferAndPhaseCoroutine()
     {
         ShowOnly(campPanel);
+        tutorialManager?.QueueOnce(TutorialContent.Camp);
         var combatant = characterManager.Combatant;
         campText.text = $"Можно встать на привал (потратит 1 рацион). Здоровье: {Mathf.Max(combatant.CurrentHP, 0f):F0}/{combatant.MaxHP:F0}. Осталось рационов: {campManager.RationsRemaining}.";
         SetCampOfferButtonsVisible(true);
@@ -1497,8 +1720,11 @@ public class RunFlowController : MonoBehaviour
     IEnumerator CampPhaseCoroutine(float healMultiplierOverride = -1f)
     {
         ShowOnly(campPanel);
+        if (!campManager.TrySpendRation()) yield break;
+        yield return TryPlayCampSceneAfterRation();
+
         float multiplier = healMultiplierOverride > 0f ? healMultiplierOverride : characterManager.Modifiers.ConsumeCampHealMultiplier();
-        var result = campManager.RestAtCamp(characterManager, multiplier);
+        var result = campManager.RestoreAtCamp(characterManager, multiplier);
 
         campText.text = $"{characterManager.Character.characterName} отдыхает у привала..." +
             $"\n+{result.HpRestored:F0} HP" +
@@ -1509,16 +1735,39 @@ public class RunFlowController : MonoBehaviour
         yield return WaitForClick(campContinueButton);
     }
 
+    IEnumerator TryPlayCampSceneAfterRation()
+    {
+        if (campSceneTriggeredThisRun || characterManager?.Character == null || Random.value >= 0.10f) yield break;
+
+        string characterId = characterManager.Character.characterId;
+        string sceneId = null;
+        bool highRelationship = saveManager.GetRelationshipLevel(characterId) >= SaveManager.MaxRelationshipLevel;
+        if (string.Equals(characterId, "jennifer", System.StringComparison.OrdinalIgnoreCase))
+        {
+            sceneId = highRelationship ? "jennifer_camp_high" : "jennifer_camp_low";
+        }
+        else if (string.Equals(characterId, "violet", System.StringComparison.OrdinalIgnoreCase))
+        {
+            sceneId = highRelationship ? "violet_camp_high" : "violet_camp_low";
+        }
+
+        if (string.IsNullOrWhiteSpace(sceneId) || saveManager.HasSeenVNScene(characterId, sceneId)) yield break;
+        campSceneTriggeredThisRun = true;
+        if (!TryPlayRunVNScene(sceneId)) yield break;
+        while (vnManager != null && vnManager.IsPlaying) yield return null;
+    }
+
     // ==================== Торговец (5.2) ====================
 
     IEnumerator MerchantRoomFlow()
     {
-        var offers = rewardManager.GenerateMerchantOffers(characterManager.Level);
+        var offers = rewardManager.GenerateMerchantOffers(characterManager.Level, characterManager.Character.characterClass);
 
         bool leave = false;
         while (!leave)
         {
             ShowOnly(merchantPanel);
+            tutorialManager?.QueueOnce(TutorialContent.Merchant);
             merchantCurrencyLabel.text = $"Валюта забега: {characterManager.RunCurrency}";
             merchantOffersContainer.Clear();
 
@@ -1637,11 +1886,12 @@ public class RunFlowController : MonoBehaviour
         bool noCurrency = characterManager.Modifiers.ConsumeChestNoCurrency();
 
         int goldenTouchLevel = characterManager.Combatant.ItemGoldenTouchLevel;
-        var reward = rewardManager.CalculateRewards(floorNumber, isBoss, characterManager.Level, luckLevel, currencyBonus, noCurrency, goldenTouchLevel);
+        var reward = rewardManager.CalculateRewards(floorNumber, isBoss, characterManager.Level, luckLevel, currencyBonus, noCurrency, goldenTouchLevel, characterManager.Character.characterClass);
 
         // 7.2/8.2 (НОВОЕ): модальное окно поверх текущей сцены — не ShowOnly, сцена позади (обычно
         // бой) остаётся видна затемнённой, а не скрывается целиком.
         yield return ShowRewardOverlay();
+        tutorialManager?.QueueOnce(TutorialContent.Reward);
         // Баг (2026-08-26): описание награды из прошлой комнаты оставалось видимым поверх новой
         // анимации сундука (текст очищался только после ChestRevealFlow) — очищаем сразу, до тряски.
         rewardText.text = string.Empty;
@@ -1728,8 +1978,10 @@ public class RunFlowController : MonoBehaviour
 
         // 8.2: лента из ~20 иконок предметов, взятых из пула каталога (те же иконки, что уже
         // назначены в Task 2) — случайный подбор с повторами, если в каталоге меньше 20 предметов.
-        var pool = rewardManager.itemCatalog != null ? rewardManager.itemCatalog.items : null;
-        if (pool == null || pool.Length == 0)
+        var pool = rewardManager.itemCatalog != null
+            ? rewardManager.itemCatalog.GetCompatibleItems(characterManager.Character.characterClass)
+            : null;
+        if (pool == null || pool.Count == 0)
         {
             // Пустой каталог — деградируем на мгновенный переход к итогу без ленты, не зависаем.
             chestRevealContainer.style.display = DisplayStyle.None;
@@ -1744,7 +1996,7 @@ public class RunFlowController : MonoBehaviour
 
         void BuildSlot(int index, bool isWinning)
         {
-            Sprite iconSprite = isWinning ? winningIcon : pool[Random.Range(0, pool.Length)].icon;
+            Sprite iconSprite = isWinning ? winningIcon : pool[Random.Range(0, pool.Count)].icon;
             var icon = new Image { sprite = iconSprite };
             icon.AddToClassList("chest-reel-icon");
             icon.AddToClassList(isWinning ? ChestReelBgClassFor(reward.ItemRarity) : ChestReelBgClassFor(rewardManager.RollItemRarity(false)));
@@ -1774,16 +2026,51 @@ public class RunFlowController : MonoBehaviour
 
     // ==================== Сравнение предмета (3.4, "Без инвентаря") ====================
 
-    static string SlotLabel(EquipmentSlot slot)
+    static string SlotLabel(ItemData item)
     {
-        switch (slot)
+        if (item == null)
         {
-            case EquipmentSlot.Helmet: return "Шлем";
-            case EquipmentSlot.Armor: return "Броня";
+            return "Снаряжение";
+        }
+
+        bool isRogueOnly = item.allowedClasses != null && item.allowedClasses.Length == 1 && item.allowedClasses[0] == CharacterClass.Rogue;
+        bool isBarbarianOnly = item.allowedClasses != null && item.allowedClasses.Length == 1 && item.allowedClasses[0] == CharacterClass.Barbarian;
+
+        switch (item.slot)
+        {
+            case EquipmentSlot.Helmet: return isRogueOnly ? "Капюшон" : isBarbarianOnly ? "Трофей" : "Шлем";
+            case EquipmentSlot.Armor: return isRogueOnly ? "Кожаная броня" : isBarbarianOnly ? "Пояс" : "Нагрудник";
             case EquipmentSlot.Boots: return "Сапоги";
-            case EquipmentSlot.Weapon: return "Оружие";
+            case EquipmentSlot.Weapon: return item.weaponSubtype == WeaponSubtype.Shield ? "Щит" : item.isTwoHanded ? "Двуручное оружие" : "Оружие";
             case EquipmentSlot.Ring: return "Кольцо";
             default: return "Аксессуар";
+        }
+    }
+
+    static string BonusStatText(ItemData item)
+    {
+        BonusStat bonusStat = item != null ? item.bonusStat : null;
+        if (bonusStat == null || bonusStat.type == BonusStatType.None || Mathf.Approximately(bonusStat.baseValue, 0f))
+        {
+            return string.Empty;
+        }
+
+        float value = bonusStat.type == BonusStatType.MaxPhysicalDefenseFlat
+            ? ItemEffectBalance.ArmorAccessoryMaxDefense(bonusStat.baseValue, item.itemLevel)
+            : StatScaling.ScaleItemEffect(bonusStat.baseValue, item.itemLevel);
+        switch (bonusStat.type)
+        {
+            case BonusStatType.CritChancePercent: return $"+шанс крита: {value:F1}%";
+            case BonusStatType.ArmorPenetrationFlat: return $"+пробивание брони: {value:F1}";
+            case BonusStatType.AttackSpeedPercent: return $"+скорость атаки: {value:F1}%";
+            case BonusStatType.DamagePercent: return $"+урон: {value:F1}%";
+            case BonusStatType.FlatHP: return $"+HP: {value:F1}";
+            case BonusStatType.MaxPhysicalDefenseFlat: return $"+макс. физ. защита: {value:F1}";
+            case BonusStatType.MagicShieldFlat: return $"+магический щит: {value:F1}";
+            case BonusStatType.WeaponDamageFlat: return $"+урон оружия: {value:F1}";
+            case BonusStatType.EvasionPercent: return $"+уклонение: {value:F1}%";
+            case BonusStatType.ArmorIgnorePercent: return $"+игнорирование брони: {value:F1}%";
+            default: return string.Empty;
         }
     }
 
@@ -1794,7 +2081,7 @@ public class RunFlowController : MonoBehaviour
             return string.Empty;
         }
 
-        var lines = new List<string> { $"{SlotLabel(item.slot)}, {RarityLabel(item.tier)}, ур. {item.itemLevel}" };
+        var lines = new List<string> { $"{SlotLabel(item)}, {RarityLabel(item.tier)}, ур. {item.itemLevel}" };
 
         if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
         {
@@ -1812,14 +2099,72 @@ public class RunFlowController : MonoBehaviour
             lines.Add($"+макс. физ. защита: {item.EffectiveMaxDefenseBonus:F0}");
         }
 
-        if (item.bonusStat != null)
+        if (item.MagicShieldEffective > 0f)
         {
-            lines.Add($"{item.bonusStat.type}: {item.bonusStat.baseValue * item.itemLevel:F1}");
+            lines.Add($"Магический щит: {item.MagicShieldEffective:F0}");
+        }
+
+        if (item.HpBonusEffective > 0f)
+        {
+            lines.Add($"+HP: {item.HpBonusEffective:F0}");
+        }
+
+        if (item.rageBonusFlatPercent > 0f)
+        {
+            lines.Add($"+Ярость: {StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.itemLevel):F1}%");
+        }
+
+        string bonusText = BonusStatText(item);
+        if (!string.IsNullOrWhiteSpace(bonusText))
+        {
+            lines.Add(bonusText + $" (ранг эффекта {StatScaling.ItemEffectRank(item.itemLevel)})");
+            if (item.slot == EquipmentSlot.Ring && item.bonusStat.type == BonusStatType.MaxPhysicalDefenseFlat)
+            {
+                lines.Add("Второе кольцо брони даёт 50% этого бонуса.");
+            }
         }
 
         if (item.passiveSkill != null)
         {
             lines.Add($"Пассивка «{item.passiveSkill.skillName}»: {item.passiveSkill.effectDescription}");
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    // Карточка выбора должна оставаться короткой: иначе описание пассивки эпического предмета
+    // вытесняет второй физический слот оружия/кольца за нижнюю границу экрана. Полный текст
+    // по-прежнему доступен по стандартной подсказке элемента.
+    static string ItemComparisonSummary(ItemData item)
+    {
+        if (item == null)
+        {
+            return "Свободный слот";
+        }
+
+        var lines = new List<string> { $"{SlotLabel(item)}, {RarityLabel(item.tier)}, ур. {item.itemLevel}" };
+
+        if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
+        {
+            DamageCalculator.ComputeDamageRange(item.EffectiveDamage, out float dmgMin, out float dmgMax);
+            lines.Add($"Урон: {dmgMin:F0}–{dmgMax:F0}");
+        }
+        else if (item.physicalDefense > 0f)
+        {
+            lines.Add($"Физ. защита: {item.EffectiveDefense:F0}");
+        }
+        else if (item.HpBonusEffective > 0f)
+        {
+            lines.Add($"+HP: {item.HpBonusEffective:F0}");
+        }
+        else if (item.MagicShieldEffective > 0f)
+        {
+            lines.Add($"Магический щит: {item.MagicShieldEffective:F0}");
+        }
+
+        if (item.passiveSkill != null)
+        {
+            lines.Add($"Пассивка: {item.passiveSkill.skillName}");
         }
 
         return string.Join("\n", lines);
@@ -1834,7 +2179,9 @@ public class RunFlowController : MonoBehaviour
 
         ShowOnly(itemComparePanel);
         newItemName.text = newItem.itemName;
-        newItemStats.text = ItemStatsText(newItem);
+        newItemStats.text = ItemComparisonSummary(newItem);
+        newItemStats.tooltip = ItemStatsText(newItem);
+        tutorialManager?.QueueOnce(TutorialContent.Equipment);
 
         slotChoicesContainer.Clear();
         var buttons = new List<Button>();
@@ -1842,9 +2189,11 @@ public class RunFlowController : MonoBehaviour
         {
             var btn = new Button
             {
-                text = candidate != null ? $"Заменить: {candidate.itemName}\n{ItemStatsText(candidate)}" : "Занять свободный слот"
+                text = candidate != null ? $"Заменить: {candidate.itemName}\n{ItemComparisonSummary(candidate)}" : "Занять свободный слот",
+                tooltip = candidate != null ? ItemStatsText(candidate) : "Новый предмет займёт свободный слот."
             };
             btn.AddToClassList("choice-card");
+            btn.AddToClassList("item-slot-choice");
             slotChoicesContainer.Add(btn);
             buttons.Add(btn);
         }
@@ -1872,30 +2221,53 @@ public class RunFlowController : MonoBehaviour
 
         runScreen.style.display = DisplayStyle.None;
         resultsScreen.style.display = DisplayStyle.Flex;
+        tutorialManager?.QueueOnce(TutorialContent.Results);
 
         var completion = rewardManager.CalculateRunCompletionReward(
             victory,
             characterManager.RoomsClearedThisRun,
             dungeonManager.CurrentFloorNumber,
             characterManager.RoomsClearedOnCurrentFloor);
+        string clearBonus = victory
+            ? $"Бонус зачистки: +{completion.ClearBonusMetaCurrency} мета-валюты, +{completion.ClearBonusGachaCurrency} гача-валюты\n"
+            : string.Empty;
         if (saveManager != null)
         {
             int floorsCleared = victory ? DungeonManager.TotalFloors : Mathf.Max(0, dungeonManager.CurrentFloorNumber - 1);
             VeteranCharacter veteran = floorsCleared > 0 ? BuildVeteranSnapshot(floorsCleared) : null;
-            saveManager.CompleteRun(completion.MetaCurrency, completion.GachaCurrency, characterManager.Character.characterId, veteran);
+            int relationshipPoints = floorsCleared * 10;
+            int relationshipAdded = 0;
+            int relationshipBefore = saveManager.GetRelationshipPoints(characterManager.Character.characterId);
+            if (saveManager.CompleteRun(completion.MetaCurrency, completion.GachaCurrency, characterManager.Character.characterId, veteran, relationshipPoints))
+            {
+                relationshipAdded = saveManager.GetRelationshipPoints(characterManager.Character.characterId) - relationshipBefore;
+                if (relationshipAdded > 0) tutorialManager?.QueueOnce(TutorialContent.Relationships);
+            }
+            if (veteran != null) tutorialManager?.QueueOnce(TutorialContent.VeteranCreated);
+
+            string relationshipReward = relationshipAdded > 0
+                ? $"+{relationshipAdded} отношений с {characterManager.Character.characterName} ({saveManager.GetRelationshipPoints(characterManager.Character.characterId)}/{SaveManager.RelationshipLevelThreeThreshold})\n"
+                : string.Empty;
+            resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, relationshipReward);
         }
 
         resultsTitleLabel.text = victory ? "Победа" : "Поражение";
         resultsTitleLabel.RemoveFromClassList(victory ? "results-defeat" : "results-victory");
         resultsTitleLabel.AddToClassList(victory ? "results-victory" : "results-defeat");
 
-        resultsBodyLabel.text = $"{characterManager.Character.characterName} достигла {characterManager.Level} уровня.\n" +
+        if (saveManager == null) resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, string.Empty);
+
+        yield return WaitForClick(resultsContinueButton);
+    }
+
+    string BuildResultsText(bool victory, RunCompletionReward completion, string clearBonus, string relationshipReward)
+    {
+        return $"{characterManager.Character.characterName} достигла {characterManager.Level} уровня.\n" +
             $"Валюта забега (сгорает): {characterManager.RunCurrency}\n\n" +
             "Награды за забег:\n" +
             $"+{completion.MetaCurrency} мета-валюты\n" +
-            $"+{completion.GachaCurrency} гача-валюты";
-
-        yield return WaitForClick(resultsContinueButton);
+            $"+{completion.GachaCurrency} гача-валюты\n" +
+            clearBonus + relationshipReward;
     }
 
     VeteranCharacter BuildVeteranSnapshot(int floorsCleared)
@@ -1968,6 +2340,24 @@ public class RunFlowController : MonoBehaviour
     }
 
     // ==================== Общие UI-хелперы ====================
+
+    void BindStaticTutorialTooltips()
+    {
+        if (tutorialManager == null) return;
+        tutorialManager.BindTooltip(floorLabel, "Этаж и маршрут", TutorialContent.TooltipFloor);
+        tutorialManager.BindTooltip(roomProgressContainer, "Комнаты этажа", TutorialContent.TooltipFloor);
+        tutorialManager.BindTooltip(rationsLabel, "Рационы", TutorialContent.TooltipRations);
+        tutorialManager.BindTooltip(playerHpText, "Здоровье", TutorialContent.TooltipHp);
+        tutorialManager.BindTooltip(playerDefenseText, "Физическая защита", TutorialContent.TooltipArmor);
+        tutorialManager.BindTooltip(playerShieldText, "Магический щит", TutorialContent.TooltipShield);
+        tutorialManager.BindTooltip(autoModeToggle, "Авто-режим", TutorialContent.TooltipAuto);
+        tutorialManager.BindTooltip(activeSkillButton, "Активный навык", TutorialContent.TooltipAuto);
+        tutorialManager.BindTooltip(berserkToggle, "Берсерк", TutorialContent.TooltipBerserk);
+        tutorialManager.BindTooltip(levelUpRerollButton, "Перебросы", TutorialContent.TooltipReroll);
+        tutorialManager.BindTooltip(merchantCurrencyLabel, "Валюта забега", TutorialContent.TooltipRunCurrency);
+        tutorialManager.BindTooltip(newItemStats, "Ранг эффекта", TutorialContent.TooltipItemRank);
+        tutorialManager.BindTooltip(runLogScroll, "Журнал забега", "Здесь сохраняются важные события текущего забега: исходы комнат, награды, срабатывания навыков и изменения состояния персонажа.");
+    }
 
     void UpdateTopBar()
     {

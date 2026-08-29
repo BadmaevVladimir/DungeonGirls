@@ -19,7 +19,10 @@ MonoBehaviour:
   isTwoHanded: 0
   tier: 1
   itemLevel: 1
-  allowedClasses: 00000000
+  allowedClasses:
+  - 0
+  - 2
+  - 3
   baseDamage: 9
   damageType: 0
   attackSpeed: 1.5
