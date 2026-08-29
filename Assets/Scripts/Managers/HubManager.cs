@@ -28,6 +28,7 @@ public class HubManager : MonoBehaviour
     const int GachaPullCost = 50; // 8.5
     const string OpeningSceneId = "jennifer_intro_tavern";
     const string VioletFirstGachaSceneId = "violet_intro_gacha";
+    const string SashaFirstGachaSceneId = "sasha_intro_gacha";
 
     static readonly BuildingType[] BuildingOrder = { BuildingType.Forge, BuildingType.Temple, BuildingType.Tavern };
     static readonly string[] BuildingIds = { "Forge", "Temple", "Tavern" };
@@ -457,13 +458,16 @@ public class HubManager : MonoBehaviour
         yield return new WaitForSeconds(0.3f);
         gachaRevealContainer.style.display = DisplayStyle.None;
 
-        // Первая встреча Вайолет должна начаться сразу после её первого выпадения, ещё до
-        // текстового результата гачи. Это хаб-сцена: сохраняется как просмотренная, но не
-        // начисляет отношения (отношения дают только вызовы RunFlowController внутри забега).
-        bool firstViolet = result.IsCharacter && character != null &&
-            string.Equals(character.characterId, "violet", System.StringComparison.OrdinalIgnoreCase) && copies == 1 &&
-            !saveManager.HasSeenVNScene("violet", VioletFirstGachaSceneId);
-        if (firstViolet && vnManager != null && vnManager.TryPlayScene(VioletFirstGachaSceneId))
+        // Первые встречи Вайолет и Саши запускаются сразу после первой копии, ещё до
+        // текстового результата гачи. Это хаб-сцены: они сохраняются как просмотренные, но
+        // не начисляют отношения (очки дают только сцены внутри забега).
+        string firstSceneId = result.IsCharacter && character != null && copies == 1
+            ? string.Equals(character.characterId, "violet", System.StringComparison.OrdinalIgnoreCase) ? VioletFirstGachaSceneId
+            : string.Equals(character.characterId, "sasha", System.StringComparison.OrdinalIgnoreCase) ? SashaFirstGachaSceneId
+            : null
+            : null;
+        if (!string.IsNullOrWhiteSpace(firstSceneId) && !saveManager.HasSeenVNScene(character.characterId, firstSceneId) &&
+            vnManager != null && vnManager.TryPlayScene(firstSceneId))
         {
             while (vnManager.IsPlaying) yield return null;
         }

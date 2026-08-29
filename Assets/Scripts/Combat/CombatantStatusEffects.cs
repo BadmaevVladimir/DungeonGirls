@@ -15,6 +15,9 @@ public static class CombatantStatusEffects
         { "warlock_slow", "Проклятие замедления" },
         { "by_a_thread", "На волоске" }, // 3.11 (Плут) — бафф скорости атаки, см. ActiveDebuff.IsBuff
         { "intimidation", "Запугивание" }, // 3.11 (Варвар) — дебафф скорости атаки цели крита
+        { "event_damage_down", "Урон снижен" },
+        { "event_attack_speed_down", "Скорость атаки снижена" },
+        { "alarm_damage_buff", "Урон усилен сигнализацией" },
     };
 
     public static List<(string label, bool isBuff)> GetActiveEffects(CombatantRuntime combatant)
@@ -78,6 +81,31 @@ public static class CombatantStatusEffects
             effects.Add(("Берсерк", true));
         }
 
+        if (combatant.SmokeBombGuaranteedCritsRemaining > 0)
+        {
+            effects.Add(($"Гарантированные криты ×{combatant.SmokeBombGuaranteedCritsRemaining}", true));
+        }
+
+        if (combatant.RiposteArmed)
+        {
+            effects.Add(("Рипост готов", true));
+        }
+
+        if (combatant.PhysicalResistancePercent > 0f)
+        {
+            effects.Add(($"Физ. сопротивление {combatant.PhysicalResistancePercent:F0}%", true));
+        }
+
+        if (combatant.MagicalResistancePercent > 0f)
+        {
+            effects.Add(($"Маг. сопротивление {combatant.MagicalResistancePercent:F0}%", true));
+        }
+
+        if (combatant.SkillStubbornnessLevel > 0 && combatant.Rage > StubbornnessThreshold(combatant.SkillStubbornnessLevel))
+        {
+            effects.Add(("Упёртость: иммунитет к дебаффам", true));
+        }
+
         foreach (var debuff in combatant.ActiveDebuffs)
         {
             string label = ActiveDebuffNames.TryGetValue(debuff.Id, out var name) ? name : debuff.Id;
@@ -86,4 +114,14 @@ public static class CombatantStatusEffects
 
         return effects;
     }
+
+    static float StubbornnessThreshold(int level) => level switch
+    {
+        1 => 90f,
+        2 => 80f,
+        3 => 70f,
+        4 => 60f,
+        5 => 50f,
+        _ => 101f
+    };
 }

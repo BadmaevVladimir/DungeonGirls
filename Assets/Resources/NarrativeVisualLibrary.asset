@@ -32,6 +32,10 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: 6e61bcc42f3da0b428b6bca5ad7ed8d3, type: 3}
   - id: Hot_springs_bg
     sprite: {fileID: 21300000, guid: e6bbc0dcbfad08f459b10f34bcce71de, type: 3}
+  - id: Trap_room_bg
+    sprite: {fileID: 21300000, guid: 490e3de46e6244340bff7d3849fba553, type: 3}
+  - id: beer_room_bg
+    sprite: {fileID: 21300000, guid: 68fd6c7d9271bac4c84622b798d009e8, type: 3}
   cgs:
   - id: Jennifer_01
     sprite: {fileID: 21300000, guid: 8e3cfdea93b5f374996847cda8199849, type: 3}
@@ -49,3 +53,17 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: 7426ae715e2e6544f9912b511b074c41, type: 3}
   - id: Violet_03
     sprite: {fileID: 21300000, guid: c3cc7c7d0bcdaae488e582dfe8c9225e, type: 3}
+  - id: Violet_04
+    sprite: {fileID: 21300000, guid: 7766e7ef719875649ae173d8c1c61444, type: 3}
+  - id: Violet_05
+    sprite: {fileID: 21300000, guid: 666d76b92e0da1d488c1dde5e506d513, type: 3}
+  - id: Sasha_01
+    sprite: {fileID: 21300000, guid: 650fa529089fdaf44828a95dec1d0fa6, type: 3}
+  - id: Sasha_02
+    sprite: {fileID: 21300000, guid: e315d8d2f84c2bb4cb641117066dc504, type: 3}
+  - id: Sasha_03
+    sprite: {fileID: 21300000, guid: 9694673faafca91498335bc3dd6d0650, type: 3}
+  - id: Sasha_04
+    sprite: {fileID: 21300000, guid: 1c978e5e94c86c940abba98974464575, type: 3}
+  - id: Sasha_05
+    sprite: {fileID: 21300000, guid: 3b8ab9c9f0e8204488dd4546520a4c6b, type: 3}

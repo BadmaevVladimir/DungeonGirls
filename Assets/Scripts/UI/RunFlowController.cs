@@ -90,7 +90,6 @@ public class RunFlowController : MonoBehaviour
     // --- Бой ---
     Image playerStageSprite;
     VisualElement playerStageWrapper;
-    Label playerStatusLabel;
     VisualElement enemyStageRow;
     Label skillActivationBanner;
     Coroutine skillBannerCoroutine;
@@ -111,6 +110,12 @@ public class RunFlowController : MonoBehaviour
     Label playerHpText;
     Label playerDefenseText;
     Label playerShieldText;
+    VisualElement rageIndicator;
+    Label rageText;
+    VisualElement rageFill;
+    VisualElement stealthIndicator;
+    Label stealthText;
+    VisualElement playerStatusContainer;
     VisualElement enemyListContainer;
     Toggle autoModeToggle;
     Button activeSkillButton;
@@ -184,6 +189,8 @@ public class RunFlowController : MonoBehaviour
     int totalRoomsThisFloorCached;
     bool campSceneTriggeredThisRun;
     bool hotSpringsTriggeredThisRun;
+    bool violetTrapRoomTriggeredThisRun;
+    bool sashaBeerCellarTriggeredThisRun;
     bool huntQuestTriggeredThisRun;
     bool swordInStoneSucceededThisRun;
 
@@ -265,7 +272,13 @@ public class RunFlowController : MonoBehaviour
     {
         if (scene == null || !string.Equals(scene.id, pendingRunSceneId, System.StringComparison.OrdinalIgnoreCase)) return;
         pendingRunSceneId = null;
-        if (!pendingRunSceneWasUnseen || saveManager == null || string.IsNullOrWhiteSpace(scene.characterId)) return;
+        if (saveManager == null || string.IsNullOrWhiteSpace(scene.characterId)) return;
+
+        // Пропуск — тоже просмотр по утверждённому правилу. Сначала фиксируем сцену, чтобы
+        // она не могла повторно сработать на следующем забеге; очки отношений полагаются лишь
+        // за её первый просмотр.
+        saveManager.MarkVNSceneSeen(scene.characterId, scene.id);
+        if (!pendingRunSceneWasUnseen) return;
 
         const int relationshipPointsPerRunScene = 10;
         int added = saveManager.AddRelationshipPoints(scene.characterId, relationshipPointsPerRunScene);
@@ -647,10 +660,6 @@ public class RunFlowController : MonoBehaviour
 
         playerStageSprite = root.Q<Image>("PlayerStageSprite");
         playerStageWrapper = root.Q<VisualElement>("PlayerStageWrapper");
-        playerStatusLabel = new Label();
-        playerStatusLabel.AddToClassList("stage-status-label");
-        playerStatusLabel.enableRichText = true;
-        playerStageWrapper.Add(playerStatusLabel);
         enemyStageRow = root.Q<VisualElement>("EnemyStageRow");
         skillActivationBanner = root.Q<Label>("SkillActivationBanner");
         playerNameLabel = root.Q<Label>("PlayerNameLabel");
@@ -658,6 +667,12 @@ public class RunFlowController : MonoBehaviour
         playerHpText = root.Q<Label>("PlayerHpText");
         playerDefenseText = root.Q<Label>("PlayerDefenseText");
         playerShieldText = root.Q<Label>("PlayerShieldText");
+        rageIndicator = root.Q<VisualElement>("RageIndicator");
+        rageText = root.Q<Label>("RageText");
+        rageFill = root.Q<VisualElement>("RageFill");
+        stealthIndicator = root.Q<VisualElement>("StealthIndicator");
+        stealthText = root.Q<Label>("StealthText");
+        playerStatusContainer = root.Q<VisualElement>("PlayerStatusContainer");
         enemyListContainer = root.Q<VisualElement>("EnemyListContainer");
         runLogScroll = root.Q<ScrollView>("RunLogScroll");
         runLogText = root.Q<Label>("RunLogText");
@@ -729,6 +744,8 @@ public class RunFlowController : MonoBehaviour
         campManager.BeginRun(characterManager.TavernLevelThisRun);
         campSceneTriggeredThisRun = false;
         hotSpringsTriggeredThisRun = false;
+        violetTrapRoomTriggeredThisRun = false;
+        sashaBeerCellarTriggeredThisRun = false;
         huntQuestTriggeredThisRun = false;
         swordInStoneSucceededThisRun = false;
         dungeonManager.SetRunState(RunState.RunSetup);
@@ -918,6 +935,12 @@ public class RunFlowController : MonoBehaviour
                     weapon.DamageMin *= 1.1f;
                     weapon.DamageMax *= 1.1f;
                 }
+                enemy.ActiveDebuffs.Add(new ActiveDebuff
+                {
+                    Id = "alarm_damage_buff",
+                    RemainingTime = float.PositiveInfinity,
+                    IsBuff = true
+                });
             }
         }
 
@@ -931,6 +954,22 @@ public class RunFlowController : MonoBehaviour
             weapon.DamageMin *= dmgMult;
             weapon.DamageMax *= dmgMult;
             weapon.AttackSpeed *= spdMult;
+        }
+        if (dmgMult < 0.999f)
+        {
+            characterManager.Combatant.ActiveDebuffs.Add(new ActiveDebuff
+            {
+                Id = "event_damage_down",
+                RemainingTime = float.PositiveInfinity
+            });
+        }
+        if (spdMult < 0.999f)
+        {
+            characterManager.Combatant.ActiveDebuffs.Add(new ActiveDebuff
+            {
+                Id = "event_attack_speed_down",
+                RemainingTime = float.PositiveInfinity
+            });
         }
 
         var activeCharacter = characterManager.Progress.Character;
@@ -1058,6 +1097,30 @@ public class RunFlowController : MonoBehaviour
         playerDefenseText.text = $"Защита: {Mathf.Max(player.PhysicalDefenseCurrent, 0f):F0}/{player.PhysicalDefenseMax:F0}";
         playerShieldText.text = $"Щит: {Mathf.Max(player.MagicShieldCurrent, 0f):F0}/{player.MagicShieldMax:F0}";
 
+        bool isBarbarianCombat = characterManager.Progress.Character.characterClass == CharacterClass.Barbarian;
+        float rage = player.Rage;
+        rageIndicator.EnableInClassList("hidden", !isBarbarianCombat);
+        if (isBarbarianCombat)
+        {
+            rageText.text = $"ЯРОСТЬ: {rage:F0}%";
+            rageFill.style.width = new Length(Mathf.Clamp(rage, 0f, 100f), LengthUnit.Percent);
+            rageIndicator.EnableInClassList("rage-indicator-high", rage >= 70f);
+        }
+
+        bool isRogueCombat = characterManager.Progress.Character.characterClass == CharacterClass.Rogue;
+        bool showStealth = isRogueCombat && player.IsStealthed;
+        stealthIndicator.EnableInClassList("hidden", !showStealth);
+        playerStageWrapper.EnableInClassList("stealth-stage-active", showStealth);
+        if (showStealth)
+        {
+            string crits = player.SmokeBombGuaranteedCritsRemaining > 0
+                ? $" • критов: {player.SmokeBombGuaranteedCritsRemaining}"
+                : string.Empty;
+            stealthText.text = $"◆ СКРЫТНОСТЬ {Mathf.Max(0f, player.StealthTimer):F1}с{crits}";
+        }
+
+        PopulateStatusContainer(playerStatusContainer, player, hideStealth: true);
+
         enemyListContainer.Clear();
         foreach (var enemy in combatManager.Enemies)
         {
@@ -1089,6 +1152,11 @@ public class RunFlowController : MonoBehaviour
             statsText.AddToClassList("stat-text");
             box.Add(statsText);
 
+            var enemyStatusContainer = new VisualElement();
+            enemyStatusContainer.AddToClassList("combat-status-container");
+            PopulateStatusContainer(enemyStatusContainer, enemy);
+            box.Add(enemyStatusContainer);
+
             if (enemy.IsAlive)
             {
                 box.RegisterCallback<ClickEvent>(_ => combatManager.SetPlayerTarget(enemy));
@@ -1103,7 +1171,6 @@ public class RunFlowController : MonoBehaviour
         // дочерних элементах, вроде всплывающих цифр урона, уничтожались бы каждый тик).
         float stageFloorGap = GetStageFloorGapFromBottom();
         playerStageWrapper.style.marginBottom = stageFloorGap;
-        UpdateStatusLabel(playerStatusLabel, player);
 
         foreach (var entry in enemyStageEntries)
         {
@@ -1112,7 +1179,6 @@ public class RunFlowController : MonoBehaviour
             UpdateStatusLabel(entry.StatusLabel, entry.Combatant);
         }
 
-        bool isBarbarianCombat = characterManager.Progress.Character.characterClass == CharacterClass.Barbarian;
         activeSkillButton.EnableInClassList("hidden", isBarbarianCombat);
         autoModeToggle.EnableInClassList("hidden", isBarbarianCombat);
         berserkToggle.EnableInClassList("hidden", !isBarbarianCombat);
@@ -1169,6 +1235,25 @@ public class RunFlowController : MonoBehaviour
     // 4.7 [ОБНОВЛЕНО]: средне-насыщенные (не пастель, не кислотные) баф/дебафф-подписи — rich-text
     // цвет прямо в тексте лейбла, отдельного лейбла на строку не нужно. Пилюля-подложка (см. USS
     // .stage-status-label) скрывается целиком, когда эффектов нет — иначе висела бы пустой фон.
+    void PopulateStatusContainer(VisualElement container, CombatantRuntime combatant, bool hideStealth = false)
+    {
+        if (container == null) return;
+        container.Clear();
+
+        var effects = CombatantStatusEffects.GetActiveEffects(combatant);
+        foreach (var effect in effects)
+        {
+            if (hideStealth && effect.label == "Скрытность") continue;
+
+            var badge = new Label(effect.label);
+            badge.AddToClassList("combat-status-badge");
+            badge.AddToClassList(effect.isBuff ? "combat-status-buff" : "combat-status-debuff");
+            container.Add(badge);
+        }
+
+        container.EnableInClassList("hidden", container.childCount == 0);
+    }
+
     void UpdateStatusLabel(Label label, CombatantRuntime combatant)
     {
         var effects = CombatantStatusEffects.GetActiveEffects(combatant);
@@ -1473,15 +1558,13 @@ public class RunFlowController : MonoBehaviour
 
     IEnumerator EventRoomFlow()
     {
-        // «Горячие источники» конкурируют с квестами внутри особой комнаты: 30% на каждую
-        // подходящую особую комнату, но после первого появления больше не выбираются.
-        // Источники не могут быть первой комнатой всего забега: первый специальный узел на
-        // старте остаётся обычным квестом. Дальше их шанс — 30% среди особых комнат, максимум
-        // один раз за забег.
-        if (!hotSpringsTriggeredThisRun && characterManager.RoomsClearedThisRun > 0 && Random.value < 0.30f)
+        // Персональная комната отдыха конкурирует с квестами внутри особой комнаты: 30% на
+        // каждую подходящую особую комнату, но не чаще одного раза за забег. Дженифер находит
+        // горячие источники, Вайолет — комнату ловушек, а Саша — пивной погреб. Такие комнаты
+        // не могут стать первой комнатой всего забега.
+        if (characterManager.RoomsClearedThisRun > 0 && Random.value < 0.30f && TryReservePersonalRestRoom())
         {
-            hotSpringsTriggeredThisRun = true;
-            yield return HotSpringsRoomFlow();
+            yield return PersonalRestRoomFlow();
             yield break;
         }
 
@@ -1596,15 +1679,38 @@ public class RunFlowController : MonoBehaviour
         }
     }
 
-    IEnumerator HotSpringsRoomFlow()
+    bool TryReservePersonalRestRoom()
     {
-        string sceneId = null;
-        if (string.Equals(characterManager.Character.characterId, "jennifer", System.StringComparison.OrdinalIgnoreCase))
+        string characterId = characterManager?.Character?.characterId;
+        if (string.Equals(characterId, "jennifer", System.StringComparison.OrdinalIgnoreCase) && !hotSpringsTriggeredThisRun)
         {
-            sceneId = saveManager.GetRelationshipLevel("jennifer") >= SaveManager.MaxRelationshipLevel
-                ? "jennifer_hot_springs_high"
-                : "jennifer_hot_springs_low";
+            hotSpringsTriggeredThisRun = true;
+            return true;
         }
+        if (string.Equals(characterId, "violet", System.StringComparison.OrdinalIgnoreCase) && !violetTrapRoomTriggeredThisRun)
+        {
+            violetTrapRoomTriggeredThisRun = true;
+            return true;
+        }
+        if (string.Equals(characterId, "sasha", System.StringComparison.OrdinalIgnoreCase) && !sashaBeerCellarTriggeredThisRun)
+        {
+            sashaBeerCellarTriggeredThisRun = true;
+            return true;
+        }
+        return false;
+    }
+
+    IEnumerator PersonalRestRoomFlow()
+    {
+        string characterId = characterManager.Character.characterId;
+        bool highRelationship = saveManager.GetRelationshipLevel(characterId) >= SaveManager.MaxRelationshipLevel;
+        string sceneId = characterId.ToLowerInvariant() switch
+        {
+            "jennifer" => highRelationship ? "jennifer_hot_springs_high" : "jennifer_hot_springs_low",
+            "violet" => highRelationship ? "violet_trap_room_high" : "violet_trap_room_low",
+            "sasha" => highRelationship ? "sasha_beer_cellar_high" : "sasha_beer_cellar_low",
+            _ => null
+        };
 
         if (!string.IsNullOrWhiteSpace(sceneId) && !saveManager.HasSeenVNScene(characterManager.Character.characterId, sceneId) && TryPlayRunVNScene(sceneId))
         {
@@ -1614,8 +1720,14 @@ public class RunFlowController : MonoBehaviour
         ShowOnly(campPanel);
         tutorialManager?.QueueOnce(TutorialContent.HotSprings);
         float hpRestored = campManager.RestoreFullHealth(characterManager);
-        campText.text = $"Горячие источники восстанавливают силы...\n+{hpRestored:F0} HP\nРационы не потрачены: {campManager.RationsRemaining}";
-        LogEvent($"[Горячие источники] +{hpRestored:F0} HP, рацион не потрачен.");
+        string roomName = characterId.ToLowerInvariant() switch
+        {
+            "violet" => "Комната ловушек",
+            "sasha" => "Пивной погреб",
+            _ => "Горячие источники"
+        };
+        campText.text = $"{roomName} восстанавливает силы...\n+{hpRestored:F0} HP\nРационы не потрачены: {campManager.RationsRemaining}";
+        LogEvent($"[{roomName}] +{hpRestored:F0} HP, рацион не потрачен.");
         yield return WaitForClick(campContinueButton);
     }
 
@@ -1749,6 +1861,10 @@ public class RunFlowController : MonoBehaviour
         else if (string.Equals(characterId, "violet", System.StringComparison.OrdinalIgnoreCase))
         {
             sceneId = highRelationship ? "violet_camp_high" : "violet_camp_low";
+        }
+        else if (string.Equals(characterId, "sasha", System.StringComparison.OrdinalIgnoreCase))
+        {
+            sceneId = highRelationship ? "sasha_camp_high" : "sasha_camp_low";
         }
 
         if (string.IsNullOrWhiteSpace(sceneId) || saveManager.HasSeenVNScene(characterId, sceneId)) yield break;
@@ -2144,22 +2260,42 @@ public class RunFlowController : MonoBehaviour
 
         var lines = new List<string> { $"{SlotLabel(item)}, {RarityLabel(item.tier)}, ур. {item.itemLevel}" };
 
+        var mainStats = new List<string>();
         if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
         {
             DamageCalculator.ComputeDamageRange(item.EffectiveDamage, out float dmgMin, out float dmgMax);
-            lines.Add($"Урон: {dmgMin:F0}–{dmgMax:F0}");
+            mainStats.Add($"урон {dmgMin:F0}–{dmgMax:F0}");
         }
-        else if (item.physicalDefense > 0f)
+
+        if (item.physicalDefense > 0f)
         {
-            lines.Add($"Физ. защита: {item.EffectiveDefense:F0}");
+            mainStats.Add($"физ. защита {item.EffectiveDefense:F0}");
         }
-        else if (item.HpBonusEffective > 0f)
+        if (item.maxPhysicalDefenseBonus > 0f)
         {
-            lines.Add($"+HP: {item.HpBonusEffective:F0}");
+            mainStats.Add($"макс. физ. защита +{item.EffectiveMaxDefenseBonus:F0}");
         }
-        else if (item.MagicShieldEffective > 0f)
+        if (item.MagicShieldEffective > 0f)
         {
-            lines.Add($"Магический щит: {item.MagicShieldEffective:F0}");
+            mainStats.Add($"маг. щит +{item.MagicShieldEffective:F0}");
+        }
+        if (item.HpBonusEffective > 0f)
+        {
+            mainStats.Add($"HP +{item.HpBonusEffective:F0}");
+        }
+        if (item.rageBonusFlatPercent > 0f)
+        {
+            mainStats.Add($"Ярость +{StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.itemLevel):F1}%");
+        }
+        if (mainStats.Count > 0)
+        {
+            lines.Add(string.Join(" · ", mainStats));
+        }
+
+        string bonusText = BonusStatText(item);
+        if (!string.IsNullOrWhiteSpace(bonusText))
+        {
+            lines.Add(bonusText);
         }
 
         if (item.passiveSkill != null)
@@ -2350,6 +2486,8 @@ public class RunFlowController : MonoBehaviour
         tutorialManager.BindTooltip(playerHpText, "Здоровье", TutorialContent.TooltipHp);
         tutorialManager.BindTooltip(playerDefenseText, "Физическая защита", TutorialContent.TooltipArmor);
         tutorialManager.BindTooltip(playerShieldText, "Магический щит", TutorialContent.TooltipShield);
+        tutorialManager.BindTooltip(rageIndicator, "Ярость", TutorialContent.TooltipRage);
+        tutorialManager.BindTooltip(stealthIndicator, "Скрытность", TutorialContent.TooltipStealth);
         tutorialManager.BindTooltip(autoModeToggle, "Авто-режим", TutorialContent.TooltipAuto);
         tutorialManager.BindTooltip(activeSkillButton, "Активный навык", TutorialContent.TooltipAuto);
         tutorialManager.BindTooltip(berserkToggle, "Берсерк", TutorialContent.TooltipBerserk);

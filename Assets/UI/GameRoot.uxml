@@ -133,6 +133,16 @@
                         <ui:Label name="PlayerHpText" text="20/20" class="hp-text" />
                         <ui:Label name="PlayerDefenseText" text="Защита: 0" class="stat-text" />
                         <ui:Label name="PlayerShieldText" text="Щит: 0" class="stat-text" />
+                        <ui:VisualElement name="RageIndicator" class="resource-indicator rage-indicator hidden">
+                            <ui:Label name="RageText" text="Ярость: 0%" class="resource-indicator-label" />
+                            <ui:VisualElement class="resource-bar-bg">
+                                <ui:VisualElement name="RageFill" class="resource-bar-fill rage-bar-fill" style="width: 0%;" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="StealthIndicator" class="resource-indicator stealth-indicator hidden">
+                            <ui:Label name="StealthText" text="СКРЫТНОСТЬ" class="resource-indicator-label stealth-indicator-label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="PlayerStatusContainer" class="combat-status-container hidden" />
                     </ui:VisualElement>
                     <ui:VisualElement name="EnemyListContainer" class="enemy-list" />
                 </ui:VisualElement>

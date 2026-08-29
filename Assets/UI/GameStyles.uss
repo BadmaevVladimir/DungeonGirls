@@ -274,6 +274,17 @@ Button {
     align-items: center;
 }
 
+.stealth-stage-active {
+    background-color: rgba(24, 80, 105, 0.24);
+    border-width: 3px;
+    border-color: rgb(82, 224, 255);
+    border-radius: 28px;
+}
+
+.stealth-stage-active .stage-sprite {
+    -unity-background-image-tint-color: rgb(155, 235, 255);
+}
+
 .enemy-stage-row {
     flex-direction: row;
     align-items: flex-end;
@@ -348,6 +359,88 @@ Button {
     -unity-text-outline-width: 1px;
     -unity-text-outline-color: rgba(0, 0, 0, 0.85);
     white-space: normal;
+}
+
+.resource-indicator {
+    margin-top: 7px;
+    padding: 6px 8px;
+    border-width: 2px;
+    border-radius: 6px;
+}
+
+.resource-indicator-label {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: rgb(255, 247, 225);
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgb(0, 0, 0);
+}
+
+.rage-indicator {
+    background-color: rgba(76, 24, 12, 0.96);
+    border-color: rgb(221, 104, 42);
+}
+
+.rage-indicator-high {
+    background-color: rgba(104, 13, 10, 0.98);
+    border-color: rgb(255, 70, 35);
+}
+
+.resource-bar-bg {
+    height: 11px;
+    margin-top: 4px;
+    background-color: rgb(35, 17, 16);
+    border-width: 1px;
+    border-color: rgba(255, 190, 120, 0.7);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.resource-bar-fill {
+    height: 100%;
+}
+
+.rage-bar-fill {
+    background-color: rgb(236, 75, 28);
+}
+
+.stealth-indicator {
+    background-color: rgba(8, 48, 68, 0.98);
+    border-color: rgb(82, 224, 255);
+}
+
+.stealth-indicator-label {
+    color: rgb(135, 240, 255);
+    -unity-text-align: middle-center;
+}
+
+.combat-status-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.combat-status-badge {
+    margin-right: 5px;
+    margin-bottom: 5px;
+    padding: 4px 7px;
+    border-width: 2px;
+    border-radius: 5px;
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: rgb(250, 250, 252);
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgb(0, 0, 0);
+}
+
+.combat-status-buff {
+    background-color: rgba(24, 79, 42, 0.98);
+    border-color: rgb(88, 218, 116);
+}
+
+.combat-status-debuff {
+    background-color: rgba(102, 25, 31, 0.98);
+    border-color: rgb(246, 91, 91);
 }
 
 /* 4.7: баннер активации уникального активного навыка — общий на весь бой, верх-центр сцены. */

@@ -45,7 +45,9 @@ public static class NarrativeSetupTool
         {
             CreateVisual("tavern_bg", "Assets/Art/Backgrounds/tavern_bg.png"),
             CreateVisual("Dungeon_dialog", "Assets/Art/Backgrounds/Dungeon_dialog.png"),
-            CreateVisual("Hot_springs_bg", "Assets/Art/Backgrounds/Hot_springs_bg.png")
+            CreateVisual("Hot_springs_bg", "Assets/Art/Backgrounds/Hot_springs_bg.png"),
+            CreateVisual("Trap_room_bg", "Assets/Art/Backgrounds/Trap_room_bg.png"),
+            CreateVisual("beer_room_bg", "Assets/Art/Backgrounds/beer_room_bg.png")
         };
         library.cgs = new[]
         {
@@ -56,7 +58,14 @@ public static class NarrativeSetupTool
             CreateVisual("Jennifer_05", "Assets/Art/CG Art/Jennifer_05.png"),
             CreateVisual("Violet_01", "Assets/Art/CG Art/Violet_01.png"),
             CreateVisual("Violet_02", "Assets/Art/CG Art/Violet_02.png"),
-            CreateVisual("Violet_03", "Assets/Art/CG Art/Violet_03.png")
+            CreateVisual("Violet_03", "Assets/Art/CG Art/Violet_03.png"),
+            CreateVisual("Violet_04", "Assets/Art/CG Art/Violet_04.png"),
+            CreateVisual("Violet_05", "Assets/Art/CG Art/Violet_05.png"),
+            CreateVisual("Sasha_01", "Assets/Art/CG Art/Sasha_01.png"),
+            CreateVisual("Sasha_02", "Assets/Art/CG Art/Sasha_02.png"),
+            CreateVisual("Sasha_03", "Assets/Art/CG Art/Sasha_03.png"),
+            CreateVisual("Sasha_04", "Assets/Art/CG Art/Sasha_04.png"),
+            CreateVisual("Sasha_05", "Assets/Art/CG Art/Sasha_05.png")
         };
 
         EditorUtility.SetDirty(library);

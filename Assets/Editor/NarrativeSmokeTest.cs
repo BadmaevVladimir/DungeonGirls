@@ -42,10 +42,11 @@ public static class NarrativeSmokeTest
             string[] newSceneIds =
             {
                 "jennifer_camp_low", "jennifer_camp_high", "jennifer_hot_springs_low", "jennifer_hot_springs_high",
-                "violet_intro_gacha", "violet_camp_low", "violet_camp_high"
+                "violet_intro_gacha", "violet_camp_low", "violet_camp_high", "violet_trap_room_low", "violet_trap_room_high",
+                "sasha_intro_gacha", "sasha_camp_low", "sasha_camp_high", "sasha_beer_cellar_low", "sasha_beer_cellar_high"
             };
             Check(newSceneIds.All(id => shippedRepository.TryGetScene(id, out var authored) && authored != null && authored.lines.Length > 0),
-                "all seven newly authored Jennifer/Violet scenes load and validate");
+                "all fourteen authored Jennifer/Violet/Sasha scenes load and validate");
 
             var tooManyActors = JsonUtility.FromJson<NarrativeSceneData>(TooManyActorsJson());
             Check(NarrativeSceneValidator.Validate(tooManyActors).Exists(error => error.Contains("maximum is 5")), "validator rejects more than five visible actors");
@@ -69,8 +70,11 @@ public static class NarrativeSmokeTest
             Check(sourceLibrary != null && sourceLibrary.TryGetBackground("Dungeon_dialog", out var dungeonBackground) && dungeonBackground != null &&
                   sourceLibrary.TryGetBackground("Hot_springs_bg", out var springsBackground) && springsBackground != null &&
                   sourceLibrary.TryGetCg("Jennifer_05", out var jenniferCg05) && jenniferCg05 != null &&
-                  sourceLibrary.TryGetCg("Violet_03", out var violetCg03) && violetCg03 != null,
-                "visual library contains new dungeon/hot-springs backgrounds and Jennifer/Violet CGs");
+                  sourceLibrary.TryGetBackground("Trap_room_bg", out var trapRoomBackground) && trapRoomBackground != null &&
+                  sourceLibrary.TryGetBackground("beer_room_bg", out var beerRoomBackground) && beerRoomBackground != null &&
+                  sourceLibrary.TryGetCg("Violet_05", out var violetCg05) && violetCg05 != null &&
+                  sourceLibrary.TryGetCg("Sasha_05", out var sashaCg05) && sashaCg05 != null,
+                "visual library contains backgrounds and CGs for Jennifer, Violet and Sasha scenes");
 
             var testLibrary = UnityEngine.Object.Instantiate(sourceLibrary);
             var testTexture = new Texture2D(2, 2);

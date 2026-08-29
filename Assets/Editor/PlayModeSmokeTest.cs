@@ -1325,6 +1325,12 @@ public static class PlayModeSmokeTest
         RequireElement(root, "PauseResumeButton");
         RequireElement(root, "PauseAbandonRunButton");
         RequireElement(root, "PauseQuitGameButton");
+        RequireElement(root, "RageIndicator");
+        RequireElement(root, "RageText");
+        RequireElement(root, "RageFill");
+        RequireElement(root, "StealthIndicator");
+        RequireElement(root, "StealthText");
+        RequireElement(root, "PlayerStatusContainer");
         RequireElement(root, "LevelUpTitle");
         RequireElement(root, "LevelUpRerollButton");
         RequireElement(root, "HelpButton");
@@ -1787,6 +1793,29 @@ public static class PlayModeSmokeTest
         Check(statusEffects.Exists(e => e.label == "Кровотечение" && !e.isBuff), "4.7 список статусов: кровотечение");
         Check(statusEffects.Exists(e => e.label == "Оглушающий крик" && !e.isBuff), "4.7 список статусов: крит-дебафф Гарпии");
         Check(statusEffects.Exists(e => e.label == "Проклятие замедления" && !e.isBuff), "4.7 список статусов: именованный ActiveDebuff по Id");
+
+        var visiblePlayerEffects = new CombatantRuntime
+        {
+            MaxHP = 100f,
+            CurrentHP = 25f,
+            SkillStubbornnessLevel = 3,
+            SmokeBombGuaranteedCritsRemaining = 2,
+            RiposteArmed = true,
+            PhysicalResistancePercent = 20f,
+            MagicalResistancePercent = 15f
+        };
+        visiblePlayerEffects.ActiveDebuffs.Add(new ActiveDebuff { Id = "event_damage_down", RemainingTime = float.PositiveInfinity });
+        visiblePlayerEffects.ActiveDebuffs.Add(new ActiveDebuff { Id = "event_attack_speed_down", RemainingTime = float.PositiveInfinity });
+        var visibleEffects = CombatantStatusEffects.GetActiveEffects(visiblePlayerEffects);
+        Check(visibleEffects.Exists(e => e.label == "Урон снижен" && !e.isBuff) &&
+              visibleEffects.Exists(e => e.label == "Скорость атаки снижена" && !e.isBuff),
+            "4.7 штрафы событий к урону и скорости отображаются отдельными дебаффами");
+        Check(visibleEffects.Exists(e => e.label == "Гарантированные криты ×2" && e.isBuff) &&
+              visibleEffects.Exists(e => e.label == "Рипост готов" && e.isBuff) &&
+              visibleEffects.Exists(e => e.label.Contains("Физ. сопротивление") && e.isBuff) &&
+              visibleEffects.Exists(e => e.label.Contains("Маг. сопротивление") && e.isBuff) &&
+              visibleEffects.Exists(e => e.label.Contains("Упёртость") && e.isBuff),
+            "4.7 временные боевые преимущества игрока отражаются в списке баффов");
 
         var frozenTestCombatant = new CombatantRuntime { IsFrozen = true, FreezeStacks = 5 };
         var frozenEffects = CombatantStatusEffects.GetActiveEffects(frozenTestCombatant);
