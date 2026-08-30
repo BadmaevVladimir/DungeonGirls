@@ -52,6 +52,18 @@ public class CombatManager : MonoBehaviour
     static bool IgnoresDebuffs(CombatantRuntime target) =>
         target.SkillStubbornnessLevel > 0 && target.Rage > StubbornnessThreshold(target.SkillStubbornnessLevel);
 
+    // Codex P1 (ФИКС, 2026-08-27): раньше CombatRoomFlow всегда передавал hitCount=3 и конфиг из
+    // jenniferCharacter.uniqueActiveSkill — Плут получал бы конфигурацию Дженифер (неверный
+    // hitCount/имя навыка), а Варвар вообще не имеет кулдаун-активки (Берсерк — ручной тумблер, см.
+    // ниже). Единственный текущий кейс с hitCount != 3 — Дымовая граната Плута (не бьёт сама, см.
+    // TryActivateUniqueActiveSkill, которое жёстко возвращает до hit-loop для неё независимо от
+    // переданного числа) — hitCount=0 здесь просто отражает намерение корректно.
+    public static int ResolveActiveSkillHitCount(CharacterClass characterClass) => characterClass switch
+    {
+        CharacterClass.Rogue => 0, // Дымовая граната — не бьёт сама
+        _ => 3 // "3 быстрые атаки" (Дженифер/Воин) — единственный hit-loop навык прототипа кроме Дымовой гранаты
+    };
+
     // 4.3: уникальный активный навык персонажа (3.1 "3 быстрые атаки" — единственный активный
     // навык прототипа, общего пула активных навыков в 3.9 нет). Настраивается при входе в бой,
     // т.к. зависит от текущего уровня навыка игрока.

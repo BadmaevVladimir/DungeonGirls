@@ -863,18 +863,6 @@ public class RunFlowController : MonoBehaviour
 
     int RollMonsterCount(int level) => MonsterEncounterBudget.RollMonsterCount(level);
 
-    // Codex P1 (ФИКС, 2026-08-27): раньше CombatRoomFlow всегда передавал hitCount=3 и конфиг из
-    // jenniferCharacter.uniqueActiveSkill — Плут получал бы конфигурацию Дженифер (неверный
-    // hitCount/имя навыка), а Варвар вообще не имеет кулдаун-активки (Берсерк — ручной тумблер, см.
-    // ниже). Единственный текущий кейс с hitCount != 3 — Дымовая граната Плута (не бьёт сама, см.
-    // CombatManager.TryActivateUniqueActiveSkill, которое жёстко возвращает до hit-loop для неё
-    // независимо от переданного числа) — hitCount=0 здесь просто отражает намерение корректно.
-    public static int ResolveActiveSkillHitCount(CharacterClass characterClass) => characterClass switch
-    {
-        CharacterClass.Rogue => 0, // Дымовая граната — не бьёт сама
-        _ => 3 // "3 быстрые атаки" (Дженифер/Воин) — единственный hit-loop навык прототипа кроме Дымовой гранаты
-    };
-
     IEnumerator CombatRoomFlow(bool isBoss)
     {
         var enemies = new List<CombatantRuntime>();
@@ -973,7 +961,7 @@ public class RunFlowController : MonoBehaviour
         {
             int activeLevel = characterManager.Progress.UniqueActiveLevel;
             float activeMultiplier = activeLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f };
-            int hitCount = ResolveActiveSkillHitCount(activeCharacter.characterClass);
+            int hitCount = CombatManager.ResolveActiveSkillHitCount(activeCharacter.characterClass);
             combatManager.ConfigureUniqueActiveSkill(hitCount, activeMultiplier, activeCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value, activeCharacter.uniqueActiveSkill.skillName, activeCharacter.uniqueActiveSkill.skillId);
         }
 

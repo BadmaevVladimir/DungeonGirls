@@ -1289,10 +1289,10 @@ public static class PlayModeSmokeTest
         rogueForSkillTest.characterName = "ТестПлутАктивка";
         rogueForSkillTest.characterClass = CharacterClass.Rogue;
         rogueForSkillTest.baseHealth = 100;
-        Check(RunFlowController.ResolveActiveSkillHitCount(rogueForSkillTest.characterClass) == 0,
-            $"Task 5: ResolveActiveSkillHitCount(Rogue) == 0 (Дымовая граната не бьёт сама): {RunFlowController.ResolveActiveSkillHitCount(rogueForSkillTest.characterClass)}");
-        Check(RunFlowController.ResolveActiveSkillHitCount(CharacterClass.Warrior) == 3,
-            $"Task 5: ResolveActiveSkillHitCount(Warrior) == 3 (3 быстрые атаки Дженифер): {RunFlowController.ResolveActiveSkillHitCount(CharacterClass.Warrior)}");
+        Check(CombatManager.ResolveActiveSkillHitCount(rogueForSkillTest.characterClass) == 0,
+            $"Task 5: ResolveActiveSkillHitCount(Rogue) == 0 (Дымовая граната не бьёт сама): {CombatManager.ResolveActiveSkillHitCount(rogueForSkillTest.characterClass)}");
+        Check(CombatManager.ResolveActiveSkillHitCount(CharacterClass.Warrior) == 3,
+            $"Task 5: ResolveActiveSkillHitCount(Warrior) == 3 (3 быстрые атаки Дженифер): {CombatManager.ResolveActiveSkillHitCount(CharacterClass.Warrior)}");
         UnityEngine.Object.DestroyImmediate(rogueForSkillTest);
     }
 
