@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Skill_Elimination
   m_EditorClassIdentifier: Assembly-CSharp::PassiveSkillData
   skillName: "\u0423\u0441\u0442\u0440\u0430\u043D\u0435\u043D\u0438\u0435"
+  skillId: 22
   category: 5
   effectDescription: "\u041A\u0440\u0438\u0442-\u043C\u043D\u043E\u0436\u0438\u0442\u0435\u043B\u044C
     \u0443\u0440\u043E\u043D\u0430: 1\u0443\u0440=175%, 2\u0443\u0440=180%, 3\u0443\u0440=185%,

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Skill_EyeForAnEye
   m_EditorClassIdentifier: Assembly-CSharp::PassiveSkillData
   skillName: "\u0412 \u0433\u043B\u0430\u0437"
+  skillId: 19
   category: 5
   effectDescription: "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0439
     \u0430\u0442\u0430\u043A\u0438: 1\u0443\u0440=+2%, 2\u0443\u0440=+5%, 3\u0443\u0440=+7.5%,
