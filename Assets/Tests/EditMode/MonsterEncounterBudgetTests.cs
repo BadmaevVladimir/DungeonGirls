@@ -47,4 +47,22 @@ public class MonsterEncounterBudgetTests
 
         Object.DestroyImmediate(monster);
     }
+
+    [Test]
+    public void RollMonsterCount_Level2OrBelow_AlwaysReturnsOne()
+    {
+        Assert.AreEqual(1, MonsterEncounterBudget.RollMonsterCount(1));
+        Assert.AreEqual(1, MonsterEncounterBudget.RollMonsterCount(2));
+    }
+
+    [Test]
+    public void RollMonsterCount_Level6OrAbove_ReturnsBetweenOneAndThree()
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            int count = MonsterEncounterBudget.RollMonsterCount(6);
+            Assert.GreaterOrEqual(count, 1);
+            Assert.LessOrEqual(count, 3);
+        }
+    }
 }

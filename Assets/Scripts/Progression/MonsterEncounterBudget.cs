@@ -23,4 +23,13 @@ public static class MonsterEncounterBudget
         var affordable = eligibleMonsters.FindAll(monster => monster != null && GetThreatCost(monster) <= remainingBudget);
         return affordable.Count > 0 ? affordable[Random.Range(0, affordable.Count)] : null;
     }
+
+    // 4.1 [ОБНОВЛЕНО после третьего плейтеста]: пороги количества монстров в обычной боевой
+    // комнате снижены — старый порог в 7 уровня для 3 монстров был слишком поздним.
+    public static int RollMonsterCount(int level)
+    {
+        if (level <= 2) return 1;
+        if (level <= 5) return Random.Range(1, 3); // 1-2
+        return Random.Range(1, 4); // 1-3 (уровень 6+)
+    }
 }

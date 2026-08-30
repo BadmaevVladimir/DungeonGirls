@@ -861,14 +861,7 @@ public class RunFlowController : MonoBehaviour
 
     // ==================== Бой (раздел 4, 7.2) ====================
 
-    // 4.1 [ОБНОВЛЕНО после третьего плейтеста]: пороги количества монстров в обычной боевой
-    // комнате снижены — старый порог в 7 уровня для 3 монстров был слишком поздним.
-    int RollMonsterCount(int level)
-    {
-        if (level <= 2) return 1;
-        if (level <= 5) return Random.Range(1, 3); // 1-2
-        return Random.Range(1, 4); // 1-3 (уровень 6+)
-    }
+    int RollMonsterCount(int level) => MonsterEncounterBudget.RollMonsterCount(level);
 
     // Codex P1 (ФИКС, 2026-08-27): раньше CombatRoomFlow всегда передавал hitCount=3 и конфиг из
     // jenniferCharacter.uniqueActiveSkill — Плут получал бы конфигурацию Дженифер (неверный
