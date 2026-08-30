@@ -584,12 +584,12 @@ public class HubManager : MonoBehaviour
         else
         {
             int shownAmount = 0;
-            gachaResultLabel.text = $"Мета-валюта: +0 ({RarityLabel(result.CurrencyTier)})";
+            gachaResultLabel.text = $"Мета-валюта: +0 ({DisplayFormat.RarityLabel(result.CurrencyTier)})";
             bool countComplete = false;
             DG.Tweening.DOTween.To(() => shownAmount, value =>
             {
                 shownAmount = value;
-                gachaResultLabel.text = $"Мета-валюта: +{shownAmount} ({RarityLabel(result.CurrencyTier)})";
+                gachaResultLabel.text = $"Мета-валюта: +{shownAmount} ({DisplayFormat.RarityLabel(result.CurrencyTier)})";
             }, result.CurrencyAmount, 0.5f).OnComplete(() => countComplete = true);
             while (!countComplete) yield return null;
         }
@@ -609,13 +609,6 @@ public class HubManager : MonoBehaviour
         }
         return true;
     }
-
-    static string RarityLabel(ItemTier tier) => tier switch
-    {
-        ItemTier.Common => "Обычный",
-        ItemTier.Rare => "Редкий",
-        _ => "Эпический"
-    };
 
     static string ReelBackgroundClass(ItemTier tier) => tier switch
     {

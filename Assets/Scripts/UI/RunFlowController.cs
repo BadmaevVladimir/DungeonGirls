@@ -326,7 +326,7 @@ public class RunFlowController : MonoBehaviour
     {
         var combatant = characterManager.Combatant;
         var progress = characterManager.Progress;
-        pauseCharacterStatsLabel.text = $"{characterManager.Character.characterName} ({CharacterClassDisplayName(characterManager.Character.characterClass)}) — уровень {characterManager.Level}\n" +
+        pauseCharacterStatsLabel.text = $"{characterManager.Character.characterName} ({DisplayFormat.CharacterClassDisplayName(characterManager.Character.characterClass)}) — уровень {characterManager.Level}\n" +
             $"HP: {combatant.CurrentHP:F0}/{combatant.MaxHP:F0}\n" +
             $"Физ. защита: {combatant.PhysicalDefenseCurrent:F0}/{combatant.PhysicalDefenseMax:F0} | Магический щит: {combatant.MagicShieldCurrent:F0}/{combatant.MagicShieldMax:F0}\n" +
             $"Этаж: {dungeonManager.CurrentFloorNumber}/{DungeonManager.TotalFloors} | Валюта забега: {characterManager.RunCurrency} | Рационы: {campManager.RationsRemaining}";
@@ -346,7 +346,7 @@ public class RunFlowController : MonoBehaviour
         pauseEquipmentScrollView.Clear();
         foreach (var item in characterManager.EquippedItems)
         {
-            if (item != null) AddPauseLine(pauseEquipmentScrollView, $"{SlotLabel(item)}: {item.itemName} (ур. {item.itemLevel})\n{ItemStatsText(item)}");
+            if (item != null) AddPauseLine(pauseEquipmentScrollView, $"{DisplayFormat.SlotLabel(item)}: {item.itemName} (ур. {item.itemLevel})\n{DisplayFormat.ItemStatsText(item)}");
         }
         if (pauseEquipmentScrollView.childCount == 0) AddPauseLine(pauseEquipmentScrollView, "Нет снаряжения.");
     }
@@ -406,7 +406,7 @@ public class RunFlowController : MonoBehaviour
             nameLabel.AddToClassList("building-card-title");
             card.Add(nameLabel);
 
-            var classLabel = new Label($"Класс: {CharacterClassDisplayName(character.characterClass)}");
+            var classLabel = new Label($"Класс: {DisplayFormat.CharacterClassDisplayName(character.characterClass)}");
             classLabel.AddToClassList("character-select-class");
             card.Add(classLabel);
 
@@ -456,14 +456,6 @@ public class RunFlowController : MonoBehaviour
         availableCharacters.Count == 1 &&
         availableCharacters[0] != null &&
         string.Equals(availableCharacters[0].characterId, "jennifer", System.StringComparison.OrdinalIgnoreCase);
-
-    static string CharacterClassDisplayName(CharacterClass characterClass) => characterClass switch
-    {
-        CharacterClass.Warrior => "Воин",
-        CharacterClass.Rogue => "Плут",
-        CharacterClass.Barbarian => "Варвар",
-        _ => characterClass.ToString()
-    };
 
     void AddCharacterSkillLabel(VisualElement card, string characterId, string elementSuffix, string typeLabel, string skillName, string description)
     {
@@ -1905,7 +1897,7 @@ public class RunFlowController : MonoBehaviour
                 SetRarityClass(nameLabel, offer.Item.tier);
                 card.Add(nameLabel);
 
-                var statsLabel = new Label(ItemStatsText(offer.Item));
+                var statsLabel = new Label(DisplayFormat.ItemStatsText(offer.Item));
                 statsLabel.AddToClassList("body-label");
                 card.Add(statsLabel);
 
@@ -1970,15 +1962,6 @@ public class RunFlowController : MonoBehaviour
 
     // ==================== Награда / сундук (8.2, только текстовый результат) ====================
 
-    static string RarityLabel(ItemTier tier)
-    {
-        switch (tier)
-        {
-            case ItemTier.Common: return "Обычный";
-            case ItemTier.Rare: return "Редкий";
-            default: return "Эпический";
-        }
-    }
 
     static void SetRarityClass(VisualElement element, ItemTier tier)
     {
@@ -2016,11 +1999,11 @@ public class RunFlowController : MonoBehaviour
         characterManager.AddCurrency(reward.Currency); // счётчик валюты — начисление происходит здесь,
             // ПОСЛЕ ленты (не до), чтобы RunCurrency в rewardText ниже уже отражал начисленную сумму —
             // порядок сознательно переставлен относительно исходного кода (было до ShowOnly).
-        rewardText.text = $"Получено: {reward.Currency} монет забега, {RarityLabel(reward.ItemRarity)} предмет" +
+        rewardText.text = $"Получено: {reward.Currency} монет забега, {DisplayFormat.RarityLabel(reward.ItemRarity)} предмет" +
             (reward.BonusReward ? "\n+ дополнительная награда (Удача)" : string.Empty) +
             $"\nВсего валюты забега: {characterManager.RunCurrency}";
         SetRarityClass(rewardText, reward.ItemRarity);
-        LogEvent($"[Награда] +{reward.Currency} валюты забега, {RarityLabel(reward.ItemRarity)} предмет{(reward.Item != null ? $" ({reward.Item.itemName})" : string.Empty)}{(reward.BonusReward ? ", + доп. награда (Удача)" : string.Empty)}.");
+        LogEvent($"[Награда] +{reward.Currency} валюты забега, {DisplayFormat.RarityLabel(reward.ItemRarity)} предмет{(reward.Item != null ? $" ({reward.Item.itemName})" : string.Empty)}{(reward.BonusReward ? ", + доп. награда (Удача)" : string.Empty)}.");
 
         yield return WaitForClick(rewardContinueButton);
         yield return HideRewardOverlay();
@@ -2142,115 +2125,6 @@ public class RunFlowController : MonoBehaviour
 
     // ==================== Сравнение предмета (3.4, "Без инвентаря") ====================
 
-    static string SlotLabel(ItemData item)
-    {
-        if (item == null)
-        {
-            return "Снаряжение";
-        }
-
-        bool isRogueOnly = item.allowedClasses != null && item.allowedClasses.Length == 1 && item.allowedClasses[0] == CharacterClass.Rogue;
-        bool isBarbarianOnly = item.allowedClasses != null && item.allowedClasses.Length == 1 && item.allowedClasses[0] == CharacterClass.Barbarian;
-
-        switch (item.slot)
-        {
-            case EquipmentSlot.Helmet: return isRogueOnly ? "Капюшон" : isBarbarianOnly ? "Трофей" : "Шлем";
-            case EquipmentSlot.Armor: return isRogueOnly ? "Кожаная броня" : isBarbarianOnly ? "Пояс" : "Нагрудник";
-            case EquipmentSlot.Boots: return "Сапоги";
-            case EquipmentSlot.Weapon: return item.weaponSubtype == WeaponSubtype.Shield ? "Щит" : item.isTwoHanded ? "Двуручное оружие" : "Оружие";
-            case EquipmentSlot.Ring: return "Кольцо";
-            default: return "Аксессуар";
-        }
-    }
-
-    static string BonusStatText(ItemData item)
-    {
-        BonusStat bonusStat = item != null ? item.bonusStat : null;
-        if (bonusStat == null || bonusStat.type == BonusStatType.None || Mathf.Approximately(bonusStat.baseValue, 0f))
-        {
-            return string.Empty;
-        }
-
-        float value = bonusStat.type == BonusStatType.MaxPhysicalDefenseFlat
-            ? ItemEffectBalance.ArmorAccessoryMaxDefense(bonusStat.baseValue, item.itemLevel)
-            : StatScaling.ScaleItemEffect(bonusStat.baseValue, item.itemLevel);
-        switch (bonusStat.type)
-        {
-            case BonusStatType.CritChancePercent: return $"+шанс крита: {value:F1}%";
-            case BonusStatType.ArmorPenetrationFlat: return $"+пробивание брони: {value:F1}";
-            case BonusStatType.AttackSpeedPercent: return $"+скорость атаки: {value:F1}%";
-            case BonusStatType.DamagePercent: return $"+урон: {value:F1}%";
-            case BonusStatType.FlatHP: return $"+HP: {value:F1}";
-            case BonusStatType.MaxPhysicalDefenseFlat: return $"+макс. физ. защита: {value:F1}";
-            case BonusStatType.MagicShieldFlat: return $"+магический щит: {value:F1}";
-            case BonusStatType.WeaponDamageFlat: return $"+урон оружия: {value:F1}";
-            case BonusStatType.EvasionPercent: return $"+уклонение: {value:F1}%";
-            case BonusStatType.ArmorIgnorePercent: return $"+игнорирование брони: {value:F1}%";
-            default: return string.Empty;
-        }
-    }
-
-    static string ItemStatsText(ItemData item)
-    {
-        if (item == null)
-        {
-            return string.Empty;
-        }
-
-        var lines = new List<string> { $"{SlotLabel(item)}, {RarityLabel(item.tier)}, ур. {item.itemLevel}" };
-
-        if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
-        {
-            DamageCalculator.ComputeDamageRange(item.EffectiveDamage, out float dmgMin, out float dmgMax);
-            lines.Add($"Урон: {dmgMin:F0}-{dmgMax:F0} ({item.damageType}), скорость атаки: {item.attackSpeed:F2}/с");
-            if (item.isTwoHanded)
-            {
-                lines.Add("Двуручное: +30% итогового урона после плоских бонусов.");
-            }
-        }
-
-        if (item.physicalDefense > 0f)
-        {
-            lines.Add($"Физ. защита: {item.EffectiveDefense:F0}");
-        }
-
-        if (item.maxPhysicalDefenseBonus > 0f)
-        {
-            lines.Add($"+макс. физ. защита: {item.EffectiveMaxDefenseBonus:F0}");
-        }
-
-        if (item.MagicShieldEffective > 0f)
-        {
-            lines.Add($"Магический щит: {item.MagicShieldEffective:F0}");
-        }
-
-        if (item.HpBonusEffective > 0f)
-        {
-            lines.Add($"+HP: {item.HpBonusEffective:F0}");
-        }
-
-        if (item.rageBonusFlatPercent > 0f)
-        {
-            lines.Add($"+Ярость: {StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.itemLevel):F1}%");
-        }
-
-        string bonusText = BonusStatText(item);
-        if (!string.IsNullOrWhiteSpace(bonusText))
-        {
-            lines.Add(bonusText + $" (ранг эффекта {StatScaling.ItemEffectRank(item.itemLevel)})");
-            if (item.slot == EquipmentSlot.Ring && item.bonusStat.type == BonusStatType.MaxPhysicalDefenseFlat)
-            {
-                lines.Add("Второе кольцо брони даёт 50% этого бонуса.");
-            }
-        }
-
-        if (item.passiveSkill != null)
-        {
-            lines.Add($"Пассивка «{item.passiveSkill.skillName}»: {item.passiveSkill.effectDescription}");
-        }
-
-        return string.Join("\n", lines);
-    }
 
     // Карточка выбора должна оставаться короткой: иначе описание пассивки эпического предмета
     // вытесняет второй физический слот оружия/кольца за нижнюю границу экрана. Полный текст
@@ -2262,7 +2136,7 @@ public class RunFlowController : MonoBehaviour
             return "Свободный слот";
         }
 
-        var lines = new List<string> { $"{SlotLabel(item)}, {RarityLabel(item.tier)}, ур. {item.itemLevel}" };
+        var lines = new List<string> { $"{DisplayFormat.SlotLabel(item)}, {DisplayFormat.RarityLabel(item.tier)}, ур. {item.itemLevel}" };
 
         var mainStats = new List<string>();
         if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
@@ -2304,7 +2178,7 @@ public class RunFlowController : MonoBehaviour
             lines.Add(string.Join(" · ", mainStats));
         }
 
-        string bonusText = BonusStatText(item);
+        string bonusText = DisplayFormat.BonusStatText(item);
         if (!string.IsNullOrWhiteSpace(bonusText))
         {
             lines.Add(bonusText);
@@ -2328,7 +2202,7 @@ public class RunFlowController : MonoBehaviour
         ShowOnly(itemComparePanel);
         newItemName.text = newItem.itemName;
         newItemStats.text = ItemComparisonSummary(newItem);
-        newItemStats.tooltip = ItemStatsText(newItem);
+        newItemStats.tooltip = DisplayFormat.ItemStatsText(newItem);
         tutorialManager?.QueueOnce(TutorialContent.Equipment);
 
         slotChoicesContainer.Clear();
@@ -2338,7 +2212,7 @@ public class RunFlowController : MonoBehaviour
             var btn = new Button
             {
                 text = candidate != null ? $"Заменить: {candidate.itemName}\n{ItemComparisonSummary(candidate)}" : "Занять свободный слот",
-                tooltip = candidate != null ? ItemStatsText(candidate) : "Новый предмет займёт свободный слот."
+                tooltip = candidate != null ? DisplayFormat.ItemStatsText(candidate) : "Новый предмет займёт свободный слот."
             };
             btn.AddToClassList("choice-card");
             btn.AddToClassList("item-slot-choice");
