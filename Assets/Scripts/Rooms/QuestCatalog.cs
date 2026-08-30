@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 // 5.4: примеры квестов Дженифер из ГДД. Квесты персонаж-специфичны — общего пула нет.
 public static class QuestCatalog
@@ -55,4 +56,23 @@ public static class QuestCatalog
     };
 
     public static readonly QuestDefinition[] All = { Sphinx, FairyRing, SwordInStone, Hunt };
+
+    // «Добыча» доступна со 2-го этажа, с шансом 20% среди квестов и максимум один раз за забег
+    // (huntAlreadyTriggered управляется вызывающей стороной — этот метод только решает, не мутирует
+    // состояние забега). Награда «Меча в камне» может быть успешно получена только один раз за
+    // забег — после успеха возвращается другой полноценный квест вместо пустого исхода.
+    public static QuestDefinition PickForFloor(int floor, bool huntAlreadyTriggered, bool swordAlreadySucceeded)
+    {
+        if (floor >= 2 && !huntAlreadyTriggered && Random.value < 0.20f)
+        {
+            return Hunt;
+        }
+
+        switch (floor)
+        {
+            case 1: return Sphinx;
+            case 2: return FairyRing;
+            default: return swordAlreadySucceeded ? FairyRing : SwordInStone;
+        }
+    }
 }

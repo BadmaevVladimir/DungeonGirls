@@ -1511,22 +1511,9 @@ public class RunFlowController : MonoBehaviour
 
     QuestDefinition PickQuestForFloor(int floor)
     {
-        // «Добыча» доступна со 2-го этажа, с шансом 20% среди квестов и максимум один раз.
-        if (floor >= 2 && !huntQuestTriggeredThisRun && Random.value < 0.20f)
-        {
-            huntQuestTriggeredThisRun = true;
-            return QuestCatalog.Hunt;
-        }
-
-        switch (floor)
-        {
-            case 1: return QuestCatalog.Sphinx;
-            case 2: return QuestCatalog.FairyRing;
-            // Награда «Меча в камне» может быть успешно получена только один раз за забег.
-            // После успеха не подменяем квест пустым исходом, а возвращаем другой полноценный
-            // квест, чтобы особая комната по-прежнему была содержательна.
-            default: return swordInStoneSucceededThisRun ? QuestCatalog.FairyRing : QuestCatalog.SwordInStone;
-        }
+        var quest = QuestCatalog.PickForFloor(floor, huntQuestTriggeredThisRun, swordInStoneSucceededThisRun);
+        if (quest == QuestCatalog.Hunt) huntQuestTriggeredThisRun = true;
+        return quest;
     }
 
     IEnumerator EventRoomFlow()
