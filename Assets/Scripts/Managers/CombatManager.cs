@@ -59,6 +59,7 @@ public class CombatManager : MonoBehaviour
     float activeSkillDamageMultiplierPerHit;
     float activeSkillCooldownSeconds;
     string activeSkillName;
+    SkillId activeSkillId;
     bool activeSkillAutoMode = true;
 
     public bool IsActiveSkillConfigured { get; private set; }
@@ -73,12 +74,13 @@ public class CombatManager : MonoBehaviour
     // только даёт Скрытность + гарантированные криты на СЛЕДУЮЩИЕ обычные атаки; ниже она тоже
     // жёстко возвращается до hit-loop, так что фактический hitCount с будущего character-select
     // UI для неё не важен, но 0 — по-прежнему корректное намерение при конфигурации.
-    public void ConfigureUniqueActiveSkill(int hitCount, float damageMultiplierPerHit, float cooldownSeconds, bool autoMode, string skillName)
+    public void ConfigureUniqueActiveSkill(int hitCount, float damageMultiplierPerHit, float cooldownSeconds, bool autoMode, string skillName, SkillId skillId)
     {
         activeSkillHitCount = hitCount;
         activeSkillDamageMultiplierPerHit = damageMultiplierPerHit;
         activeSkillCooldownSeconds = cooldownSeconds;
         activeSkillName = skillName;
+        activeSkillId = skillId;
         activeSkillAutoMode = autoMode;
         IsActiveSkillConfigured = true;
     }
@@ -141,7 +143,7 @@ public class CombatManager : MonoBehaviour
         // (Tick -> TryActivateUniqueActiveSkill) переигрывал бы полный комбо атак оружием КАЖДЫЙ
         // кадр. Недостижимо сегодня (у Варвара нет character-select UI за пределами этого плана),
         // но защищаемся заранее — см. комментарий на ConfigureUniqueActiveSkill выше.
-        if (activeSkillName == SkillEffectMap.Berserk)
+        if (activeSkillId == SkillId.Berserk)
         {
             return false;
         }
@@ -151,7 +153,7 @@ public class CombatManager : MonoBehaviour
         // 3.11 "Дымовая граната" (уникальная активка Плута): при активации даёт Скрытность и
         // заряжает гарантированные криты на N последующих ОБЫЧНЫХ атак — распознаётся по имени
         // навыка, т.к. ConfigureUniqueActiveSkill уже получает его текстом (для баннера выше).
-        if (activeSkillName == SkillEffectMap.SmokeBomb)
+        if (activeSkillId == SkillId.SmokeBomb)
         {
             GrantOrRefreshStealth(Player);
             Player.SmokeBombGuaranteedCritsRemaining = Player.UniqueSmokeBombLevel;

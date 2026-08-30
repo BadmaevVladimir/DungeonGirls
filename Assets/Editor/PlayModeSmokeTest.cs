@@ -1045,7 +1045,7 @@ public static class PlayModeSmokeTest
         var berserkDummy = new CombatantRuntime { DisplayName = "TestDummyBerserkGuard", MaxHP = 1000f, CurrentHP = 1000f };
 
         berserkCombatManager.StartCombat(berserkPlayer, new List<CombatantRuntime> { berserkDummy });
-        berserkCombatManager.ConfigureUniqueActiveSkill(3, 1f, 0f, false, SkillEffectMap.Berserk); // cooldownSeconds=0, как задумано для тумблера
+        berserkCombatManager.ConfigureUniqueActiveSkill(3, 1f, 0f, false, SkillEffectMap.Berserk, SkillId.Berserk); // cooldownSeconds=0, как задумано для тумблера
         berserkPlayer.ActiveSkillCooldownTimer = 0f; // готов немедленно (StartCombat выставляет полный кулдаун = 0 для Берсерка)
 
         float berserkDummyHpBefore = berserkDummy.CurrentHP;
@@ -1714,7 +1714,7 @@ public static class PlayModeSmokeTest
         // как игрок успевал его увидеть. Обычные атаки оружием это не затрагивает.
         var skillCooldownGO = new GameObject("SmokeTest_ActiveSkillCooldown");
         var skillCooldownCombatManager = skillCooldownGO.AddComponent<CombatManager>();
-        skillCooldownCombatManager.ConfigureUniqueActiveSkill(3, 1f, 12f, true, "TestSkill");
+        skillCooldownCombatManager.ConfigureUniqueActiveSkill(3, 1f, 12f, true, "TestSkill", SkillId.None);
 
         var skillCooldownPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
         skillCooldownPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 5f, DamageMax = 5f, DamageType = DamageType.Physical, AttackSpeed = 1f });

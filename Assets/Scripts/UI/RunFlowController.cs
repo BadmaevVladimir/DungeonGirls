@@ -989,7 +989,7 @@ public class RunFlowController : MonoBehaviour
             int activeLevel = characterManager.Progress.UniqueActiveLevel;
             float activeMultiplier = activeLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f };
             int hitCount = ResolveActiveSkillHitCount(activeCharacter.characterClass);
-            combatManager.ConfigureUniqueActiveSkill(hitCount, activeMultiplier, activeCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value, activeCharacter.uniqueActiveSkill.skillName);
+            combatManager.ConfigureUniqueActiveSkill(hitCount, activeMultiplier, activeCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value, activeCharacter.uniqueActiveSkill.skillName, activeCharacter.uniqueActiveSkill.skillId);
         }
 
         combatManager.LogMessage += OnCombatLog;
