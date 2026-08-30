@@ -97,9 +97,9 @@ public class CombatantRuntime
 
     public List<ActiveDebuff> ActiveDebuffs = new List<ActiveDebuff>();
 
-    // 2.4/2.8: пассивка монстра (MonsterSkillEffectMap-константа из monster.passiveSkill.skillName),
-    // null = у монстра нет пассивки (например, Каменный страж).
-    public string MonsterPassiveName;
+    // 2.4/2.8: пассивка монстра (из monster.passiveSkill.skillId), SkillId.None = у монстра нет
+    // пассивки (например, Каменный страж).
+    public SkillId MonsterPassiveSkillId;
 
     // "Порхание" (Летучая мышь): флэт-бонус к шансу уклонения ЭТОГО участника, складывается с
     // SkillEvasionLevel/ItemElusivenessLevel в существующей формуле уклонения CombatManager.

@@ -837,7 +837,7 @@ public class CombatManager : MonoBehaviour
         }
 
         // 2.4: пассивки монстров, срабатывающие ПРИ АТАКЕ (симметрично блоку выше, но для
-        // не-игрока — у игрока нет MonsterPassiveName).
+        // не-игрока — у игрока MonsterPassiveSkillId всегда SkillId.None).
         ApplyMonsterPassiveOnAttack(attacker, target, result, damage);
 
         if (!target.IsAlive)
@@ -1016,17 +1016,17 @@ public class CombatManager : MonoBehaviour
     }
 
     // 2.4: пассивки монстров, срабатывающие ПРИ АТАКЕ (в отличие от периодических — см.
-    // TickMonsterPeriodicPassives). attacker всегда монстр здесь (у игрока нет MonsterPassiveName).
+    // TickMonsterPeriodicPassives). attacker всегда монстр здесь (у игрока MonsterPassiveSkillId всегда None).
     void ApplyMonsterPassiveOnAttack(CombatantRuntime attacker, CombatantRuntime target, DamageCalculator.DamageResult result, float attackDamage)
     {
-        if (attacker.IsPlayer || attacker.MonsterPassiveName == null)
+        if (attacker.IsPlayer || attacker.MonsterPassiveSkillId == SkillId.None)
         {
             return;
         }
 
-        switch (attacker.MonsterPassiveName)
+        switch (attacker.MonsterPassiveSkillId)
         {
-            case MonsterSkillEffectMap.Corrosion:
+            case SkillId.MonsterCorrosion:
                 // «Коррозия»: при каждой атаке паука 15% силы удара напрямую изнашивает
                 // физическую защиту цели. Эффект не зависит от того, пробил ли сам удар броню.
                 // Яд прежнего паучка сохранён как вторая часть этой пассивки и, как раньше,
@@ -1054,7 +1054,7 @@ public class CombatManager : MonoBehaviour
                 }
                 break;
 
-            case MonsterSkillEffectMap.StunningScream:
+            case SkillId.MonsterStunningScream:
                 // "15% шанс при атаке снизить шанс крита персонажа на 20% на 4 сек." — на атаке, не на попадании.
                 // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель игнорирует крит-дебафф.
                 if (Random.value < 0.15f && !IgnoresDebuffs(target))
@@ -1065,7 +1065,7 @@ public class CombatManager : MonoBehaviour
                 }
                 break;
 
-            case MonsterSkillEffectMap.SlowCurse:
+            case SkillId.MonsterSlowCurse:
                 // "Если урон Колдуна проходит по здоровью персонажа, скорость атаки персонажа снижается
                 // на 30% на 3 секунды (не стакается, повторное попадание обновляет длительность)."
                 // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель игнорирует новый дебафф скорости.
@@ -1092,12 +1092,12 @@ public class CombatManager : MonoBehaviour
     {
         foreach (var enemy in Enemies)
         {
-            if (!enemy.IsAlive || enemy.MonsterPassiveName == null)
+            if (!enemy.IsAlive || enemy.MonsterPassiveSkillId == SkillId.None)
             {
                 continue;
             }
 
-            if (enemy.MonsterPassiveName == MonsterSkillEffectMap.DarkHeal)
+            if (enemy.MonsterPassiveSkillId == SkillId.MonsterDarkHeal)
             {
                 enemy.MonsterPassiveCooldownTimer -= deltaTime;
                 if (enemy.MonsterPassiveCooldownTimer <= 0f)
@@ -1112,7 +1112,7 @@ public class CombatManager : MonoBehaviour
                     }
                 }
             }
-            else if (enemy.MonsterPassiveName == MonsterSkillEffectMap.DoubleStrike)
+            else if (enemy.MonsterPassiveSkillId == SkillId.MonsterDoubleStrike)
             {
                 enemy.MonsterPassiveCooldownTimer -= deltaTime;
                 if (enemy.MonsterPassiveCooldownTimer <= 0f && enemy.Weapons.Count > 0)

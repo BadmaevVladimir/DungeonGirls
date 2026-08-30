@@ -151,23 +151,23 @@ public static class CombatantFactory
 
         // 2.4: пассивка монстра — некоторые пассивки требуют начального рантайм-состояния
         // (флэт-бонус уклонения "Порхание", стартовый кулдаун периодических пассивок).
-        runtime.MonsterPassiveName = monster.passiveSkill != null ? monster.passiveSkill.skillName : null;
+        runtime.MonsterPassiveSkillId = monster.passiveSkill != null ? monster.passiveSkill.skillId : SkillId.None;
 
-        if (runtime.MonsterPassiveName == MonsterSkillEffectMap.ArmorPiercingBlade)
+        if (runtime.MonsterPassiveSkillId == SkillId.MonsterArmorPiercingBlade)
         {
             // Та же механика, что у клинков Вайолет, но фиксированное значение монстра.
             runtime.Weapons[0].ArmorIgnorePercent = 25f;
         }
 
-        if (runtime.MonsterPassiveName == MonsterSkillEffectMap.Fluttering)
+        if (runtime.MonsterPassiveSkillId == SkillId.MonsterFluttering)
         {
             runtime.MonsterEvasionPercent = 20f;
         }
-        else if (runtime.MonsterPassiveName == MonsterSkillEffectMap.DarkHeal)
+        else if (runtime.MonsterPassiveSkillId == SkillId.MonsterDarkHeal)
         {
             runtime.MonsterPassiveCooldownTimer = 8f;
         }
-        else if (runtime.MonsterPassiveName == MonsterSkillEffectMap.DoubleStrike)
+        else if (runtime.MonsterPassiveSkillId == SkillId.MonsterDoubleStrike)
         {
             runtime.MonsterPassiveCooldownTimer = 6f;
         }

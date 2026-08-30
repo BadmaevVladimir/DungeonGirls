@@ -381,7 +381,7 @@ public static class PlayModeSmokeTest
         if (Check(goblinThiefData != null, "Monster_GoblinThief.asset загрузился"))
         {
             var goblinRuntime = CombatantFactory.CreateMonsterCombatant(goblinThiefData, 1);
-            Check(goblinRuntime.MonsterPassiveName == MonsterSkillEffectMap.ArmorPiercingBlade && goblinRuntime.Weapons.Count == 1 && goblinRuntime.Weapons[0].ArmorIgnorePercent == 25f,
+            Check(goblinRuntime.MonsterPassiveSkillId == SkillId.MonsterArmorPiercingBlade && goblinRuntime.Weapons.Count == 1 && goblinRuntime.Weapons[0].ArmorIgnorePercent == 25f,
                 "2.4 Гоблин-вор вместо кражи валюты игнорирует 25% физической брони");
         }
 
@@ -1643,7 +1643,7 @@ public static class PlayModeSmokeTest
         var testPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f };
         testPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 5f, DamageMax = 5f, DamageType = DamageType.Physical, AttackSpeed = 1f });
 
-        var slowCurseMonster = new CombatantRuntime { IsPlayer = false, MaxHP = 30f, CurrentHP = 30f, DisplayName = "TestWarlock", MonsterPassiveName = MonsterSkillEffectMap.SlowCurse };
+        var slowCurseMonster = new CombatantRuntime { IsPlayer = false, MaxHP = 30f, CurrentHP = 30f, DisplayName = "TestWarlock", MonsterPassiveSkillId = SkillId.MonsterSlowCurse };
         slowCurseMonster.Weapons.Add(new WeaponAttackState { DamageMin = 100f, DamageMax = 100f, DamageType = DamageType.Physical, AttackSpeed = 1f });
 
         testCombatManager.StartCombat(testPlayer, new List<CombatantRuntime> { slowCurseMonster });
@@ -1670,7 +1670,7 @@ public static class PlayModeSmokeTest
         testPlayer.CurrentHP = 1000f;
         testPlayer.PhysicalDefenseMax = 100f;
         testPlayer.PhysicalDefenseCurrent = 100f;
-        var corrosiveSpider = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestCorrosiveSpider", MonsterPassiveName = MonsterSkillEffectMap.Corrosion };
+        var corrosiveSpider = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestCorrosiveSpider", MonsterPassiveSkillId = SkillId.MonsterCorrosion };
         corrosiveSpider.Weapons.Add(new WeaponAttackState { DamageMin = 100f, DamageMax = 100f, DamageType = DamageType.Physical, AttackSpeed = 1f });
         testCombatManager.StartCombat(testPlayer, new List<CombatantRuntime> { corrosiveSpider });
         testCombatManager.Tick(1.01f);
