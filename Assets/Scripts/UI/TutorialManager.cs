@@ -208,9 +208,19 @@ public class TutorialManager : MonoBehaviour
 
     public void BindTooltip(VisualElement target, string title, string body)
     {
-        if (!initialized || target == null || string.IsNullOrWhiteSpace(body) || !tooltipTargets.Add(target)) return;
+        if (string.IsNullOrWhiteSpace(body)) return;
+        BindTooltip(target, title, () => body);
+    }
 
-        target.RegisterCallback<PointerEnterEvent>(evt => ShowTooltip(title, body, evt.position));
+    public void BindTooltip(VisualElement target, string title, Func<string> bodyProvider)
+    {
+        if (!initialized || target == null || bodyProvider == null || !tooltipTargets.Add(target)) return;
+
+        target.RegisterCallback<PointerEnterEvent>(evt =>
+        {
+            string body = bodyProvider();
+            if (!string.IsNullOrWhiteSpace(body)) ShowTooltip(title, body, evt.position);
+        });
         target.RegisterCallback<PointerMoveEvent>(evt => PositionTooltip(evt.position));
         target.RegisterCallback<PointerLeaveEvent>(_ => HideTooltip());
         target.RegisterCallback<DetachFromPanelEvent>(_ => HideTooltip());

@@ -122,7 +122,7 @@ public class CombatManager : MonoBehaviour
             : 0f;
 
         combatant.PhysicalResistancePercent = combatant.IsBerserkActive
-            ? combatant.UniqueBerserkLevel switch { 1 => 10f, 2 => 20f, 3 => 30f, _ => 0f }
+            ? combatant.UniqueBerserkLevel switch { 1 => 20f, 2 => 30f, 3 => 40f, _ => 0f }
             : 0f;
     }
 

@@ -9,7 +9,19 @@
         <ui:Button name="VeteranDeckButton" text="Ветераны" class="button-secondary" />
         <ui:Button name="CharactersButton" text="Персонажи" class="button-secondary" />
         <ui:Button name="HelpButton" text="Справка" class="button-secondary" />
+        <ui:Button name="CheatMenuButton" text="Чит-меню" class="button-secondary" />
+        <ui:Button name="QuitGameButton" text="Выйти из игры" class="button-secondary" />
         <ui:Button name="ResetProgressButton" text="Сбросить прогресс" class="button-secondary" />
+        <ui:VisualElement name="CheatMenuPopup" class="panel hidden" style="max-width: 420px; flex-grow: 0;">
+            <ui:Label text="Чит-меню" class="panel-title" />
+            <ui:Label text="Введите команду для тестирования." class="body-label" />
+            <ui:TextField name="CheatCommandField" label="Команда" />
+            <ui:Label name="CheatResultLabel" text="" class="body-label hidden" />
+            <ui:VisualElement style="flex-direction: row;">
+                <ui:Button name="CheatSubmitButton" text="Активировать" class="button-primary" />
+                <ui:Button name="CheatCloseButton" text="Закрыть" class="button-secondary" />
+            </ui:VisualElement>
+        </ui:VisualElement>
         <ui:VisualElement name="ResetProgressConfirmPopup" class="panel hidden" style="max-width: 400px; flex-grow: 0;">
             <ui:Label text="Сбросить прогресс?" class="panel-title" />
             <ui:Label text="Действие необратимо: мета-валюта, гача-валюта, уровни зданий и гача-копии будут удалены." class="body-label" />
@@ -134,9 +146,9 @@
                         <ui:Label name="PlayerDefenseText" text="Защита: 0" class="stat-text" />
                         <ui:Label name="PlayerShieldText" text="Щит: 0" class="stat-text" />
                         <ui:VisualElement name="RageIndicator" class="resource-indicator rage-indicator hidden">
-                            <ui:Label name="RageText" text="Ярость: 0%" class="resource-indicator-label" />
+                            <ui:Label name="RageText" text="Ярость: 1%" class="resource-indicator-label" />
                             <ui:VisualElement class="resource-bar-bg">
-                                <ui:VisualElement name="RageFill" class="resource-bar-fill rage-bar-fill" style="width: 0%;" />
+                                <ui:VisualElement name="RageFill" class="resource-bar-fill rage-bar-fill" style="width: 1%;" />
                             </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:VisualElement name="StealthIndicator" class="resource-indicator stealth-indicator hidden">

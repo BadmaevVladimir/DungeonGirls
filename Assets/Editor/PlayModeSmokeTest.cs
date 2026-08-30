@@ -262,6 +262,17 @@ public static class PlayModeSmokeTest
         // WeaponDamageFlat: базовый урон топора 10 + WeaponDamageFlat(2) = 12 -> диапазон [floor(12*0.8); ceil(12*1.2)] = [9;15].
         Check(bonusTestRuntime.Weapons.Count == 1 && bonusTestRuntime.Weapons[0].DamageMin == 9f && bonusTestRuntime.Weapons[0].DamageMax == 15f,
             $"3.10 WeaponDamageFlat от кольца силы: диапазон {(bonusTestRuntime.Weapons.Count > 0 ? $"{bonusTestRuntime.Weapons[0].DamageMin}-{bonusTestRuntime.Weapons[0].DamageMax}" : "нет оружия")} (ожидалось 9-15)");
+
+        var twoHandedMultiplierTest = ScriptableObject.CreateInstance<ItemData>();
+        twoHandedMultiplierTest.slot = EquipmentSlot.Weapon;
+        twoHandedMultiplierTest.weaponSubtype = WeaponSubtype.TwoHandedAxe;
+        twoHandedMultiplierTest.isTwoHanded = true;
+        twoHandedMultiplierTest.baseDamage = 10f;
+        twoHandedMultiplierTest.attackSpeed = 1f;
+        var twoHandedMultiplierRuntime = CombatantFactory.CreatePlayerCombatant(bonusTestCharacter, 1, null, new List<ItemData> { twoHandedMultiplierTest });
+        Check(twoHandedMultiplierRuntime.Weapons.Count == 1 && twoHandedMultiplierRuntime.Weapons[0].DamageMin == 10f && twoHandedMultiplierRuntime.Weapons[0].DamageMax == 16f,
+            $"Баланс Саши: двуручное оружие получает +30% после плоских бонусов (диапазон {(twoHandedMultiplierRuntime.Weapons.Count > 0 ? $"{twoHandedMultiplierRuntime.Weapons[0].DamageMin}-{twoHandedMultiplierRuntime.Weapons[0].DamageMax}" : "нет оружия")}, ожидалось 10-16)");
+        UnityEngine.Object.DestroyImmediate(twoHandedMultiplierTest);
         Check(StatScaling.ItemEffectRank(1) == 1 && StatScaling.ItemEffectRank(3) == 1 && StatScaling.ItemEffectRank(4) == 2 && StatScaling.ItemEffectRank(16) == 5 &&
             Mathf.Approximately(StatScaling.ScaleItemEffect(8f, 16), 40f),
             "8.6 вторичные эффекты предметов растут по рангу 1-5, а не линейно до уровня лута");
@@ -895,6 +906,8 @@ public static class PlayModeSmokeTest
                 $"Именная модель: Варвар — класс, персонаж имеет id/name sasha/Саша: {barbarianChar.characterId}/{barbarianChar.characterName}");
             Check(barbarianChar.selectionPortrait != null && barbarianChar.selectionPortrait == sashaDialogSprite,
                 "1 п.2 Саша использует Sasha_Dialog.png в карточке выбора");
+            Check(barbarianChar.baseHealth == 45f && barbarianChar.healthPerLevel == 35f,
+                $"Баланс Саши: базовое HP/прирост = {barbarianChar.baseHealth}/{barbarianChar.healthPerLevel} (ожидалось 45/35)");
         }
         var rogueChar = AssetDatabase.LoadAssetAtPath<CharacterData>("Assets/ScriptableObjects/Characters/Character_Rogue.asset");
         if (Check(rogueChar != null, "10.6 Character_Rogue.asset загрузился"))
@@ -1099,6 +1112,18 @@ public static class PlayModeSmokeTest
             "Туториал: каждый стабильный ID имеет заполненные заголовок и текст");
         Check(TutorialContent.HelpEntries.Count >= 20,
             $"Туториал: постоянная справка заполнена всеми основными механиками ({TutorialContent.HelpEntries.Count} разделов)");
+        TutorialContent.TryGet(TutorialContent.Gacha, out var gachaTutorial);
+        TutorialContent.TryGet(TutorialContent.Veterans, out var veteransTutorial);
+        TutorialContent.TryGet(TutorialContent.HotSprings, out var personalRoomTutorial);
+        Check(gachaTutorial.Body.Contains("Первая копия") && gachaTutorial.Body.Contains("52,7%") && gachaTutorial.Body.Contains("второй копии"),
+            "Туториал: гача объясняет открытие героя, начало цикла копий и итоговые вероятности валюты");
+        Check(veteransTutorial.Body.Contains("1–2 этажа — ровно 1") && veteransTutorial.Body.Contains("все 10 этажей — от 2 до 5"),
+            "Туториал: колода ветеранов показывает все диапазоны наследования навыков");
+        Check(personalRoomTutorial.Title == "Персональная комната отдыха" && personalRoomTutorial.Body.Contains("комнату ловушек") && personalRoomTutorial.Body.Contains("пивной погреб"),
+            "Туториал: персональная комната корректно названа для Дженифер, Вайолет и Саши");
+        Check(TutorialContent.TooltipArmor.Contains("положительный физический удар") && TutorialContent.TooltipShield.Contains("остаток снижает HP") &&
+              TutorialContent.TooltipActive != TutorialContent.TooltipAuto && TutorialContent.TooltipStealth.Contains("Объятия ночи") && TutorialContent.TooltipBerserk.Contains("может убить"),
+            "Тултипы: броня, щит, активный навык и Скрытность используют уточнённые формулировки");
 
         // 9.4/Codex P2: миграция старого сохранения без saveVersion (симулирует файл с диска до
         // этого фикса — JsonUtility молча оставит новые поля в дефолте, а не упадёт, но saveVersion
@@ -1117,7 +1142,7 @@ public static class PlayModeSmokeTest
         legacyNamedSave.veteranDeck.Add(new VeteranCharacter { characterId = "Варвар" });
         legacyNamedSave.seenVNScenes.Add(new CharacterSceneList { characterId = "rogue", sceneIds = new List<string> { "violet_scene_1" } });
         SaveManager.MigrateIfNeeded(legacyNamedSave);
-        Check(legacyNamedSave.gachaOwnedCharacters.Count == 1 && legacyNamedSave.gachaOwnedCharacters[0].key == "violet" && legacyNamedSave.gachaOwnedCharacters[0].count == 3,
+        Check(legacyNamedSave.gachaOwnedCharacters.Exists(entry => entry != null && entry.key == "violet" && entry.count == 3),
             "9.4 v3 миграция объединяет классовые/displayName ключи Плута в стабильный violet");
         Check(legacyNamedSave.characterRunCounts[0].key == "sasha" && legacyNamedSave.veteranDeck[0].characterId == "sasha" && legacyNamedSave.seenVNScenes[0].characterId == "violet",
             "9.4 v3 миграция переводит ветеранов, прохождения и VN-историю на ID sasha/violet");
@@ -1303,6 +1328,13 @@ public static class PlayModeSmokeTest
         RequireElement(root, "MentorSelectNoneButton");
         RequireElement(root, "MentorSelectBackButton");
         RequireElement(root, "StartRunButton");
+        RequireElement(root, "CheatMenuButton");
+        RequireElement(root, "QuitGameButton");
+        RequireElement(root, "CheatMenuPopup");
+        RequireElement(root, "CheatCommandField");
+        RequireElement(root, "CheatResultLabel");
+        RequireElement(root, "CheatSubmitButton");
+        RequireElement(root, "CheatCloseButton");
         RequireElement(root, "ForgeUpgradeButton");
         RequireElement(root, "GachaPullButton");
         RequireElement(root, "GachaRevealContainer");
@@ -1485,6 +1517,11 @@ public static class PlayModeSmokeTest
 
         // --- Награда за забег + персистентность SaveManager (8.5/9.2/9.3) ---
         int metaBefore = saveManager.Data.metaCurrency;
+        int debugGachaBefore = saveManager.Data.gachaCurrency;
+        saveManager.AddDebugCurrencies(10000, 10000);
+        Check(saveManager.Data.metaCurrency == metaBefore + 10000 && saveManager.Data.gachaCurrency == debugGachaBefore + 10000,
+            "Чит-выдача добавляет 10000 мета-валюты и 10000 гача-валюты одной операцией");
+        metaBefore = saveManager.Data.metaCurrency;
         var earlyDeathReward = rewardManager.CalculateRunCompletionReward(false, totalRoomsCleared: 0, currentFloorNumber: 1, roomsClearedOnDeathFloor: 0);
         Check(earlyDeathReward.MetaCurrency == 0 && earlyDeathReward.GachaCurrency == 0,
             $"8.5 смерть в 1-й комнате 1-го этажа = 0 награды: {earlyDeathReward.MetaCurrency}/{earlyDeathReward.GachaCurrency} (ожидалось 0/0)");
@@ -1877,17 +1914,17 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(poisonedBladeGO);
 
-        // 3.11 (Варвар) — "Ярость": чистая проверка свойства, без боя. MaxHP=100: HP=100 -> 0%,
-        // HP=50 -> 50%, HP=0 -> 100%; RageFlatBonusPercent (Пояс титана) складывается флэт поверх.
+        // Баланс Варвара: "Ярость" = 1% + % недостающего HP, с потолком 100%. Поэтому максимум
+        // достижим при 1% HP, а не только после смерти.
         var rageTestCombatant = new CombatantRuntime { MaxHP = 100f, CurrentHP = 100f };
-        Check(Mathf.Approximately(rageTestCombatant.Rage, 0f), $"3.11 Ярость при полном HP = 0% (было {rageTestCombatant.Rage})");
+        Check(Mathf.Approximately(rageTestCombatant.Rage, 1f), $"Баланс Саши: Ярость при полном HP = 1% (было {rageTestCombatant.Rage})");
         rageTestCombatant.CurrentHP = 50f;
-        Check(Mathf.Approximately(rageTestCombatant.Rage, 50f), $"3.11 Ярость при 50% HP = 50% (было {rageTestCombatant.Rage})");
-        rageTestCombatant.CurrentHP = 0f;
-        Check(Mathf.Approximately(rageTestCombatant.Rage, 100f), $"3.11 Ярость при 0 HP = 100% (было {rageTestCombatant.Rage})");
+        Check(Mathf.Approximately(rageTestCombatant.Rage, 51f), $"Баланс Саши: Ярость при 50% HP = 51% (было {rageTestCombatant.Rage})");
+        rageTestCombatant.CurrentHP = 1f;
+        Check(Mathf.Approximately(rageTestCombatant.Rage, 100f), $"Баланс Саши: Ярость при 1% HP = 100% (было {rageTestCombatant.Rage})");
         rageTestCombatant.CurrentHP = 50f;
         rageTestCombatant.RageFlatBonusPercent = 20f;
-        Check(Mathf.Approximately(rageTestCombatant.Rage, 70f), $"3.11 Ярость складывает флэт-бонус (Пояс титана) поверх формулы HP: 50%+20 = 70% (было {rageTestCombatant.Rage})");
+        Check(Mathf.Approximately(rageTestCombatant.Rage, 71f), $"Баланс Саши: Ярость складывает флэт-бонус поверх формулы HP: 51%+20 = 71% (было {rageTestCombatant.Rage})");
 
         // ФИКС (код-ревью): "Остервенелость"/"Суеверность" ранее делили на 100 дважды (~1% от нужной
         // величины). Проверяем правильный порядок величины напрямую: Rage=100%, ур.5 (X=1.0) должно
@@ -1899,17 +1936,16 @@ public static class PlayModeSmokeTest
 
         var superstitionGO = new GameObject("SmokeTest_Superstition");
         var superstitionCombatManager = superstitionGO.AddComponent<CombatManager>();
-        // Rage = 50% (CurrentHP=500/MaxHP=1000), ур.5 (X=1.0) -> MagicalResistancePercent должно
-        // быть РОВНО 50 (не 0.5, как при старом двойном делении на 100). Заблокированный урон
-        // от одного удара 100 маг. урона: 100×(1-0.5)=50 по HP -> HP игрока 500->450 (не ~400.5,
-        // как дал бы старый баг с резистансом 0.5%).
+        // Новая формула даёт Rage=51% (1% + 50% недостающего HP), ур.5 (X=1.0) ->
+        // MagicalResistancePercent=51. Удар 100 маг. урона превращается в 49 -> HP 500->451,
+        // а не примерно 400.5, как при старом баге с двойным делением.
         var superstitionPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 500f, SkillSuperstitionLevel = 5 };
         var superstitionEnemy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, DisplayName = "TestEnemy" };
         superstitionEnemy.Weapons.Add(new WeaponAttackState { DamageMin = 100f, DamageMax = 100f, DamageType = DamageType.Magical, AttackSpeed = 2f });
 
         superstitionCombatManager.StartCombat(superstitionPlayer, new List<CombatantRuntime> { superstitionEnemy });
         superstitionCombatManager.Tick(0.51f); // ровно один удар врага (интервал 0.5с)
-        Check(Mathf.Approximately(superstitionPlayer.CurrentHP, 450f), $"3.11 «Суеверность» ур.5 при Ярости=50%: маг. сопротивление РОВНО 50% снижает урон 100 -> 50 по HP (HP={superstitionPlayer.CurrentHP}, ожидалось 450, НЕ ~400.5 от старого бага с двойным делением)");
+        Check(Mathf.Approximately(superstitionPlayer.CurrentHP, 451f), $"Баланс Саши: «Суеверность» ур.5 при Ярости=51% снижает урон 100 -> 49 по HP (HP={superstitionPlayer.CurrentHP}, ожидалось 451)");
 
         UnityEngine.Object.DestroyImmediate(superstitionGO);
 
@@ -1954,8 +1990,7 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(combatRegenGO);
 
-        // 3.11 (Варвар) — "Берсерк": пока тумблер активен, физ. сопротивление (см. UpdateResistances)
-        // снижает входящий физический урон ДО брони/щита (DamageCalculator.ApplyDamage). Ур.2 = 20%.
+        // Баланс Варвара: "Берсерк" снижает входящий физический урон ДО брони/щита. Ур.2 = 30%.
         var berserkOffGO = new GameObject("SmokeTest_BerserkOff");
         var berserkOffCombatManager = berserkOffGO.AddComponent<CombatManager>();
         var berserkOffPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, UniqueBerserkLevel = 2 };
@@ -1977,7 +2012,7 @@ public static class PlayModeSmokeTest
         berserkOnCombatManager.StartCombat(berserkOnPlayer, new List<CombatantRuntime> { berserkOnEnemy });
         berserkOnCombatManager.SetBerserkActive(true);
         berserkOnCombatManager.Tick(0.51f); // ровно один удар врага (интервал 0.5с, < 1с — самоурон Берсерка ещё не тикает)
-        Check(Mathf.Approximately(berserkOnPlayer.CurrentHP, 920f), $"3.11 «Берсерк» ур.2 (20% физ. сопротивления) снижает урон 100 -> 80 (HP={berserkOnPlayer.CurrentHP}, ожидалось 920)");
+        Check(Mathf.Approximately(berserkOnPlayer.CurrentHP, 930f), $"Баланс Саши: «Берсерк» ур.2 (30% физ. сопротивления) снижает урон 100 -> 70 (HP={berserkOnPlayer.CurrentHP}, ожидалось 930)");
 
         UnityEngine.Object.DestroyImmediate(berserkOnGO);
 
@@ -2016,10 +2051,10 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(championConvertedGO);
 
-        // Подслучай 3: Ярость=0% (полное HP, без флэт-бонуса) -> крит-шанс = 0×X% = 0 ровно, ДАЖЕ
-        // при огромных "обычных" источниках крит-шанса (SkillCriticalHitsLevel=5 + CritChanceBonusFromItems=50,
-        // что дало бы 100% в обычной формуле) — доказывает, что они конвертируются в урон, а НЕ шанс.
-        // Крит никогда не срабатывает -> урон всегда база (10, без множителя).
+        // Подслучай 3: при полном HP новая формула даёт Ярость=1%, поэтому шанс крита ур.5 равен 1%,
+        // а не нулю. Большие обычные источники (SkillCriticalHitsLevel=5 + CritChanceBonusFromItems=50)
+        // по-прежнему не добавляются к шансу, а конвертируются в крит-урон. Фиксируем Random state
+        // и проверяем один заведомо некритический удар.
         var championZeroRageGO = new GameObject("SmokeTest_ChampionZeroRage");
         var championZeroRageCombatManager = championZeroRageGO.AddComponent<CombatManager>();
         var championZeroRagePlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f, UniqueChampionOfTheTribeLevel = 5, CritChanceReplacedByRage = true, SkillCriticalHitsLevel = 5, CritChanceBonusFromItems = 50f };
@@ -2027,12 +2062,13 @@ public static class PlayModeSmokeTest
         var championZeroRageDummy = new CombatantRuntime { IsPlayer = false, MaxHP = 1000f, CurrentHP = 1000f, PhysicalDefenseMax = 0f, MagicShieldMax = 0f, DisplayName = "TestDummy" };
         championZeroRageDummy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 0.01f });
 
+        var randomStateBeforeChampionCheck = UnityEngine.Random.state;
+        UnityEngine.Random.InitState(24681357);
         championZeroRageCombatManager.StartCombat(championZeroRagePlayer, new List<CombatantRuntime> { championZeroRageDummy });
-        for (int hit = 0; hit < 5; hit++)
-        {
-            championZeroRageCombatManager.Tick(1.01f);
-        }
-        Check(Mathf.Approximately(championZeroRageDummy.CurrentHP, 950f), $"3.11 «Чемпион племени» при Ярости=0: крит-шанс=0 ровно вне зависимости от SkillCriticalHitsLevel/CritChanceBonusFromItems, ни один из 5 ударов не критует (HP болвана={championZeroRageDummy.CurrentHP}, ожидалось 950)");
+        championZeroRageCombatManager.Tick(1.01f);
+        UnityEngine.Random.state = randomStateBeforeChampionCheck;
+        Check(Mathf.Approximately(championZeroRagePlayer.Rage, 1f) && Mathf.Approximately(championZeroRageDummy.CurrentHP, 990f),
+            $"Баланс Саши: «Чемпион племени» при полном HP использует 1% Ярости, обычные +100% шанса не прибавляются (HP болвана={championZeroRageDummy.CurrentHP}, ожидалось 990)");
 
         UnityEngine.Object.DestroyImmediate(championZeroRageGO);
 

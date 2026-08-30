@@ -17,8 +17,8 @@ MonoBehaviour:
   portrait: {fileID: 21300000, guid: 817639c014f726946a554d7306acf03f, type: 3}
   selectionPortrait: {fileID: 21300000, guid: 5354a54af74bca2499abdb58f4a954e3, type: 3}
   characterClass: 3
-  baseHealth: 30
-  healthPerLevel: 25
+  baseHealth: 45
+  healthPerLevel: 35
   uniquePassiveSkill: {fileID: 11400000, guid: 0f13b52e53270254785da8d1494bb65b, type: 2}
   uniqueActiveSkill: {fileID: 11400000, guid: 817237331c0b3a9488620cb821023c3c, type: 2}
   startingEquipment:

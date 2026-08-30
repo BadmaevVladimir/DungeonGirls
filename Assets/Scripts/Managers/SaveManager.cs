@@ -198,6 +198,21 @@ public class SaveManager : MonoBehaviour
         SaveGame();
     }
 
+    // Сервисная выдача двух постоянных валют. Используется чит-меню для тестирования и
+    // сохраняет обе части награды одной атомарной записью на диск.
+    public void AddDebugCurrencies(int metaCurrencyAmount, int gachaCurrencyAmount)
+    {
+        if (metaCurrencyAmount < 0 || gachaCurrencyAmount < 0)
+        {
+            Debug.LogWarning("[Save] Попытка выдать отрицательную сервисную валюту отклонена.");
+            return;
+        }
+
+        Data.metaCurrency += metaCurrencyAmount;
+        Data.gachaCurrency += gachaCurrencyAmount;
+        SaveGame();
+    }
+
     public bool TrySpendMetaCurrency(int amount)
     {
         if (Data.metaCurrency < amount) return false;

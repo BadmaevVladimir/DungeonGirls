@@ -2202,7 +2202,11 @@ public class RunFlowController : MonoBehaviour
         if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
         {
             DamageCalculator.ComputeDamageRange(item.EffectiveDamage, out float dmgMin, out float dmgMax);
-            lines.Add($"Урон: {dmgMin:F0}-{dmgMax:F0} ({item.damageType}), скорость атаки: {item.attackSpeed:F2}");
+            lines.Add($"Урон: {dmgMin:F0}-{dmgMax:F0} ({item.damageType}), скорость атаки: {item.attackSpeed:F2}/с");
+            if (item.isTwoHanded)
+            {
+                lines.Add("Двуручное: +30% итогового урона после плоских бонусов.");
+            }
         }
 
         if (item.physicalDefense > 0f)
@@ -2265,6 +2269,14 @@ public class RunFlowController : MonoBehaviour
         {
             DamageCalculator.ComputeDamageRange(item.EffectiveDamage, out float dmgMin, out float dmgMax);
             mainStats.Add($"урон {dmgMin:F0}–{dmgMax:F0}");
+            // Базовая скорость — характеристика самого оружия, а не его дополнительный процентный
+            // бонус. Показываем обе строки независимо: иначе «+10% скорости» создаёт впечатление,
+            // что предмет быстрее, но игрок не может сравнить его реальную частоту ударов.
+            mainStats.Add($"скорость атаки {item.attackSpeed:F2}/с");
+            if (item.isTwoHanded)
+            {
+                mainStats.Add("двуручное: урон +30%");
+            }
         }
 
         if (item.physicalDefense > 0f)
@@ -2489,7 +2501,7 @@ public class RunFlowController : MonoBehaviour
         tutorialManager.BindTooltip(rageIndicator, "Ярость", TutorialContent.TooltipRage);
         tutorialManager.BindTooltip(stealthIndicator, "Скрытность", TutorialContent.TooltipStealth);
         tutorialManager.BindTooltip(autoModeToggle, "Авто-режим", TutorialContent.TooltipAuto);
-        tutorialManager.BindTooltip(activeSkillButton, "Активный навык", TutorialContent.TooltipAuto);
+        tutorialManager.BindTooltip(activeSkillButton, "Активный навык", TutorialContent.TooltipActive);
         tutorialManager.BindTooltip(berserkToggle, "Берсерк", TutorialContent.TooltipBerserk);
         tutorialManager.BindTooltip(levelUpRerollButton, "Перебросы", TutorialContent.TooltipReroll);
         tutorialManager.BindTooltip(merchantCurrencyLabel, "Валюта забега", TutorialContent.TooltipRunCurrency);

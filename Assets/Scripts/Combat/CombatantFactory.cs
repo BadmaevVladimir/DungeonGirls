@@ -409,6 +409,14 @@ public static class CombatantFactory
             itemDamage += tavernFlatDamage; // 8.1: флэт-бонус Таверны, независимо от Кузницы
             itemDamage += weaponDamageFlatBonus; // 3.10 (ФИКС): BonusStatType.WeaponDamageFlat
 
+            // Баланс Варвара: двуручное оружие занимает оба слота рук, поэтому после всех
+            // плоских прибавок получает собственный множитель урона. Общие процентные бонусы
+            // применяются позднее к любой атаке одинаково, так что порядок не создаёт исключений.
+            if (item.isTwoHanded)
+            {
+                itemDamage *= 1.30f;
+            }
+
             // 3.2: фиксированный урон -> диапазон [ПОЛ(база×0.8); ОКРУГЛВВЕРХ(база×1.2)].
             DamageCalculator.ComputeDamageRange(itemDamage, out float damageMin, out float damageMax);
 

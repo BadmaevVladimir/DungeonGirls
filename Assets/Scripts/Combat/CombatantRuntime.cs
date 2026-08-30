@@ -210,11 +210,12 @@ public class CombatantRuntime
 
     public bool HasActiveDebuff => ActiveDebuffs.Exists(d => !d.IsBuff) || IsFrozen || FreezeStacks > 0;
 
-    // 3.11 (Варвар) — "Ярость" = % недостающего HP, ПЕРЕСЧИТЫВАЕТСЯ динамически (не хранимое поле).
-    // Флэт-бонусы (Пояс титана) добавляются здесь же поверх формулы — могут увести Rage выше 100%.
+    // 3.11 (Варвар) — "Ярость" = 1% + % недостающего HP, ПЕРЕСЧИТЫВАЕТСЯ динамически
+    // (не хранимое поле). Так 100% достижимы ещё при 1% HP. Флэт-бонусы (Пояс титана)
+    // добавляются поверх формулы, но итог всегда остаётся в честном диапазоне 0–100%.
     public float RageFlatBonusPercent;
     public float Rage => MaxHP > 0f
-        ? Mathf.Max(0f, (1f - Mathf.Clamp01(CurrentHP / MaxHP)) * 100f + RageFlatBonusPercent)
+        ? Mathf.Clamp(1f + (1f - Mathf.Clamp01(CurrentHP / MaxHP)) * 100f + RageFlatBonusPercent, 0f, 100f)
         : 0f;
 
     // 3.11 (Варвар) — общая таблица X-по-уровню (0.7/0.75/0.8/0.9/1.0), используемая "Остервенелостью"

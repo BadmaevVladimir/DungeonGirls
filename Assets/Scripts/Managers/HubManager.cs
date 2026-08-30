@@ -74,6 +74,17 @@ public class HubManager : MonoBehaviour
     Button resetProgressConfirmButton;
     Button resetProgressCancelButton;
 
+    Button cheatMenuButton;
+    Button quitGameButton;
+    VisualElement cheatMenuPopup;
+    TextField cheatCommandField;
+    Label cheatResultLabel;
+    Button cheatSubmitButton;
+    Button cheatCloseButton;
+
+    const string GreedIsGoodCheat = "greedisgood";
+    const int GreedIsGoodReward = 10000;
+
     // Start() вместо OnEnable(): HubManager сидит на GameObject "GameManager", а UIDocument — на
     // отдельном GameObject "UI". Unity не гарантирует порядок OnEnable МЕЖДУ разными GameObject
     // (в отличие от порядка компонентов ВНУТРИ одного GameObject, где UIDocument идёт раньше
@@ -106,6 +117,18 @@ public class HubManager : MonoBehaviour
         resetProgressButton.clicked += () => resetProgressConfirmPopup.style.display = DisplayStyle.Flex;
         resetProgressCancelButton.clicked += () => resetProgressConfirmPopup.style.display = DisplayStyle.None;
         resetProgressConfirmButton.clicked += ConfirmResetProgress;
+        cheatMenuButton.clicked += OpenCheatMenu;
+        cheatCloseButton.clicked += CloseCheatMenu;
+        cheatSubmitButton.clicked += SubmitCheatCommand;
+        cheatCommandField.RegisterCallback<KeyDownEvent>(evt =>
+        {
+            if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+            {
+                SubmitCheatCommand();
+                evt.StopPropagation();
+            }
+        });
+        quitGameButton.clicked += QuitGame;
 
         for (int i = 0; i < BuildingOrder.Length; i++)
         {
@@ -192,6 +215,14 @@ public class HubManager : MonoBehaviour
         resetProgressConfirmPopup = root.Q<VisualElement>("ResetProgressConfirmPopup");
         resetProgressConfirmButton = root.Q<Button>("ResetProgressConfirmButton");
         resetProgressCancelButton = root.Q<Button>("ResetProgressCancelButton");
+
+        cheatMenuButton = root.Q<Button>("CheatMenuButton");
+        quitGameButton = root.Q<Button>("QuitGameButton");
+        cheatMenuPopup = root.Q<VisualElement>("CheatMenuPopup");
+        cheatCommandField = root.Q<TextField>("CheatCommandField");
+        cheatResultLabel = root.Q<Label>("CheatResultLabel");
+        cheatSubmitButton = root.Q<Button>("CheatSubmitButton");
+        cheatCloseButton = root.Q<Button>("CheatCloseButton");
     }
 
     // ==================== Навигация (7.1) ====================
@@ -202,7 +233,48 @@ public class HubManager : MonoBehaviour
         gachaScreen.style.display = DisplayStyle.None;
         veteranDeckScreen.style.display = DisplayStyle.None;
         charactersScreen.style.display = DisplayStyle.None;
+        CloseCheatMenu();
         mainMenuScreen.style.display = DisplayStyle.Flex;
+    }
+
+    void OpenCheatMenu()
+    {
+        cheatCommandField.value = string.Empty;
+        cheatResultLabel.text = string.Empty;
+        cheatResultLabel.AddToClassList("hidden");
+        cheatMenuPopup.style.display = DisplayStyle.Flex;
+        cheatCommandField.Focus();
+    }
+
+    void CloseCheatMenu()
+    {
+        if (cheatMenuPopup != null)
+        {
+            cheatMenuPopup.style.display = DisplayStyle.None;
+        }
+    }
+
+    void SubmitCheatCommand()
+    {
+        if (string.Equals(cheatCommandField.value?.Trim(), GreedIsGoodCheat, System.StringComparison.OrdinalIgnoreCase))
+        {
+            saveManager.AddDebugCurrencies(GreedIsGoodReward, GreedIsGoodReward);
+            cheatResultLabel.text = $"Получено: +{GreedIsGoodReward} мета-валюты и +{GreedIsGoodReward} гача-валюты.";
+            cheatCommandField.value = string.Empty;
+            RefreshBuildingsScreen();
+            RefreshGachaScreen();
+        }
+        else
+        {
+            cheatResultLabel.text = "Неизвестная команда.";
+        }
+
+        cheatResultLabel.RemoveFromClassList("hidden");
+    }
+
+    void QuitGame()
+    {
+        Application.Quit();
     }
 
     public void OpenBuildings()
@@ -292,9 +364,40 @@ public class HubManager : MonoBehaviour
         tutorialManager.BindTooltip(metaCurrencyLabel, "Мета-валюта", TutorialContent.TooltipMetaCurrency);
         tutorialManager.BindTooltip(gachaCurrencyLabel, "Гача-валюта", TutorialContent.TooltipGachaCurrency);
         tutorialManager.BindTooltip(gachaPullButton, "Призыв", "Стоит 50 гача-валюты. Шанс персонажа — 15%; pity-системы в демо нет.");
-        tutorialManager.BindTooltip(buildingBonusLabels[0], "Бонус Кузницы", "Усиливает стартовое снаряжение и восстановление физической брони в будущих забегах.");
-        tutorialManager.BindTooltip(buildingBonusLabels[1], "Бонус Храма", "Даёт магический щит и общий запас перебросов навыков на весь забег.");
-        tutorialManager.BindTooltip(buildingBonusLabels[2], "Бонус Таверны", "Увеличивает запас рационов, урон и эффективность лечения на привале.");
+        tutorialManager.BindTooltip(buildingBonusLabels[0], "Бонус Кузницы", () => CurrentBuildingBonusText(BuildingType.Forge));
+        tutorialManager.BindTooltip(buildingBonusLabels[1], "Бонус Храма", () => CurrentBuildingBonusText(BuildingType.Temple));
+        tutorialManager.BindTooltip(buildingBonusLabels[2], "Бонус Таверны", () => CurrentBuildingBonusText(BuildingType.Tavern));
+    }
+
+    string CurrentBuildingBonusText(BuildingType building)
+    {
+        int level = saveManager.GetBuildingLevel(building);
+        string active;
+        switch (building)
+        {
+            case BuildingType.Forge:
+                active = $"стартовое снаряжение +{BuildingCatalog.ForgeStartingEquipmentBonus(level)} ур.; " +
+                         $"плоская броня +{BuildingCatalog.ForgeArmorBonus(level):F0}; " +
+                         $"броня снаряжения ×{BuildingCatalog.ForgeEquipmentArmorMultiplier(level):F2}; " +
+                         $"восстановление брони на привале {BuildingCatalog.ForgeCampArmorRestorePercent(level):F0}%";
+                break;
+            case BuildingType.Temple:
+                active = $"магический щит +{BuildingCatalog.TempleMagicShieldBonus(level):F0}; " +
+                         $"общих перебросов навыков: {BuildingCatalog.TempleLevelUpRerolls(level)}; " +
+                         "перезапуск после смерти на 5 уровне пока не реализован";
+                break;
+            case BuildingType.Tavern:
+                active = $"дополнительных рационов: {BuildingCatalog.TavernRationsBonus(level)}; " +
+                         $"урон каждого оружия +{BuildingCatalog.TavernFlatDamageBonus(level):F0}; " +
+                         $"лечение на привале +{BuildingCatalog.TavernCampHealBonusPercent(level):F0} п.п.; " +
+                         "случайные бонусы после привала на 5 уровне пока не реализованы";
+                break;
+            default:
+                active = "нет активных бонусов";
+                break;
+        }
+
+        return $"Текущий уровень: {level}/{BuildingCatalog.MaxLevel}.\nАктивно: {active}.";
     }
 
     string CharacterDisplayName(string characterId)
