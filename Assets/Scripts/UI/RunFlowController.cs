@@ -1391,6 +1391,16 @@ public class RunFlowController : MonoBehaviour
             return 0f;
         }
 
+        return ComputeStageFloorGap(boxWidth, boxHeight);
+    }
+
+    // Чистая часть формулы — вынесена из GetStageFloorGapFromBottom, чтобы быть тестируемой без
+    // живого UIDocument/resolvedStyle. Баг (2026-08-26): фон боя (Dungeon.png, 1536x1024)
+    // рендерится через ScaleAndCrop — на экранах шире исходного соотношения (16:9-21:9 против 3:2
+    // фона) кроп идёт по центру, и линия пола на фоне смещается относительно нижнего края
+    // контейнера тем сильнее, чем шире экран. Пересчитывается по формуле "cover"-кропа.
+    public static float ComputeStageFloorGap(float boxWidth, float boxHeight)
+    {
         float imageAspect = combatBackgroundImageWidth / combatBackgroundImageHeight;
         float boxAspect = boxWidth / boxHeight;
 
