@@ -56,7 +56,7 @@ public class CampManager : MonoBehaviour
     float RestoreCampArmor(CharacterManager characterManager)
     {
         var combatant = characterManager.Combatant;
-        int fieldRepairLevel = characterManager.Progress.GetEffectiveUniquePassiveLevel(SkillEffectMap.FieldRepair);
+        int fieldRepairLevel = characterManager.Progress.GetEffectiveUniquePassiveLevel(SkillId.FieldRepair);
         float totalRepairPercent = (fieldRepairLevel > 0 ? fieldRepairLevel * 10f : 0f) +
             ItemEffectBalance.RepairCampArmorPercent(combatant.ItemRepairLevel) + BuildingCatalog.ForgeCampArmorRestorePercent(characterManager.ForgeLevelThisRun);
         if (totalRepairPercent <= 0f) return 0f;

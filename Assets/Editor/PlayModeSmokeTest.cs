@@ -1277,7 +1277,7 @@ public static class PlayModeSmokeTest
             MentorUniquePassiveSkillName = SkillEffectMap.Shadow,
             MentorUniquePassiveLevel = 1
         };
-        Check(inheritedProgress.GetMentorUniquePassiveLevel(SkillEffectMap.Shadow) == 1 && inheritedProgress.GetMentorUniquePassiveLevel(SkillEffectMap.ChampionOfTheTribe) == 0,
+        Check(inheritedProgress.GetMentorUniquePassiveLevel(SkillId.Shadow) == 1 && inheritedProgress.GetMentorUniquePassiveLevel(SkillId.ChampionOfTheTribe) == 0,
             "1 п.3 механика наследуемого уникального пассива включается только для выбранного навыка");
         UnityEngine.Object.DestroyImmediate(inheritedProgressCharacter);
         UnityEngine.Object.DestroyImmediate(veteranSaveManager.gameObject);

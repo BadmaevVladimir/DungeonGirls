@@ -65,11 +65,11 @@ public class RunCharacterProgress
         return true;
     }
 
-    public int GetSkillLevel(string skillName)
+    public int GetSkillLevel(SkillId skillId)
     {
         foreach (var pair in KnownSkillLevels)
         {
-            if (pair.Key.skillName == skillName)
+            if (pair.Key.skillId == skillId)
             {
                 return pair.Value;
             }
@@ -78,20 +78,22 @@ public class RunCharacterProgress
         return 0;
     }
 
-    public int GetEffectiveUniquePassiveLevel(string skillName)
+    // MentorUniquePassiveSkillName остаётся строкой (персистентный формат SaveData/VeteranCharacter,
+    // не меняем) — сравнивается через SkillEffectMap.ResolveId, а не напрямую по строке.
+    public int GetEffectiveUniquePassiveLevel(SkillId skillId)
     {
         int ownLevel = Character != null && Character.uniquePassiveSkill != null &&
-            string.Equals(Character.uniquePassiveSkill.skillName, skillName, System.StringComparison.OrdinalIgnoreCase)
+            Character.uniquePassiveSkill.skillId == skillId
             ? UniquePassiveLevel
             : 0;
-        int mentorLevel = string.Equals(MentorUniquePassiveSkillName, skillName, System.StringComparison.OrdinalIgnoreCase)
+        int mentorLevel = SkillEffectMap.ResolveId(MentorUniquePassiveSkillName) == skillId
             ? MentorUniquePassiveLevel
             : 0;
         return Mathf.Max(ownLevel, mentorLevel);
     }
 
-    public int GetMentorUniquePassiveLevel(string skillName) =>
-        string.Equals(MentorUniquePassiveSkillName, skillName, System.StringComparison.OrdinalIgnoreCase)
+    public int GetMentorUniquePassiveLevel(SkillId skillId) =>
+        SkillEffectMap.ResolveId(MentorUniquePassiveSkillName) == skillId
             ? MentorUniquePassiveLevel
             : 0;
 

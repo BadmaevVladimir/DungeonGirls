@@ -26,7 +26,7 @@ public static class CombatantFactory
         runtime.MaxHP = character.baseHealth + character.healthPerLevel * (levelIndex - 1);
         runtime.CurrentHP = runtime.MaxHP;
 
-        int ambidexterityLevel = progress != null ? progress.GetSkillLevel(SkillEffectMap.Ambidexterity) : 0;
+        int ambidexterityLevel = progress != null ? progress.GetSkillLevel(SkillId.Ambidexterity) : 0;
 
         ItemData[] items = equipment != null ? new List<ItemData>(equipment).ToArray() : character.startingEquipment;
 
@@ -61,7 +61,7 @@ public static class CombatantFactory
         runtime.CurrentHP = runtime.MaxHP;
         runtime.RageFlatBonusPercent = rageBonusFlatPercentSum; // 3.11 (Пояс титана): флэт-линейный бонус к Ярости
 
-        int sturdyLevel = progress != null ? progress.GetSkillLevel(SkillEffectMap.Sturdy) : 0;
+        int sturdyLevel = progress != null ? progress.GetSkillLevel(SkillId.Sturdy) : 0;
         float coreArmor = physicalDefense + maxPhysicalDefenseBonus;
         float sturdyMultiplier = 1f + sturdyLevel * 0.05f;
         // Кузница и «Прочный» усиливают только защитное снаряжение: нагрудник, шлем, сапоги и щит.
@@ -204,9 +204,9 @@ public static class CombatantFactory
     // динамические эффекты боя, поэтому здесь только копируются их уровни на рантайм-объект.
     static void ApplyCharacterSkills(CombatantRuntime runtime, RunCharacterProgress progress, ItemData[] equippedItems)
     {
-        int sturdyLevel = progress.GetSkillLevel(SkillEffectMap.Sturdy);
+        int sturdyLevel = progress.GetSkillLevel(SkillId.Sturdy);
 
-        int wallLevel = progress.GetSkillLevel(SkillEffectMap.IAmTheWall);
+        int wallLevel = progress.GetSkillLevel(SkillId.IAmTheWall);
         if (wallLevel > 0)
         {
             // Щит занимает второй слот "оружие" (3.1), поэтому персонаж со щитом физически не может
@@ -223,16 +223,16 @@ public static class CombatantFactory
             }
         }
 
-        runtime.SkillFreezeLevel = progress.GetSkillLevel(SkillEffectMap.Freeze);
-        runtime.SkillLuckLevel = progress.GetSkillLevel(SkillEffectMap.Luck);
-        runtime.SkillEvasionLevel = progress.GetSkillLevel(SkillEffectMap.Evasion);
+        runtime.SkillFreezeLevel = progress.GetSkillLevel(SkillId.Freeze);
+        runtime.SkillLuckLevel = progress.GetSkillLevel(SkillId.Luck);
+        runtime.SkillEvasionLevel = progress.GetSkillLevel(SkillId.Evasion);
         runtime.SkillSturdyLevel = sturdyLevel;
-        runtime.SkillCriticalHitsLevel = progress.GetSkillLevel(SkillEffectMap.CriticalHits);
+        runtime.SkillCriticalHitsLevel = progress.GetSkillLevel(SkillId.CriticalHits);
         runtime.SkillIAmTheWallLevel = wallLevel;
-        runtime.SkillAmbidexterityLevel = progress.GetSkillLevel(SkillEffectMap.Ambidexterity);
-        runtime.SkillThornsLevel = progress.GetSkillLevel(SkillEffectMap.Thorns);
-        runtime.SkillUnyieldingLevel = progress.GetSkillLevel(SkillEffectMap.Unyielding);
-        runtime.SkillBleedLevel = progress.GetSkillLevel(SkillEffectMap.Bleed);
+        runtime.SkillAmbidexterityLevel = progress.GetSkillLevel(SkillId.Ambidexterity);
+        runtime.SkillThornsLevel = progress.GetSkillLevel(SkillId.Thorns);
+        runtime.SkillUnyieldingLevel = progress.GetSkillLevel(SkillId.Unyielding);
+        runtime.SkillBleedLevel = progress.GetSkillLevel(SkillId.Bleed);
         runtime.MentorMagicDamageBonusPercent = progress.MentorMagicDamageBonusPercent;
 
         // 3.11 (Плут) — классовые навыки + уникальная пассивка/активка. ФИКС (Codex P1 2026-08-27):
@@ -245,16 +245,16 @@ public static class CombatantFactory
         // Воин/Варвар со Скрытностью от "Ускользания" получал бы +10-30% уклонения "Тени", используя
         // уровень СВОЕЙ уникальной пассивки. Тот же паттерн явной проверки класса уже используется
         // ниже для UniqueChampionOfTheTribeLevel/UniqueBerserkLevel (Варвар).
-        runtime.SkillEyeForAnEyeLevel = progress.GetSkillLevel(SkillEffectMap.EyeForAnEye);
-        runtime.SkillPoisonedBladeLevel = progress.GetSkillLevel(SkillEffectMap.PoisonedBlade);
-        runtime.SkillByAThreadLevel = progress.GetSkillLevel(SkillEffectMap.ByAThread);
-        runtime.SkillSlipAwayLevel = progress.GetSkillLevel(SkillEffectMap.SlipAway);
+        runtime.SkillEyeForAnEyeLevel = progress.GetSkillLevel(SkillId.EyeForAnEye);
+        runtime.SkillPoisonedBladeLevel = progress.GetSkillLevel(SkillId.PoisonedBlade);
+        runtime.SkillByAThreadLevel = progress.GetSkillLevel(SkillId.ByAThread);
+        runtime.SkillSlipAwayLevel = progress.GetSkillLevel(SkillId.SlipAway);
         bool isRogue = progress.Character != null && progress.Character.characterClass == CharacterClass.Rogue;
         runtime.UniqueShadowLevel = Mathf.Max(
             isRogue ? progress.UniquePassiveLevel : 0,
-            progress.GetMentorUniquePassiveLevel(SkillEffectMap.Shadow));
+            progress.GetMentorUniquePassiveLevel(SkillId.Shadow));
         runtime.UniqueSmokeBombLevel = isRogue ? progress.UniqueActiveLevel : 0;
-        runtime.CritDamageMultiplierOverridePercent = progress.GetSkillLevel(SkillEffectMap.Elimination) switch
+        runtime.CritDamageMultiplierOverridePercent = progress.GetSkillLevel(SkillId.Elimination) switch
         {
             1 => 175f, 2 => 180f, 3 => 185f, 4 => 190f, 5 => 200f, _ => (float?)null
         };
@@ -262,11 +262,11 @@ public static class CombatantFactory
         // 3.11 (Варвар) — классовые навыки (пул уровня персонажа, безусловный паттерн копирования,
         // как у Плута выше — навыки классового пула у "чужого" класса просто всегда 0, т.к.
         // LevelUpManager.GetClassPool не даёт их выучить, см. Task 3c).
-        runtime.SkillStubbornnessLevel = progress.GetSkillLevel(SkillEffectMap.Stubbornness);
-        runtime.SkillFrenzyLevel = progress.GetSkillLevel(SkillEffectMap.Frenzy);
-        runtime.SkillCombatRegenLevel = progress.GetSkillLevel(SkillEffectMap.CombatRegen);
-        runtime.SkillIntimidationLevel = progress.GetSkillLevel(SkillEffectMap.Intimidation);
-        runtime.SkillSuperstitionLevel = progress.GetSkillLevel(SkillEffectMap.Superstition);
+        runtime.SkillStubbornnessLevel = progress.GetSkillLevel(SkillId.Stubbornness);
+        runtime.SkillFrenzyLevel = progress.GetSkillLevel(SkillId.Frenzy);
+        runtime.SkillCombatRegenLevel = progress.GetSkillLevel(SkillId.CombatRegen);
+        runtime.SkillIntimidationLevel = progress.GetSkillLevel(SkillId.Intimidation);
+        runtime.SkillSuperstitionLevel = progress.GetSkillLevel(SkillId.Superstition);
 
         // ФИКС: в отличие от классовых навыков выше и UniqueShadowLevel/UniqueSmokeBombLevel (Task 4,
         // безвредны для чужих классов — используются только за Rogue-специфичными триггерами вроде
@@ -279,7 +279,7 @@ public static class CombatantFactory
         bool isBarbarian = progress.Character != null && progress.Character.characterClass == CharacterClass.Barbarian;
         runtime.UniqueChampionOfTheTribeLevel = Mathf.Max(
             isBarbarian ? progress.UniquePassiveLevel : 0,
-            progress.GetMentorUniquePassiveLevel(SkillEffectMap.ChampionOfTheTribe));
+            progress.GetMentorUniquePassiveLevel(SkillId.ChampionOfTheTribe));
         runtime.UniqueBerserkLevel = isBarbarian ? progress.UniqueActiveLevel : 0;
         runtime.CritChanceReplacedByRage = runtime.UniqueChampionOfTheTribeLevel > 0;
     }
@@ -420,7 +420,7 @@ public static class CombatantFactory
             // 3.2: фиксированный урон -> диапазон [ПОЛ(база×0.8); ОКРУГЛВВЕРХ(база×1.2)].
             DamageCalculator.ComputeDamageRange(itemDamage, out float damageMin, out float damageMax);
 
-            string passiveName = item.passiveSkill != null ? item.passiveSkill.skillName : null;
+            SkillId passiveId = item.passiveSkill != null ? item.passiveSkill.skillId : SkillId.None;
             // 3.10 (ФИКС): BonusStatType.ArmorPenetrationFlat ("Пробивание", Топор/Молот редкого+
             // тира) раньше молча игнорировался — привязан к конкретному оружию, не суммируется.
             float armorPenetrationFlat = item.bonusStat != null && item.bonusStat.type == BonusStatType.ArmorPenetrationFlat
@@ -441,16 +441,16 @@ public static class CombatantFactory
                 DamageMax = damageMax,
                 DamageType = item.damageType,
                 AttackSpeed = item.attackSpeed,
-                VampirismLevel = passiveName == SkillEffectMap.Vampirism ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
-                ArmorBreakLevel = passiveName == SkillEffectMap.ArmorBreak ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
-                PiercingLevel = passiveName == SkillEffectMap.Piercing ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
+                VampirismLevel = passiveId == SkillId.Vampirism ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
+                ArmorBreakLevel = passiveId == SkillId.ArmorBreak ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
+                PiercingLevel = passiveId == SkillId.Piercing ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
                 ArmorPenetrationFlat = armorPenetrationFlat,
                 ArmorIgnorePercent = armorIgnorePercent,
-                ExecutionLevel = passiveName == SkillEffectMap.Execution ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
-                GiantSlayerLevel = passiveName == SkillEffectMap.GiantSlayer ? StatScaling.ItemEffectRank(item.itemLevel) : 0
+                ExecutionLevel = passiveId == SkillId.Execution ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
+                GiantSlayerLevel = passiveId == SkillId.GiantSlayer ? StatScaling.ItemEffectRank(item.itemLevel) : 0
             });
 
-            if (passiveName == SkillEffectMap.Repair)
+            if (passiveId == SkillId.Repair)
             {
                 repairLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
@@ -525,28 +525,28 @@ public static class CombatantFactory
                 }
             }
 
-            string passiveName = item.passiveSkill != null ? item.passiveSkill.skillName : null;
-            if (passiveName == SkillEffectMap.Elusiveness)
+            SkillId passiveId = item.passiveSkill != null ? item.passiveSkill.skillId : SkillId.None;
+            if (passiveId == SkillId.Elusiveness)
             {
                 elusivenessLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
-            else if (passiveName == SkillEffectMap.GoldenTouch)
+            else if (passiveId == SkillId.GoldenTouch)
             {
                 goldenTouchLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
-            else if (passiveName == SkillEffectMap.ToughSole)
+            else if (passiveId == SkillId.ToughSole)
             {
                 toughSoleLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
-            else if (passiveName == SkillEffectMap.Riposte)
+            else if (passiveId == SkillId.Riposte)
             {
                 riposteLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
-            else if (passiveName == SkillEffectMap.EmbraceOfNight)
+            else if (passiveId == SkillId.EmbraceOfNight)
             {
                 embraceOfNightLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }
-            else if (passiveName == SkillEffectMap.JustAScratch)
+            else if (passiveId == SkillId.JustAScratch)
             {
                 justAScratchLevel += StatScaling.ItemEffectRank(item.itemLevel);
             }

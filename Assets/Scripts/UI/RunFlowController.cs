@@ -1498,7 +1498,7 @@ public class RunFlowController : MonoBehaviour
         tutorialManager?.QueueOnce(TutorialContent.RiskRoom);
         trapDescriptionLabel.text = description;
 
-        int luckLevel = characterManager.Progress.GetSkillLevel(SkillEffectMap.Luck);
+        int luckLevel = characterManager.Progress.GetSkillLevel(SkillId.Luck);
         float chance = SuccessChanceCalculator.CalculateSuccessChancePercent(characterManager.Level, level, SuccessChanceCalculator.GetLuckBonusPercent(luckLevel));
         trapChanceLabel.text = $"Шанс успеха: {chance:F0}%";
 
@@ -1997,7 +1997,7 @@ public class RunFlowController : MonoBehaviour
     {
         floorManager.SetFloorState(FloorState.RewardChest);
 
-        int luckLevel = characterManager.Progress.GetSkillLevel(SkillEffectMap.Luck);
+        int luckLevel = characterManager.Progress.GetSkillLevel(SkillId.Luck);
         int currencyBonus = characterManager.Modifiers.ConsumeChestCurrencyBonus();
         bool noCurrency = characterManager.Modifiers.ConsumeChestNoCurrency();
 
