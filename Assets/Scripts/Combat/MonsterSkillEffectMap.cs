@@ -13,4 +13,16 @@ public static class MonsterSkillEffectMap
     public const string DarkHeal = "Тёмное исцеление"; // Жрец тьмы
     public const string DoubleStrike = "Двойной удар"; // Рыцарь тьмы
     // Каменный страж не имеет пассивки (2.4) — только базовые статы.
+
+    public static SkillId ResolveId(string skillName) => skillName switch
+    {
+        SlowCurse => SkillId.MonsterSlowCurse,
+        Fluttering => SkillId.MonsterFluttering,
+        ArmorPiercingBlade => SkillId.MonsterArmorPiercingBlade,
+        Corrosion => SkillId.MonsterCorrosion,
+        StunningScream => SkillId.MonsterStunningScream,
+        DarkHeal => SkillId.MonsterDarkHeal,
+        DoubleStrike => SkillId.MonsterDoubleStrike,
+        _ => SkillId.None
+    };
 }

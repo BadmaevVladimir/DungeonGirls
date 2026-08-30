@@ -103,3 +103,19 @@ public enum MonsterModifierType
     // Добавлен в конец, чтобы не менять сериализованные числовые значения старых модификаторов.
     ArmorPiercing
 }
+
+// Стабильный идентификатор навыка — не меняется при переименовании skillName в инспекторе.
+// Заменяет строковое сравнение по SkillEffectMap/MonsterSkillEffectMap константам в боевой логике.
+public enum SkillId
+{
+    None = 0,
+    FieldRepair, Freeze, Luck, Evasion, Sturdy, CriticalHits, IAmTheWall, Ambidexterity, Thorns,
+    Unyielding, Bleed,
+    Vampirism, ArmorBreak, Piercing, Repair, Elusiveness, GoldenTouch, ToughSole,
+    EyeForAnEye, PoisonedBlade, ByAThread, Elimination, SlipAway,
+    Stubbornness, Frenzy, CombatRegen, Intimidation, Superstition,
+    Shadow, SmokeBomb, ChampionOfTheTribe, Berserk,
+    Riposte, EmbraceOfNight, Execution, GiantSlayer, JustAScratch,
+    MonsterSlowCurse, MonsterFluttering, MonsterArmorPiercingBlade, MonsterCorrosion,
+    MonsterStunningScream, MonsterDarkHeal, MonsterDoubleStrike
+}

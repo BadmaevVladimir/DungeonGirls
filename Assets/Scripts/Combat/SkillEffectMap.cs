@@ -50,4 +50,27 @@ public static class SkillEffectMap
     public const string Execution = "Казнь"; // Клинок "Моменто Мори"
     public const string GiantSlayer = "Убийца великанов"; // Двуручный топор "Головоруб"
     public const string JustAScratch = "Просто царапина"; // Эпический трофей
+
+    // Разовый мост string -> SkillId для мест, где имя приходит из персистентных данных
+    // (SaveData.VeteranCharacter.uniquePassiveSkillName), а не напрямую из PassiveSkillData.skillId.
+    // Не для нового кода в боевой логике — там читайте .skillId с самого ассета.
+    public static SkillId ResolveId(string skillName) => skillName switch
+    {
+        FieldRepair => SkillId.FieldRepair, Freeze => SkillId.Freeze, Luck => SkillId.Luck,
+        Evasion => SkillId.Evasion, Sturdy => SkillId.Sturdy, CriticalHits => SkillId.CriticalHits,
+        IAmTheWall => SkillId.IAmTheWall, Ambidexterity => SkillId.Ambidexterity, Thorns => SkillId.Thorns,
+        Unyielding => SkillId.Unyielding, Bleed => SkillId.Bleed,
+        Vampirism => SkillId.Vampirism, ArmorBreak => SkillId.ArmorBreak, Piercing => SkillId.Piercing,
+        Repair => SkillId.Repair, Elusiveness => SkillId.Elusiveness, GoldenTouch => SkillId.GoldenTouch,
+        ToughSole => SkillId.ToughSole,
+        EyeForAnEye => SkillId.EyeForAnEye, PoisonedBlade => SkillId.PoisonedBlade,
+        ByAThread => SkillId.ByAThread, Elimination => SkillId.Elimination, SlipAway => SkillId.SlipAway,
+        Stubbornness => SkillId.Stubbornness, Frenzy => SkillId.Frenzy, CombatRegen => SkillId.CombatRegen,
+        Intimidation => SkillId.Intimidation, Superstition => SkillId.Superstition,
+        Shadow => SkillId.Shadow, SmokeBomb => SkillId.SmokeBomb,
+        ChampionOfTheTribe => SkillId.ChampionOfTheTribe, Berserk => SkillId.Berserk,
+        Riposte => SkillId.Riposte, EmbraceOfNight => SkillId.EmbraceOfNight,
+        Execution => SkillId.Execution, GiantSlayer => SkillId.GiantSlayer, JustAScratch => SkillId.JustAScratch,
+        _ => SkillId.None
+    };
 }

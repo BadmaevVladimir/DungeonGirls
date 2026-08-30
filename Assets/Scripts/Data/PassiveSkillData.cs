@@ -4,6 +4,7 @@ using UnityEngine;
 public class PassiveSkillData : ScriptableObject
 {
     public string skillName;
+    public SkillId skillId;
     public SkillCategory category;
 
     [TextArea(3, 10)]

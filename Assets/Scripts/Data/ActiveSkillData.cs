@@ -4,6 +4,7 @@ using UnityEngine;
 public class ActiveSkillData : ScriptableObject
 {
     public string skillName;
+    public SkillId skillId;
 
     [TextArea(3, 10)]
     public string effectDescription;
