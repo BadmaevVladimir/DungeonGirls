@@ -217,18 +217,19 @@ public partial class RunFlowController
         playerDefenseText.text = $"Защита: {Mathf.Max(player.PhysicalDefenseCurrent, 0f):F0}/{player.PhysicalDefenseMax:F0}";
         playerShieldText.text = $"Щит: {Mathf.Max(player.MagicShieldCurrent, 0f):F0}/{player.MagicShieldMax:F0}";
 
-        bool isBarbarianCombat = characterManager.Progress.Character.characterClass == CharacterClass.Barbarian;
+        CharacterClass characterClass = characterManager.Progress.Character.characterClass;
+        bool isBarbarianCombat = characterClass == CharacterClass.Barbarian;
+        bool showRage = CombatResourceVisibility.ShouldShowRage(characterClass, player);
         float rage = player.Rage;
-        rageIndicator.EnableInClassList("hidden", !isBarbarianCombat);
-        if (isBarbarianCombat)
+        rageIndicator.EnableInClassList("hidden", !showRage);
+        if (showRage)
         {
             rageText.text = $"ЯРОСТЬ: {rage:F0}%";
             rageFill.style.width = new Length(Mathf.Clamp(rage, 0f, 100f), LengthUnit.Percent);
             rageIndicator.EnableInClassList("rage-indicator-high", rage >= 70f);
         }
 
-        bool isRogueCombat = characterManager.Progress.Character.characterClass == CharacterClass.Rogue;
-        bool showStealth = isRogueCombat && player.IsStealthed;
+        bool showStealth = CombatResourceVisibility.ShouldShowStealth(player);
         stealthIndicator.EnableInClassList("hidden", !showStealth);
         playerStageWrapper.EnableInClassList("stealth-stage-active", showStealth);
         if (showStealth)

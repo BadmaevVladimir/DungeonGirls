@@ -34,23 +34,8 @@ public class CombatManager : MonoBehaviour
         LogMessage?.Invoke(message);
     }
 
-    // 3.11 (Варвар) — общая таблица X-по-уровню (0.7/0.75/0.8/0.9/1.0), общая для "Остервенелости"
-    // (собственная копия на CombatantRuntime — см. её комментарий), "Запугивания", "Суеверности" и
-    // "Чемпиона племени".
-    static float RageSkillMultiplier(int level) => level switch
-    {
-        1 => 0.7f, 2 => 0.75f, 3 => 0.8f, 4 => 0.9f, 5 => 1.0f, _ => 0f
-    };
-
-    // 3.11 (Варвар) — "Упёртость": СВОЯ, отдельная от RageSkillMultiplier, таблица порогов Ярости
-    // (90/80/70/60/50%), выше которых персонаж полностью игнорирует НОВЫЕ дебаффы.
-    static float StubbornnessThreshold(int level) => level switch
-    {
-        1 => 90f, 2 => 80f, 3 => 70f, 4 => 60f, 5 => 50f, _ => 101f
-    };
-
     static bool IgnoresDebuffs(CombatantRuntime target) =>
-        target.SkillStubbornnessLevel > 0 && target.Rage > StubbornnessThreshold(target.SkillStubbornnessLevel);
+        target.SkillStubbornnessLevel > 0 && target.Rage > RageRules.StubbornnessThreshold(target.SkillStubbornnessLevel);
 
     // Codex P1 (ФИКС, 2026-08-27): раньше CombatRoomFlow всегда передавал hitCount=3 и конфиг из
     // jenniferCharacter.uniqueActiveSkill — Плут получал бы конфигурацию Дженифер (неверный
@@ -132,7 +117,7 @@ public class CombatManager : MonoBehaviour
         // при применении, см. ApplyDamage), точно как соседнее PhysicalResistancePercent от Берсерка
         // (10f/20f/30f без деления). Лишнее /100f давало ~1% от нужной величины сопротивления.
         combatant.MagicalResistancePercent = combatant.SkillSuperstitionLevel > 0
-            ? combatant.Rage * RageSkillMultiplier(combatant.SkillSuperstitionLevel)
+            ? combatant.Rage * RageRules.SkillMultiplier(combatant.SkillSuperstitionLevel)
             : 0f;
 
         combatant.PhysicalResistancePercent = combatant.IsBerserkActive
@@ -264,6 +249,8 @@ public class CombatManager : MonoBehaviour
         combatant.BleedDamagePerSecond = 0f;
         combatant.BleedTimer = 0f;
         combatant.BleedTickAccumulator = 0f;
+        combatant.BleedLevel = 0;
+        combatant.BleedSource = null;
         combatant.FreezeStacks = 0;
         combatant.FreezeStackTimer = 0f;
         combatant.IsFrozen = false;
@@ -490,7 +477,9 @@ public class CombatManager : MonoBehaviour
         }
     }
 
-    // 3.9 "Кровотечение": тикает раз в секунду, не зависит от таймера атаки.
+    // 3.9 "Кровотечение": тикает раз в секунду, не зависит от таймера атаки. На ур. 5 каждый
+    // тик может критовать текущим шансом источника: тогда он наносит и свой тик, и весь урон за
+    // оставшееся время эффекта, после чего обновляет длительность.
     void TickBleed(CombatantRuntime target, float deltaTime)
     {
         if (!target.HasBleed)
@@ -498,18 +487,26 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        if (!float.IsPositiveInfinity(target.BleedTimer))
-        {
-            target.BleedTimer -= deltaTime;
-        }
+        target.BleedTimer = BleedRules.NormalizeRemainingSeconds(target.BleedTimer) - deltaTime;
 
         target.BleedTickAccumulator += deltaTime;
         while (target.BleedTickAccumulator >= 1f && target.HasBleed && target.IsAlive)
         {
             target.BleedTickAccumulator -= 1f;
-            target.CurrentHP -= target.BleedDamagePerSecond;
-            HitResolved?.Invoke(target, target.BleedDamagePerSecond, false, false);
-            Log($"[Combat] {target.DisplayName} получает {target.BleedDamagePerSecond:F1} урона от кровотечения (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+            bool isCriticalTick = BleedRules.CanTickCritically(target.BleedLevel) && target.BleedSource != null &&
+                Random.value * 100f < CombatCriticalRules.CalculateChancePercent(target.BleedSource);
+            float tickDamage = target.BleedDamagePerSecond;
+            if (isCriticalTick)
+            {
+                float detonationDamage = BleedRules.DetonationDamage(target.BleedDamagePerSecond, target.BleedTimer);
+                tickDamage += detonationDamage;
+                target.BleedTimer = BleedRules.DurationSeconds;
+                Log($"[Combat] Критический тик кровотечения детонирует ещё {detonationDamage:F1} урона и обновляет длительность.");
+            }
+
+            target.CurrentHP -= tickDamage;
+            HitResolved?.Invoke(target, tickDamage, isCriticalTick, false);
+            Log($"[Combat] {target.DisplayName} получает {tickDamage:F1} урона от кровотечения{(isCriticalTick ? " (крит!)" : string.Empty)} (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
             if (!target.IsAlive)
             {
@@ -517,7 +514,7 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        if (!float.IsPositiveInfinity(target.BleedTimer) && target.BleedTimer <= 0f)
+        if (target.BleedTimer <= 0f)
         {
             target.HasBleed = false;
         }
@@ -644,18 +641,12 @@ public class CombatManager : MonoBehaviour
             attacker.RiposteArmed = false;
         }
 
-        // "Критические атаки" + бонус крита с предметов + "В глаз" (3.11, Плут — таблица не
-        // регулярна: 2/5/7.5/10/12.5%), суммарно клампится на 75% (8.6).
-        float eyeForAnEyeBonus = attacker.SkillEyeForAnEyeLevel switch
-        {
-            1 => 2f, 2 => 5f, 3 => 7.5f, 4 => 10f, 5 => 12.5f, _ => 0f
-        };
         // 3.11 "Устранение" (Плут): переопределяет базовый крит-множитель 150%, если навык изучен.
         // Вычисляется ДО критChancePercent, т.к. "Чемпион племени" (Варвар) ниже может добавить к
         // нему конвертированные источники крит-шанса.
         float critMultiplier = attacker.CritDamageMultiplierOverridePercent ?? 150f;
 
-        float critChancePercent;
+        float critChancePercent = CombatCriticalRules.CalculateChancePercent(attacker);
         if (attacker.CritChanceReplacedByRage)
         {
             // 3.11 "Чемпион племени" (Варвар, уникальная пассивка): крит-шанс ВСЕГДА = Ярость×X%,
@@ -663,15 +654,8 @@ public class CombatManager : MonoBehaviour
             // атаки" + бонус предметов — "В глаз"/крит-дебафф Гарпии сюда намеренно не входят, это
             // Rogue-специфика/дебафф шанса, а не источник шанса Варвара) конвертируются в крит-урон
             // по курсу 1%->+2% вместо суммирования в шанс.
-            critChancePercent = Mathf.Clamp(attacker.Rage * RageSkillMultiplier(attacker.UniqueChampionOfTheTribeLevel), 0f, 100f);
             float convertedSources = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems;
             critMultiplier += convertedSources * 2f;
-        }
-        else
-        {
-            critChancePercent = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems - attacker.CritChanceDebuffPercent + eyeForAnEyeBonus; // 10/20/30/40/50% за уровень навыка - "Оглушающий крик" (2.4) + "В глаз"
-            critChancePercent = Mathf.Max(0f, critChancePercent);
-            critChancePercent = BalanceClamps.ClampCritChancePercent(critChancePercent);
         }
 
         bool isCrit = critChancePercent > 0f && Random.value * 100f < critChancePercent;
@@ -699,7 +683,7 @@ public class CombatManager : MonoBehaviour
             // пропорциональный Ярости атакующего. Подчиняется "Упёртости" цели, как любой дебафф.
             if (attacker.SkillIntimidationLevel > 0 && !IgnoresDebuffs(target))
             {
-                float intimidationMultiplier = Mathf.Max(0.01f, 1f - (attacker.Rage * RageSkillMultiplier(attacker.SkillIntimidationLevel) / 100f));
+                float intimidationMultiplier = Mathf.Max(0.01f, 1f - (attacker.Rage * RageRules.SkillMultiplier(attacker.SkillIntimidationLevel) / 100f));
                 var existingIntimidation = target.ActiveDebuffs.Find(d => d.Id == "intimidation");
                 if (existingIntimidation != null)
                 {
@@ -749,6 +733,14 @@ public class CombatManager : MonoBehaviour
         // атаки оружием и каждый отдельный удар активного навыка (цикл в TryActivateUniqueActiveSkill
         // вызывает ResolveAttack по разу на удар, так что события уже приходят по одному, не суммарно).
         HitResolved?.Invoke(target, result.DamageToHP, isCrit, result.WasBlocked);
+
+        // Крит по уже кровоточащей цели немедленно наносит весь ожидаемый урон за оставшуюся
+        // длительность и обновляет Кровотечение. Это не зависит от типа удара или брони: триггер —
+        // именно критический удар по цели с эффектом.
+        if (isCrit && target.IsAlive && target.HasBleed)
+        {
+            DetonateBleedFromCriticalHit(target);
+        }
 
         // 3.11 (Task 6b, "Объятия ночи", Кожанка) — ОТДЕЛЬНЫЙ второй урон, только в Скрытности:
         // магический (проходит через щит, не через броню), поэтому не может быть просто добавлен в
@@ -838,9 +830,9 @@ public class CombatManager : MonoBehaviour
 
         // "Кровотечение": только от физического урона, реально пробившего защиту (не от
         // минимального прохождения при полном блоке, см. 3.3).
-        if (attacker.SkillBleedLevel > 0 && weapon.DamageType == DamageType.Physical && !result.WasBlocked)
+        if (attacker.SkillBleedLevel > 0 && weapon.DamageType == DamageType.Physical && !result.WasBlocked && target.IsAlive)
         {
-            ApplyBleed(target, attacker.SkillBleedLevel);
+            ApplyBleed(attacker, target, attacker.SkillBleedLevel);
         }
 
         // "Отравленный клинок" (3.11, Плут): собственный яд Плута, отдельный от ядовитого укуса
@@ -938,7 +930,16 @@ public class CombatManager : MonoBehaviour
         }
     }
 
-    void ApplyBleed(CombatantRuntime target, int bleedLevel)
+    void DetonateBleedFromCriticalHit(CombatantRuntime target)
+    {
+        float detonationDamage = BleedRules.DetonationDamage(target.BleedDamagePerSecond, target.BleedTimer);
+        target.CurrentHP -= detonationDamage;
+        target.BleedTimer = BleedRules.DurationSeconds;
+        HitResolved?.Invoke(target, detonationDamage, true, false);
+        Log($"[Combat] Критический удар детонирует кровотечение на {target.DisplayName}: {detonationDamage:F1} урона; длительность обновлена.");
+    }
+
+    void ApplyBleed(CombatantRuntime source, CombatantRuntime target, int bleedLevel)
     {
         // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель полностью игнорирует новое кровотечение.
         if (IgnoresDebuffs(target))
@@ -950,8 +951,10 @@ public class CombatManager : MonoBehaviour
         bool isFreshApplication = !target.HasBleed;
 
         target.HasBleed = true;
-        target.BleedDamagePerSecond = bleedLevel >= 4 ? 20f : bleedLevel * 5f; // 5/10/15/20, остаётся 20 на ур.5
-        target.BleedTimer = bleedLevel >= 5 ? float.PositiveInfinity : 3f; // не стакается, обновляет длительность
+        target.BleedDamagePerSecond = BleedRules.DamagePerSecond(bleedLevel);
+        target.BleedTimer = BleedRules.DurationSeconds; // не стакается, обновляет длительность на всех уровнях
+        target.BleedLevel = bleedLevel;
+        target.BleedSource = source;
 
         // Повторное наложение обновляет только длительность (см. 3.9), а не расписание тиков урона:
         // если сбрасывать аккумулятор на каждый удар, при атаках чаще раза в секунду кровотечение

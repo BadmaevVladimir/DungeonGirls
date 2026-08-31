@@ -132,10 +132,13 @@ public class CombatantRuntime
     public float FreezeImmuneTimer;
 
     // Состояние "Кровотечения" (навык класса Воин, см. 3.9). Не стакается, только одна активная копия.
+    // Источник нужен для критических тиков ур. 5: их шанс всегда равен текущему шансу крита наложившего эффект персонажа.
     public bool HasBleed;
     public float BleedDamagePerSecond;
     public float BleedTimer;
     public float BleedTickAccumulator;
+    public int BleedLevel;
+    public CombatantRuntime BleedSource;
 
     // 3.11 (Плут) — "Скрытность": булево состояние + таймер, длительность всегда 3с (StealthStatus).
     // Персонаж начинает бой БЕЗ Скрытности (не устанавливается здесь, только объявлено — StartCombat
@@ -218,14 +221,6 @@ public class CombatantRuntime
         ? Mathf.Clamp(1f + (1f - Mathf.Clamp01(CurrentHP / MaxHP)) * 100f + RageFlatBonusPercent, 0f, 100f)
         : 0f;
 
-    // 3.11 (Варвар) — общая таблица X-по-уровню (0.7/0.75/0.8/0.9/1.0), используемая "Остервенелостью"
-    // здесь и (отдельной копией) CombatManager для "Запугивания"/"Суеверности"/"Чемпиона племени" —
-    // CombatantRuntime не MonoBehaviour и не должен тянуть зависимость на CombatManager ради одной таблицы.
-    static float RageSkillMultiplierTable(int level) => level switch
-    {
-        1 => 0.7f, 2 => 0.75f, 3 => 0.8f, 4 => 0.9f, 5 => 1.0f, _ => 0f
-    };
-
     // Дебаффы скорости атаки (проклятие Колдуна и т.п.) и стаки заморозки действуют на персонажа
     // целиком, поэтому одинаково множат скорость атаки каждого из его оружий.
     public float GetEffectiveAttackSpeed(WeaponAttackState weapon)
@@ -245,7 +240,7 @@ public class CombatantRuntime
             // ФИКС (код-ревью): один division /100 переводит Rage×X (число-проценты) в дробь для
             // множителя — этого достаточно. Двойное деление (было /100/100) давало ~1% от нужной
             // величины. При Rage=100, ур.5 (X=1.0): multiplier *= 1f + 1.0f = +100% скорости атаки.
-            multiplier *= 1f + (Rage * RageSkillMultiplierTable(SkillFrenzyLevel) / 100f);
+            multiplier *= 1f + (Rage * RageRules.SkillMultiplier(SkillFrenzyLevel) / 100f);
         }
 
         return Mathf.Max(0.01f, weapon.AttackSpeed * multiplier);
