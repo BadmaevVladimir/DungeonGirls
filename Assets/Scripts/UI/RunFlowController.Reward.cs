@@ -138,6 +138,17 @@ public partial class RunFlowController
         int winningIndex = ChestRevealAnimator.ReelPadding + ChestRevealAnimator.WinningLogicalIndex;
         Sprite winningIcon = reward.Item != null ? reward.Item.icon : pool[0].icon;
 
+        // Джингл длиной ровно под PlayReel (4с) — стартует одновременно с началом прокрутки, не с
+        // тряской: тайминг рассчитан на сам спин, финал совпадает с остановкой на выигрышном слоте.
+        if (chestOpenAudioSource != null)
+        {
+            AudioClip openClip = ChestOpenClipFor(reward.ItemRarity);
+            if (openClip != null)
+            {
+                chestOpenAudioSource.PlayOneShot(openClip);
+            }
+        }
+
         void BuildSlot(int index, bool isWinning)
         {
             Sprite iconSprite = isWinning ? winningIcon : pool[Random.Range(0, pool.Count)].icon;
@@ -166,6 +177,13 @@ public partial class RunFlowController
         ItemTier.Common => "chest-reel-icon-common",
         ItemTier.Rare => "chest-reel-icon-rare",
         _ => "chest-reel-icon-epic"
+    };
+
+    AudioClip ChestOpenClipFor(ItemTier tier) => tier switch
+    {
+        ItemTier.Common => chestOpenCommonClip,
+        ItemTier.Rare => chestOpenRareClip,
+        _ => chestOpenEpicClip
     };
 
     // ==================== Сравнение предмета (3.4, "Без инвентаря") ====================

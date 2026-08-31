@@ -22,6 +22,14 @@ public partial class HubManager : MonoBehaviour
     [Header("Гача-анимация (11.1, общая механика сундука 8.2)")]
     [SerializeField] Texture2D gachaChestClosedTexture;
     [SerializeField] Texture2D gachaChestOpenTexture;
+
+    // Тот же джингл открытия сундука (Audio/SFX/ChestOpen_Jingle.rpp), что и в RunFlowController.
+    // Персонаж в гаче считается эпиком (роллы персонажа — самый редкий/ценный исход, 15% суммарно,
+    // ItemTier для валютных призов сюда не подходит); для валюты — по result.CurrencyTier как есть.
+    [SerializeField] AudioSource gachaOpenAudioSource;
+    [SerializeField] AudioClip gachaOpenCommonClip;
+    [SerializeField] AudioClip gachaOpenRareClip;
+    [SerializeField] AudioClip gachaOpenEpicClip;
     [SerializeField] Sprite characterSilhouetteRayOverlay;
     [SerializeField] ItemCatalogData currencyIconCatalog;
 

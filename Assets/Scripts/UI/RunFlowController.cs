@@ -174,6 +174,14 @@ public partial class RunFlowController : MonoBehaviour
     [SerializeField] Texture2D chestClosedTexture;
     [SerializeField] Texture2D chestOpenTexture;
 
+    // Джингл открытия сундука (REAPER-проект: Audio/SFX/ChestOpen_Jingle.rpp) — длина ровно под
+    // ChestRevealAnimator.PlayReel (4с), три версии финала по редкости награды. AudioSource не
+    // обязателен: если не назначен, звук просто не проигрывается (не ломает флоу).
+    [SerializeField] AudioSource chestOpenAudioSource;
+    [SerializeField] AudioClip chestOpenCommonClip;
+    [SerializeField] AudioClip chestOpenRareClip;
+    [SerializeField] AudioClip chestOpenEpicClip;
+
     // --- Сравнение предмета (3.4, "Без инвентаря") ---
     VisualElement itemComparePanel;
     Label newItemName;

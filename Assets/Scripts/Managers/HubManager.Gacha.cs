@@ -50,6 +50,16 @@ public partial class HubManager
         Image winningPortrait = null;
         int winningIndex = ChestRevealAnimator.ReelPadding + ChestRevealAnimator.WinningLogicalIndex;
 
+        if (gachaOpenAudioSource != null)
+        {
+            ItemTier jingleTier = result.IsCharacter ? ItemTier.Epic : result.CurrencyTier;
+            AudioClip openClip = GachaOpenClipFor(jingleTier);
+            if (openClip != null)
+            {
+                gachaOpenAudioSource.PlayOneShot(openClip);
+            }
+        }
+
         void BuildSlot(int index, bool isWinning)
         {
             var slot = new VisualElement();
@@ -172,4 +182,10 @@ public partial class HubManager
         _ => "chest-reel-icon-epic"
     };
 
+    AudioClip GachaOpenClipFor(ItemTier tier) => tier switch
+    {
+        ItemTier.Common => gachaOpenCommonClip,
+        ItemTier.Rare => gachaOpenRareClip,
+        _ => gachaOpenEpicClip
+    };
 }
