@@ -143,8 +143,29 @@ public class FloorMapGeneratorTests
     {
         Assert.LessOrEqual(map.Nodes.Count(node => node.RoomType == RoomType.Trap), FloorMapGenerator.GlobalTrapLimit);
         Assert.LessOrEqual(map.Nodes.Count(node => node.RoomType == RoomType.Special), FloorMapGenerator.GlobalSpecialLimit);
+        Assert.AreNotEqual(RoomType.Merchant, map.Nodes.Single(node => node.Kind == FloorMapNodeKind.Start).RoomType);
+        Assert.GreaterOrEqual(
+            map.Nodes.Count(node => node.Kind == FloorMapNodeKind.Normal && node.RoomType == RoomType.Merchant),
+            FloorMapGenerator.MinShopsPerFloor);
         for (int path = 0; path < FloorMapGenerator.PathCount; path++)
             Assert.LessOrEqual(map.Nodes.Count(node => node.PathIndex == path && node.RoomType == RoomType.Merchant), FloorMapGenerator.MaxShopsPerPath);
+    }
+
+    [Test]
+    public void Generate_EveryFloorAndSeed_HasAtLeastOneBranchShop()
+    {
+        for (int floor = 1; floor <= DungeonManager.TotalFloors; floor++)
+        {
+            for (int seed = 0; seed < 100; seed++)
+            {
+                var generated = FloorMapGenerator.Generate(floor, seed);
+                Assert.GreaterOrEqual(
+                    generated.Nodes.Count(node => node.Kind == FloorMapNodeKind.Normal && node.RoomType == RoomType.Merchant),
+                    FloorMapGenerator.MinShopsPerFloor,
+                    $"floor {floor}, seed {seed}");
+                Assert.AreNotEqual(RoomType.Merchant, generated.Nodes.Single(node => node.Kind == FloorMapNodeKind.Start).RoomType);
+            }
+        }
     }
 
     [Test]

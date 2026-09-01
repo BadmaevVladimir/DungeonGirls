@@ -10,6 +10,7 @@ public static class FloorMapGenerator
     public const int BranchDepthCount = RoomsBeforeBoss - 1;
     public const int BossDepth = RoomsBeforeBoss;
     public const int MaxTripleForks = 1;
+    public const int MinShopsPerFloor = 1;
     public const int MaxShopsPerPath = 1;
     public const int GlobalTrapLimit = 2;
     public const int GlobalSpecialLimit = 1;
@@ -44,18 +45,18 @@ public static class FloorMapGenerator
         int specialsUsed = 0;
 
         // Старт и каждый путь получают независимый экземпляр актуального распределения.
-        var startBag = CreateRoomDistributionBag(floorNumber, random);
+        var startBag = CreateRoomDistributionBag(random, includeMerchant: false);
         RoomType startType = startBag[0];
         TrackGlobalRareRoom(startType, ref trapsUsed, ref specialsUsed);
         var start = CreateNode("start", 0, -1, startType, FloorMapNodeKind.Start, random);
         map.Nodes.Add(start);
         map.CurrentNodeId = start.Id;
 
-        // Each branch is filled from its own shuffled legacy bag. Global rare-room caps are
-        // explicit; a room rejected by a floor-wide cap becomes Combat in that path only.
+        // Each branch is filled from its own shuffled bag. Global rare-room caps are explicit;
+        // a room rejected by a floor-wide cap becomes Combat in that path only.
         for (int path = 0; path < PathCount; path++)
         {
-            var pathBag = CreateRoomDistributionBag(floorNumber, random);
+            var pathBag = CreateRoomDistributionBag(random, includeMerchant: true);
             int shopsUsed = 0;
             for (int depth = 1; depth <= BranchDepthCount; depth++)
             {
@@ -69,6 +70,7 @@ public static class FloorMapGenerator
                 map.Nodes.Add(CreateNode(NodeId(path, depth), depth, path, type, FloorMapNodeKind.Normal, random));
             }
         }
+        EnsureMinimumShop(map, random);
 
         var boss = CreateNode("boss", BossDepth, -1, RoomType.Boss, FloorMapNodeKind.Boss, random);
         map.Nodes.Add(boss);
@@ -84,11 +86,11 @@ public static class FloorMapGenerator
         return map;
     }
 
-    static List<RoomType> CreateRoomDistributionBag(int floorNumber, Random random)
+    static List<RoomType> CreateRoomDistributionBag(Random random, bool includeMerchant)
     {
         var bag = new List<RoomType>(BagCombatRooms + BagMerchantRooms + BagTrapRooms + BagSpecialRooms);
         for (int i = 0; i < BagCombatRooms; i++) bag.Add(RoomType.Combat);
-        if (floorNumber > 1)
+        if (includeMerchant)
         {
             for (int i = 0; i < BagMerchantRooms; i++) bag.Add(RoomType.Merchant);
         }
@@ -96,6 +98,24 @@ public static class FloorMapGenerator
         for (int i = 0; i < BagSpecialRooms; i++) bag.Add(RoomType.Special);
         Shuffle(bag, random);
         return bag;
+    }
+
+    static void EnsureMinimumShop(FloorMap map, Random random)
+    {
+        int shopCount = map.Nodes.Count(node => node.Kind == FloorMapNodeKind.Normal && node.RoomType == RoomType.Merchant);
+        if (shopCount >= MinShopsPerFloor) return;
+
+        // A shop discarded from all four shuffled 12-entry bags is rare but valid random
+        // output. Resolve that bounded conflict deterministically by replacing one Combat node.
+        var candidates = map.Nodes
+            .Where(node => node.Kind == FloorMapNodeKind.Normal && node.RoomType == RoomType.Combat)
+            .ToList();
+        if (candidates.Count == 0)
+            throw new InvalidOperationException("Could not guarantee a floor shop: no branch Combat node is available.");
+
+        var selected = candidates[random.Next(candidates.Count)];
+        selected.RoomType = RoomType.Merchant;
+        selected.ContentKey = UnresolvedContentKey(selected.RoomType, selected.ContentSeed);
     }
 
     static void Shuffle<T>(List<T> values, Random random)
@@ -124,10 +144,13 @@ public static class FloorMapGenerator
             RoomType = type,
             Kind = kind,
             ContentSeed = contentSeed,
-            ContentKey = $"unresolved:{type.ToString().ToLowerInvariant()}-{contentSeed:x8}",
+            ContentKey = UnresolvedContentKey(type, contentSeed),
             ContentResolved = false
         };
     }
+
+    static string UnresolvedContentKey(RoomType type, int contentSeed) =>
+        $"unresolved:{type.ToString().ToLowerInvariant()}-{contentSeed:x8}";
 
     static void AddRequiredEdges(FloorMap map)
     {
@@ -201,6 +224,9 @@ public static class FloorMapGenerator
         if (map.Nodes.Count(node => node.Kind == FloorMapNodeKind.Start) != 1) errors.Add("Expected exactly one Start.");
         if (map.Nodes.Count(node => node.Kind == FloorMapNodeKind.Boss) != 1) errors.Add("Expected exactly one Boss.");
         if (map.Nodes.Count(node => node.Kind == FloorMapNodeKind.Normal) != 36) errors.Add("Expected exactly 36 branch nodes.");
+        if (map.Nodes.Any(node => node.Kind == FloorMapNodeKind.Start && node.RoomType == RoomType.Merchant)) errors.Add("Start cannot be a shop.");
+        if (map.Nodes.Count(node => node.Kind == FloorMapNodeKind.Normal && node.RoomType == RoomType.Merchant) < MinShopsPerFloor)
+            errors.Add($"Floor must contain at least {MinShopsPerFloor} branch shop.");
         if (map.Nodes.Any(node => string.IsNullOrWhiteSpace(node.Id) || string.IsNullOrWhiteSpace(node.ContentKey))) errors.Add("Every node needs stable id and content key.");
         if (map.Nodes.Select(node => node.Id).Distinct().Count() != map.Nodes.Count) errors.Add("Node ids must be unique.");
         for (int depth = 1; depth <= BranchDepthCount; depth++)
