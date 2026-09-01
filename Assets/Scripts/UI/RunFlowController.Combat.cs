@@ -124,14 +124,22 @@ public partial class RunFlowController
         }
         else
         {
-            tutorialManager?.QueueOnce(TutorialContent.CombatBasics);
-            tutorialManager?.QueueOnce(TutorialContent.Defenses);
-            tutorialManager?.QueueOnce(activeCharacter.characterClass switch
+            // Один оверлей на первый бой: три подряд (основы + броня + активка) останавливали игру
+            // трижды до того, как игрок увидел хоть один удар. Активный навык показывается во
+            // ВТОРОМ бою, а броня — когда её впервые пробьют (см. UpdateCombatUI ниже).
+            if (tutorialManager != null && !tutorialManager.HasSeen(TutorialContent.CombatBasics))
             {
-                CharacterClass.Rogue => TutorialContent.VioletActive,
-                CharacterClass.Barbarian => TutorialContent.SashaActive,
-                _ => TutorialContent.JenniferActive
-            });
+                tutorialManager.QueueOnce(TutorialContent.CombatBasics);
+            }
+            else
+            {
+                tutorialManager?.QueueOnce(activeCharacter.characterClass switch
+                {
+                    CharacterClass.Rogue => TutorialContent.VioletActive,
+                    CharacterClass.Barbarian => TutorialContent.SashaActive,
+                    _ => TutorialContent.JenniferActive
+                });
+            }
         }
 
         while (combatManager.IsCombatActive)
@@ -208,6 +216,13 @@ public partial class RunFlowController
         playerDefenseText.text = $"Защита: {Mathf.Max(player.PhysicalDefenseCurrent, 0f):F0}/{player.PhysicalDefenseMax:F0}";
         playerShieldText.text = $"Щит: {Mathf.Max(player.MagicShieldCurrent, 0f):F0}/{player.MagicShieldMax:F0}";
 
+        // Подсказка про броню — в момент, когда игрок впервые видит, что она просела, а не общим
+        // потоком в начале первого боя, где она ещё ничего не значит.
+        if (player.PhysicalDefenseMax > 0f && player.PhysicalDefenseCurrent < player.PhysicalDefenseMax)
+        {
+            tutorialManager?.QueueOnce(TutorialContent.Defenses);
+        }
+
         CharacterClass characterClass = characterManager.Progress.Character.characterClass;
         bool isBarbarianCombat = characterClass == CharacterClass.Barbarian;
         bool showRage = CombatResourceVisibility.ShouldShowRage(characterClass, player);
@@ -245,6 +260,9 @@ public partial class RunFlowController
 
             var nameLabel = new Label(enemy.IsAlive ? enemy.DisplayName : $"{enemy.DisplayName} (погиб)");
             nameLabel.AddToClassList("combatant-name");
+            // Модификатор («Бронебойный», «Свирепый»…) виден только как прилагательное в имени —
+            // без расшифровки игрок не понимает, чем этот враг опаснее обычного.
+            tutorialManager?.BindTransientTooltip(nameLabel, enemy.DisplayName, TutorialContent.ModifierTooltip(enemy.DisplayName));
             box.Add(nameLabel);
 
             var hpBg = new VisualElement();
@@ -422,6 +440,9 @@ public partial class RunFlowController
             var badge = new Label(effect.label);
             badge.AddToClassList("combat-status-badge");
             badge.AddToClassList(effect.isBuff ? "combat-status-buff" : "combat-status-debuff");
+            // Бейджи — самая непонятная часть боя: игрок видит «Заморозка ×7» или «Барьер 40/40»
+            // и нигде не может узнать, что это значит.
+            tutorialManager?.BindTransientTooltip(badge, effect.label, TutorialContent.StatusTooltip(effect.label));
             container.Add(badge);
         }
 

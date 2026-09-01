@@ -43,14 +43,16 @@ public class LevelUpOption
     {
         switch (Type)
         {
+            // Заголовок карточки: игроку важно, что это за навык и на какой уровень он выйдет.
+            // Для уже взятых показываем переход «было → станет», иначе непонятно, что даёт выбор.
             case LevelUpOptionType.NewPassiveSkill:
-                return $"Новый навык: {Skill.skillName} (ур. {ResultingLevel})";
+                return $"{Skill.skillName} — новый навык";
             case LevelUpOptionType.UpgradePassiveSkill:
-                return $"Улучшить «{Skill.skillName}» до ур. {ResultingLevel}";
+                return $"{Skill.skillName}: уровень {ResultingLevel - 1} → {ResultingLevel}";
             case LevelUpOptionType.UpgradeUniquePassive:
-                return $"Улучшить уникальный пассивный навык до ур. {ResultingLevel}";
+                return $"{(Skill != null ? Skill.skillName : "Уникальный навык")}: уровень {ResultingLevel - 1} → {ResultingLevel}";
             case LevelUpOptionType.UpgradeUniqueActive:
-                return $"Улучшить уникальный активный навык до ур. {ResultingLevel}";
+                return $"{(ActiveSkill != null ? ActiveSkill.skillName : "Уникальный приём")}: уровень {ResultingLevel - 1} → {ResultingLevel}";
             default:
                 return "?";
         }

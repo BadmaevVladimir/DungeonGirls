@@ -9,7 +9,8 @@ public partial class RunFlowController
     {
         floorManager.SetFloorState(FloorState.MapChoice);
         ShowOnly(mapPanel);
-        mapStatusLabel.text = "Этаж полностью сгенерирован. Осмотрите маршруты и войдите в стартовую комнату.";
+        tutorialManager?.QueueOnce(TutorialContent.Map);
+        mapStatusLabel.text = "Осмотри маршруты и заходи в стартовую комнату.";
         mapEnterCurrentButton.RemoveFromClassList("hidden");
         BuildMapGraph(new List<FloorMapNode>(), out _, out _);
         yield return WaitForClick(mapEnterCurrentButton);
@@ -24,10 +25,11 @@ public partial class RunFlowController
             throw new System.InvalidOperationException($"Floor map node {floorManager.CurrentNode?.Id} has no reachable successor.");
 
         ShowOnly(mapPanel);
+        tutorialManager?.QueueOnce(TutorialContent.Map);
         mapEnterCurrentButton.AddToClassList("hidden");
         mapStatusLabel.text = reachable.Count == 1 && reachable[0].Kind == FloorMapNodeKind.Boss
-            ? "Путь сходится у босса. Выберите босса, чтобы продолжить."
-            : "Выберите одну из комнат, соединённых стрелкой с текущей.";
+            ? "Все дороги сошлись у босса — дальше только он."
+            : "Выбери комнату, в которую ведёт стрелка от текущей.";
 
         BuildMapGraph(reachable, out var reachableButtons, out var reachableNodes);
         yield return WaitForAnyClick(reachableButtons.ToArray());
@@ -35,7 +37,7 @@ public partial class RunFlowController
         var selected = reachableNodes[clickedIndex];
         if (!floorManager.TrySelectNextNode(selected.Id))
             throw new System.InvalidOperationException($"Map UI attempted an unavailable move to {selected.Id}.");
-        LogEvent($"[Карта] Выбран узел {selected.Id}: {RoomTypeLabel(selected.RoomType)}.");
+        LogEvent($"[Карта] Идём в комнату: {RoomTypeLabel(selected.RoomType)}.");
         UpdateTopBar();
     }
 
@@ -76,7 +78,9 @@ public partial class RunFlowController
         {
             bool isReachable = reachableIds.Contains(node.Id);
             var button = new Button { text = $"{RoomTypeIcon(node.RoomType)}\n{RoomTypeLabel(node.RoomType)}" };
-            button.tooltip = node.Kind == FloorMapNodeKind.Normal ? $"Путь {node.PathIndex + 1}, глубина {node.Depth}" : RoomTypeLabel(node.RoomType);
+            // Раньше здесь был служебный «Путь 1, глубина 3». Игроку нужно знать, что его ждёт в
+            // комнате, а не её координаты в графе. Узлы пересобираются при каждом показе карты.
+            tutorialManager?.BindTransientTooltip(button, RoomTypeLabel(node.RoomType), TutorialContent.RoomTypeHint(node.RoomType));
             button.AddToClassList("floor-map-node");
             button.EnableInClassList("floor-map-node-visited", node.Visited);
             button.EnableInClassList("floor-map-node-current", node.Id == floorManager.CurrentMap.CurrentNodeId);
@@ -102,7 +106,7 @@ public partial class RunFlowController
 
         if (sourceDepth == 0)
         {
-            for (int path = 0; path < FloorMapGenerator.PathCount; path++) AddEdgeLabel(column, $"→ P{path + 1}");
+            for (int path = 0; path < FloorMapGenerator.PathCount; path++) AddEdgeLabel(column, $"→ {path + 1}");
         }
         else
         {
@@ -114,7 +118,7 @@ public partial class RunFlowController
                     .Select(edge => floorManager.CurrentMap.GetNode(edge.TargetNodeId))
                     .Where(node => node != null && node.Depth == targetDepth)
                     .OrderBy(node => node.PathIndex)
-                    .Select(node => node.Kind == FloorMapNodeKind.Boss ? "→ Boss" : node.PathIndex < path ? $"↗ P{node.PathIndex + 1}" : node.PathIndex > path ? $"↘ P{node.PathIndex + 1}" : $"→ P{node.PathIndex + 1}");
+                    .Select(node => node.Kind == FloorMapNodeKind.Boss ? "→ босс" : node.PathIndex < path ? $"↗ {node.PathIndex + 1}" : node.PathIndex > path ? $"↘ {node.PathIndex + 1}" : $"→ {node.PathIndex + 1}");
                 AddEdgeLabel(column, string.Join("  ", targets));
             }
         }

@@ -19,7 +19,7 @@ public partial class RunFlowController
                 ? $"Перебросить варианты (осталось: {characterManager.Progress.LevelUpRerollsRemaining})"
                 : string.Empty;
             levelUpTitle.text = string.IsNullOrWhiteSpace(activeUpgradeNotice)
-                ? $"Выберите навык\nПеребросов: {characterManager.Progress.LevelUpRerollsRemaining}"
+                ? $"Выбери навык\nПеребросов: {characterManager.Progress.LevelUpRerollsRemaining}"
                 : $"Новый уровень\n{activeUpgradeNotice}\nПеребросов: {characterManager.Progress.LevelUpRerollsRemaining}";
             levelUpCardsContainer.Clear();
             var buttons = new List<Button>();

@@ -86,7 +86,7 @@ public static class DisplayFormat
             lines.Add($"Урон: {dmgMin:F0}-{dmgMax:F0} ({item.damageType}), скорость атаки: {item.attackSpeed:F2}/с");
             if (item.isTwoHanded)
             {
-                lines.Add("Двуручное: +30% итогового урона после плоских бонусов.");
+                lines.Add("Двуручное: занимает обе руки, но бьёт на 30% сильнее.");
             }
         }
 
@@ -118,10 +118,10 @@ public static class DisplayFormat
         string bonusText = BonusStatText(item);
         if (!string.IsNullOrWhiteSpace(bonusText))
         {
-            lines.Add(bonusText + $" (ранг эффекта {StatScaling.ItemEffectRank(item.itemLevel)})");
+            lines.Add(bonusText + $" (ранг {StatScaling.ItemEffectRank(item.itemLevel)} из V — растёт с уровнем предмета)");
             if (item.slot == EquipmentSlot.Ring && item.bonusStat.type == BonusStatType.MaxPhysicalDefenseFlat)
             {
-                lines.Add("Второе кольцо брони даёт 50% этого бонуса.");
+                lines.Add("Если надеть второе такое кольцо, оно даст половину этого бонуса.");
             }
         }
 

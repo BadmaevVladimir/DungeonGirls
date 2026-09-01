@@ -1085,6 +1085,19 @@ Button {
     border-radius: 5px;
 }
 
+/* Заголовок раздела Справки (Забег / Бой / Развитие героини / Деревня): раньше 23 подсказки шли
+   одним сплошным списком, и найти нужную можно было только перечитав всё. */
+.help-group-title {
+    color: rgb(150, 200, 255);
+    font-size: 25px;
+    -unity-font-style: bold;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(70, 74, 92);
+}
+
 .help-section-title {
     color: rgb(255, 218, 115);
     font-size: 21px;

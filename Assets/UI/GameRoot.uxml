@@ -14,7 +14,7 @@
         <ui:Button name="ResetProgressButton" text="Сбросить прогресс" class="button-secondary" />
         <ui:VisualElement name="CheatMenuPopup" class="panel hidden" style="max-width: 420px; flex-grow: 0;">
             <ui:Label text="Чит-меню" class="panel-title" />
-            <ui:Label text="Введите команду для тестирования." class="body-label" />
+            <ui:Label text="Введи команду для тестирования." class="body-label" />
             <ui:TextField name="CheatCommandField" label="Команда" />
             <ui:Label name="CheatResultLabel" text="" class="body-label hidden" />
             <ui:VisualElement style="flex-direction: row;">
@@ -33,7 +33,7 @@
     </ui:VisualElement>
 
     <ui:VisualElement name="CharacterSelectScreen" class="full-screen hidden" style="flex-direction: column;">
-        <ui:Label text="Выберите персонажа" class="title-label" />
+        <ui:Label text="Выбери героиню" class="title-label" />
         <ui:VisualElement name="CharacterSelectCardsContainer" class="character-select-cards-row" />
         <ui:Button name="CharacterSelectBackButton" text="Назад" class="button-secondary" />
         <ui:VisualElement name="CharacterSkillTooltip" class="character-skill-tooltip hidden">
@@ -42,7 +42,7 @@
     </ui:VisualElement>
 
     <ui:VisualElement name="MentorSelectScreen" class="full-screen hidden" style="flex-direction: column;">
-        <ui:Label text="Выберите наставника" class="title-label" />
+        <ui:Label text="Выбери наставника" class="title-label" />
         <ui:Label name="MentorSelectStudentLabel" text="" class="body-label" />
         <ui:ScrollView name="MentorSelectScrollView" class="mentor-select-scroll" />
         <ui:VisualElement class="mentor-select-actions">
@@ -124,11 +124,11 @@
 
             <ui:VisualElement name="MapPanel" class="panel map-panel hidden">
                 <ui:Label text="Карта этажа" class="panel-title" />
-                <ui:Label name="MapStatusLabel" text="Выберите следующую комнату" class="body-label map-status-label" />
+                <ui:Label name="MapStatusLabel" text="Выбери следующую комнату" class="body-label map-status-label" />
                 <ui:ScrollView name="MapGraphScroll" mode="Horizontal" class="floor-map-scroll">
                     <ui:VisualElement name="MapGraphContainer" />
                 </ui:ScrollView>
-                <ui:Label text="Стрелки показывают только разрешённые переходы вперёд. Конкретное содержимое комнаты скрыто до входа." class="floor-map-legend" />
+                <ui:Label text="Идти можно только туда, куда ведёт стрелка. Что именно ждёт в комнате, видно только после входа." class="floor-map-legend" />
                 <ui:Button name="MapEnterCurrentButton" text="Войти в стартовую комнату" class="button-primary hidden" />
             </ui:VisualElement>
 
@@ -195,7 +195,7 @@
             </ui:VisualElement>
 
             <ui:VisualElement name="LevelUpPanel" class="panel hidden">
-                <ui:Label name="LevelUpTitle" text="Выберите навык" class="panel-title" />
+                <ui:Label name="LevelUpTitle" text="Выбери навык" class="panel-title" />
                 <ui:VisualElement name="LevelUpCardsContainer" />
                 <ui:Button name="LevelUpRerollButton" text="Перебросить варианты" class="button-secondary hidden" />
             </ui:VisualElement>
@@ -244,7 +244,7 @@
                     <ui:Label name="NewItemName" text="" class="item-card-name" />
                     <ui:Label name="NewItemStats" text="" class="body-label" />
                 </ui:VisualElement>
-                <ui:Label text="Выберите, какой слот занять:" class="body-label" />
+                <ui:Label text="Выбери, какой слот занять:" class="body-label" />
                 <ui:VisualElement name="SlotChoicesContainer" class="item-compare-row" />
                 <ui:Button name="ItemDiscardButton" text="Выбросить новый предмет" class="button-secondary" />
             </ui:VisualElement>

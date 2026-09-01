@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -7,6 +8,8 @@ public partial class HubManager
 
     public void OpenVillage()
     {
+        // Вне забега Справка снова показывает активные навыки всех героинь.
+        if (tutorialManager != null) tutorialManager.ActiveCharacterId = null;
         buildingsScreen.style.display = DisplayStyle.None;
         gachaScreen.style.display = DisplayStyle.None;
         veteranDeckScreen.style.display = DisplayStyle.None;
@@ -85,7 +88,7 @@ public partial class HubManager
             int equipmentCount = veteran.finalEquipmentSnapshot != null && veteran.finalEquipmentSnapshot.Count > 0
                 ? veteran.finalEquipmentSnapshot.Count
                 : (veteran.finalEquipment != null ? veteran.finalEquipment.Count : 0);
-            var row = new Label($"{displayName} — {veteran.grade}, этажей {veteran.floorsCleared}, HP {veteran.finalHP:F0}, неуникальных навыков {skillCount}, снаряжения {equipmentCount}");
+            var row = new Label($"{displayName} — оценка {veteran.grade}, этажей пройдено: {veteran.floorsCleared}, HP {veteran.finalHP:F0}, навыков: {skillCount}, предметов: {equipmentCount}");
             row.AddToClassList("body-label");
             tutorialManager?.BindTooltip(row, "Оценка ветерана", TutorialContent.TooltipGrade);
             veteranDeckScrollView.Add(row);
@@ -121,7 +124,7 @@ public partial class HubManager
             string relationship = relationshipLevel >= SaveManager.MaxRelationshipLevel
                 ? $"отношения: ур. {relationshipLevel}/3 (макс.)"
                 : $"отношения: ур. {relationshipLevel}/3, {relationshipPoints}/{nextThreshold}";
-            var row = new Label($"{character.characterName} ({character.characterClass}) — копий: {copies}, прохождений: {runs}, {relationship}, открытых сцен: {seenScenes}");
+            var row = new Label($"{character.characterName} ({DisplayFormat.CharacterClassDisplayName(character.characterClass)}) — копий: {copies}, прохождений: {runs}, {relationship}, открытых сцен: {seenScenes}");
             row.AddToClassList("body-label");
             tutorialManager?.BindTooltip(row, "Отношения", TutorialContent.TooltipRelationships);
             charactersScrollView.Add(row);
@@ -141,41 +144,62 @@ public partial class HubManager
         if (tutorialManager == null) return;
         tutorialManager.BindTooltip(metaCurrencyLabel, "Мета-валюта", TutorialContent.TooltipMetaCurrency);
         tutorialManager.BindTooltip(gachaCurrencyLabel, "Гача-валюта", TutorialContent.TooltipGachaCurrency);
-        tutorialManager.BindTooltip(gachaPullButton, "Призыв", "Стоит 50 гача-валюты. Шанс персонажа — 15%; pity-системы в демо нет.");
+        tutorialManager.BindTooltip(gachaPullButton, "Призыв", TutorialContent.TooltipGachaPull);
         tutorialManager.BindTooltip(buildingBonusLabels[0], "Бонус Кузницы", () => CurrentBuildingBonusText(BuildingType.Forge));
         tutorialManager.BindTooltip(buildingBonusLabels[1], "Бонус Храма", () => CurrentBuildingBonusText(BuildingType.Temple));
         tutorialManager.BindTooltip(buildingBonusLabels[2], "Бонус Таверны", () => CurrentBuildingBonusText(BuildingType.Tavern));
     }
 
+    // Тултип здания отвечает на один вопрос игрока: «что у меня есть сейчас и что даст следующий
+    // уровень». Поэтому — только действующие бонусы простыми словами, без служебных формулировок
+    // («плоская броня», «п.п.», «×1.20») и без упоминания того, чего в игре ещё нет.
     string CurrentBuildingBonusText(BuildingType building)
     {
         int level = saveManager.GetBuildingLevel(building);
-        string active;
+        string now = BuildingBonusLines(building, level);
+        if (level >= BuildingCatalog.MaxLevel)
+        {
+            return $"Уровень {level} из {BuildingCatalog.MaxLevel} — максимальный.\n{now}";
+        }
+
+        string next = BuildingBonusLines(building, level + 1);
+        return $"Уровень {level} из {BuildingCatalog.MaxLevel}.\nСейчас:\n{now}\n\nНа уровне {level + 1}:\n{next}";
+    }
+
+    static string BuildingBonusLines(BuildingType building, int level)
+    {
+        var lines = new List<string>();
         switch (building)
         {
             case BuildingType.Forge:
-                active = $"стартовое снаряжение +{BuildingCatalog.ForgeStartingEquipmentBonus(level)} ур.; " +
-                         $"плоская броня +{BuildingCatalog.ForgeArmorBonus(level):F0}; " +
-                         $"броня снаряжения ×{BuildingCatalog.ForgeEquipmentArmorMultiplier(level):F2}; " +
-                         $"восстановление брони на привале {BuildingCatalog.ForgeCampArmorRestorePercent(level):F0}%";
+                int startingBonus = BuildingCatalog.ForgeStartingEquipmentBonus(level);
+                if (startingBonus > 0) lines.Add($"• стартовое снаряжение выше на {startingBonus} ур.");
+                float armorBonus = BuildingCatalog.ForgeArmorBonus(level);
+                if (armorBonus > 0f) lines.Add($"• +{armorBonus:F0} к физической защите");
+                float armorMultiplier = BuildingCatalog.ForgeEquipmentArmorMultiplier(level);
+                if (armorMultiplier > 1f) lines.Add($"• броня снаряжения больше на {(armorMultiplier - 1f) * 100f:F0}%");
+                float campRestore = BuildingCatalog.ForgeCampArmorRestorePercent(level);
+                if (campRestore > 0f) lines.Add($"• привал чинит {campRestore:F0}% брони");
                 break;
+
             case BuildingType.Temple:
-                active = $"магический щит +{BuildingCatalog.TempleMagicShieldBonus(level):F0}; " +
-                         $"общих перебросов навыков: {BuildingCatalog.TempleLevelUpRerolls(level)}; " +
-                         "перезапуск после смерти на 5 уровне пока не реализован";
+                float shield = BuildingCatalog.TempleMagicShieldBonus(level);
+                if (shield > 0f) lines.Add($"• +{shield:F0} к магическому щиту");
+                int rerolls = BuildingCatalog.TempleLevelUpRerolls(level);
+                if (rerolls > 0) lines.Add($"• перебросов навыков за забег: {rerolls}");
                 break;
+
             case BuildingType.Tavern:
-                active = $"дополнительных рационов: {BuildingCatalog.TavernRationsBonus(level)}; " +
-                         $"урон каждого оружия +{BuildingCatalog.TavernFlatDamageBonus(level):F0}; " +
-                         $"лечение на привале +{BuildingCatalog.TavernCampHealBonusPercent(level):F0} п.п.; " +
-                         "случайные бонусы после привала на 5 уровне пока не реализованы";
-                break;
-            default:
-                active = "нет активных бонусов";
+                int rations = BuildingCatalog.TavernRationsBonus(level);
+                if (rations > 0) lines.Add($"• +{rations} к рационам");
+                float damage = BuildingCatalog.TavernFlatDamageBonus(level);
+                if (damage > 0f) lines.Add($"• +{damage:F0} к урону каждого оружия");
+                float heal = BuildingCatalog.TavernCampHealBonusPercent(level);
+                if (heal > 0f) lines.Add($"• привал лечит на {heal:F0}% больше");
                 break;
         }
 
-        return $"Текущий уровень: {level}/{BuildingCatalog.MaxLevel}.\nАктивно: {active}.";
+        return lines.Count > 0 ? string.Join("\n", lines) : "• пока ничего";
     }
 
     string CharacterDisplayName(string characterId)

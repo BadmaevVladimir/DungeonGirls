@@ -54,10 +54,13 @@ public partial class RunFlowController
         }
     }
 
-    IEnumerator ShowChancePopupAndWait(string description, int level, string successText, string failText, string attemptLabel, string skipLabel, string skipOutcome = null)
+    // hintId: тот же попап обслуживает и ловушки, и события с проверкой шанса — подсказка должна
+    // соответствовать тому, что игрок видит в заголовке, а не всегда говорить про ловушку.
+    IEnumerator ShowChancePopupAndWait(string description, int level, string successText, string failText, string attemptLabel, string skipLabel, string skipOutcome = null,
+        string hintId = TutorialContent.RiskRoom)
     {
         ShowOnly(trapPopup);
-        tutorialManager?.QueueOnce(TutorialContent.RiskRoom);
+        tutorialManager?.QueueOnce(hintId);
         trapDescriptionLabel.text = description;
 
         int luckLevel = characterManager.Progress.GetSkillLevel(SkillId.Luck);
@@ -114,7 +117,7 @@ public partial class RunFlowController
         if (quest.InteractionType == QuestInteractionType.MultipleChoice)
         {
             ShowOnly(eventPopup);
-            tutorialManager?.QueueOnce(TutorialContent.RiskRoom);
+            tutorialManager?.QueueOnce(TutorialContent.EventRoom);
             eventDescriptionLabel.text = quest.DescriptionText;
             eventChoicesContainer.Clear();
 
@@ -153,7 +156,7 @@ public partial class RunFlowController
         {
             trapPopupTitle.text = "Событие";
             yield return ShowChancePopupAndWait(quest.DescriptionText, quest.Level, quest.SuccessText, quest.FailText,
-                quest.AttemptButtonText, quest.SkipButtonText, quest.SkipText);
+                quest.AttemptButtonText, quest.SkipButtonText, quest.SkipText, TutorialContent.EventRoom);
             trapPopupTitle.text = "Ловушка";
 
             if (quest == QuestCatalog.FairyRing)

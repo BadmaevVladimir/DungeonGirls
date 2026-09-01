@@ -28,6 +28,11 @@ public class TutorialManager : MonoBehaviour
     readonly HashSet<string> queuedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<VisualElement> tooltipTargets = new HashSet<VisualElement>();
     string activeHintId;
+
+    // Справка показывает активный навык только выбранной героини; вне забега пусто — тогда
+    // показываются все три (см. TutorialContent.HelpEntriesFor).
+    public string ActiveCharacterId { get; set; }
+
     bool activeIsReference;
     bool pausedByOverlay;
     float timeScaleBeforeOverlay = 1f;
@@ -79,7 +84,6 @@ public class TutorialManager : MonoBehaviour
         }
 
         globalTooltip.pickingMode = PickingMode.Ignore;
-        BuildHelpContent();
         initialized = true;
     }
 
@@ -88,6 +92,9 @@ public class TutorialManager : MonoBehaviour
         if (Instance == this) Instance = null;
         RestoreTimeScale();
     }
+
+    public bool HasSeen(string hintId) =>
+        saveManager != null && !string.IsNullOrWhiteSpace(hintId) && saveManager.HasSeenTutorialHint(hintId);
 
     public void QueueOnce(string hintId)
     {
@@ -156,6 +163,7 @@ public class TutorialManager : MonoBehaviour
     public void OpenHelp()
     {
         if (!initialized || tutorialOverlay.style.display == DisplayStyle.Flex) return;
+        BuildHelpContent(); // состав зависит от выбранной героини, поэтому собирается при открытии
         HideTooltip();
         PauseTimeScale();
         helpScreen.style.display = DisplayStyle.Flex;
@@ -174,8 +182,17 @@ public class TutorialManager : MonoBehaviour
     void BuildHelpContent()
     {
         helpScrollView.Clear();
-        foreach (var entry in TutorialContent.HelpEntries)
+        string currentSection = null;
+        foreach (var entry in TutorialContent.HelpEntriesFor(ActiveCharacterId))
         {
+            if (entry.Section != currentSection)
+            {
+                currentSection = entry.Section;
+                var groupTitle = new Label(currentSection);
+                groupTitle.AddToClassList("help-group-title");
+                helpScrollView.Add(groupTitle);
+            }
+
             var section = new VisualElement();
             section.AddToClassList("help-section");
             var title = new Label(entry.Title);
@@ -212,10 +229,24 @@ public class TutorialManager : MonoBehaviour
         BindTooltip(target, title, () => body);
     }
 
+    // Для элементов, которые пересобираются каждый кадр (карточки врагов, бейджи статус-эффектов —
+    // см. RunFlowController.Combat.UpdateCombatUI). Такой элемент каждый раз новый, поэтому в
+    // tooltipTargets его регистрировать нельзя: набор рос бы бесконечно мёртвыми ссылками.
+    // Колбэки живут ровно столько же, сколько сам элемент.
+    public void BindTransientTooltip(VisualElement target, string title, string body)
+    {
+        if (!initialized || target == null || string.IsNullOrWhiteSpace(body)) return;
+        RegisterTooltipCallbacks(target, title, () => body);
+    }
+
     public void BindTooltip(VisualElement target, string title, Func<string> bodyProvider)
     {
         if (!initialized || target == null || bodyProvider == null || !tooltipTargets.Add(target)) return;
+        RegisterTooltipCallbacks(target, title, bodyProvider);
+    }
 
+    void RegisterTooltipCallbacks(VisualElement target, string title, Func<string> bodyProvider)
+    {
         target.RegisterCallback<PointerEnterEvent>(evt =>
         {
             string body = bodyProvider();

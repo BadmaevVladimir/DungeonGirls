@@ -433,6 +433,8 @@ public partial class RunFlowController : MonoBehaviour
     {
         mainMenuScreen.style.display = DisplayStyle.None;
         runScreen.style.display = DisplayStyle.Flex;
+        // Справка внутри забега показывает активный навык только той героини, которой играют.
+        if (tutorialManager != null) tutorialManager.ActiveCharacterId = selectedCharacter != null ? selectedCharacter.characterId : null;
         tutorialManager?.QueueOnce(TutorialContent.RunStart);
 
         levelUpManager.GeneralSkillPool = generalSkillPool;
@@ -604,15 +606,28 @@ public partial class RunFlowController : MonoBehaviour
         tutorialManager.BindTooltip(playerHpText, "Здоровье", TutorialContent.TooltipHp);
         tutorialManager.BindTooltip(playerDefenseText, "Физическая защита", TutorialContent.TooltipArmor);
         tutorialManager.BindTooltip(playerShieldText, "Магический щит", TutorialContent.TooltipShield);
-        tutorialManager.BindTooltip(rageIndicator, "Ярость", TutorialContent.TooltipRage);
-        tutorialManager.BindTooltip(stealthIndicator, "Скрытность", TutorialContent.TooltipStealth);
+        // Ярость/Скрытность/Берсерк/активный навык зависят от того, кем играет игрок и что у неё
+        // сейчас происходит, поэтому текст собирается на лету, а не берётся константой.
+        tutorialManager.BindTooltip(rageIndicator, "Ярость",
+            () => TutorialContent.RageTooltip(combatManager != null && combatManager.Player != null ? combatManager.Player.Rage : 0f));
+        tutorialManager.BindTooltip(stealthIndicator, "Скрытность", () =>
+        {
+            var player = combatManager != null ? combatManager.Player : null;
+            return player == null
+                ? TutorialContent.StealthTooltip(0f, 0)
+                : TutorialContent.StealthTooltip(player.StealthTimer, player.SmokeBombGuaranteedCritsRemaining);
+        });
         tutorialManager.BindTooltip(autoModeToggle, "Авто-режим", TutorialContent.TooltipAuto);
-        tutorialManager.BindTooltip(activeSkillButton, "Активный навык", TutorialContent.TooltipActive);
-        tutorialManager.BindTooltip(berserkToggle, "Берсерк", TutorialContent.TooltipBerserk);
+        tutorialManager.BindTooltip(activeSkillButton, "Активный навык",
+            () => TutorialContent.ActiveSkillTooltip(characterManager?.Character?.characterId));
+        tutorialManager.BindTooltip(berserkToggle, "Берсерк",
+            () => TutorialContent.BerserkTooltip(combatManager != null && combatManager.Player != null && combatManager.Player.IsBerserkActive
+                ? combatManager.Player.PhysicalResistancePercent
+                : 0f));
         tutorialManager.BindTooltip(levelUpRerollButton, "Перебросы", TutorialContent.TooltipReroll);
         tutorialManager.BindTooltip(merchantCurrencyLabel, "Валюта забега", TutorialContent.TooltipRunCurrency);
-        tutorialManager.BindTooltip(newItemStats, "Ранг эффекта", TutorialContent.TooltipItemRank);
-        tutorialManager.BindTooltip(runLogScroll, "Журнал забега", "Здесь сохраняются важные события текущего забега: исходы комнат, награды, срабатывания навыков и изменения состояния персонажа.");
+        tutorialManager.BindTooltip(trapChanceLabel, "Шанс успеха", TutorialContent.TooltipTrapChance);
+        tutorialManager.BindTooltip(runLogScroll, "Журнал забега", TutorialContent.TooltipRunLog);
     }
 
     void UpdateTopBar()

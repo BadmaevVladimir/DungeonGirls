@@ -1103,10 +1103,10 @@ public static class PlayModeSmokeTest
             TutorialContent.RunStart, TutorialContent.CombatBasics, TutorialContent.Defenses,
             TutorialContent.JenniferActive, TutorialContent.VioletActive, TutorialContent.SashaActive,
             TutorialContent.Reward, TutorialContent.Equipment, TutorialContent.LevelUp, TutorialContent.Camp,
-            TutorialContent.RiskRoom, TutorialContent.Merchant, TutorialContent.Boss, TutorialContent.Pause,
-            TutorialContent.Results, TutorialContent.VeteranCreated, TutorialContent.Buildings,
+            TutorialContent.RiskRoom, TutorialContent.EventRoom, TutorialContent.Merchant, TutorialContent.Boss,
+            TutorialContent.Pause, TutorialContent.Results, TutorialContent.VeteranCreated, TutorialContent.Buildings,
             TutorialContent.Gacha, TutorialContent.Characters, TutorialContent.Veterans, TutorialContent.Relationships,
-            TutorialContent.HotSprings
+            TutorialContent.HotSprings, TutorialContent.Map
         };
         Check(tutorialIds.All(id => TutorialContent.TryGet(id, out var entry) && !string.IsNullOrWhiteSpace(entry.Title) && !string.IsNullOrWhiteSpace(entry.Body)),
             "Туториал: каждый стабильный ID имеет заполненные заголовок и текст");
@@ -1115,15 +1115,39 @@ public static class PlayModeSmokeTest
         TutorialContent.TryGet(TutorialContent.Gacha, out var gachaTutorial);
         TutorialContent.TryGet(TutorialContent.Veterans, out var veteransTutorial);
         TutorialContent.TryGet(TutorialContent.HotSprings, out var personalRoomTutorial);
-        Check(gachaTutorial.Body.Contains("Первая копия") && gachaTutorial.Body.Contains("52,7%") && gachaTutorial.Body.Contains("второй копии"),
-            "Туториал: гача объясняет открытие героя, начало цикла копий и итоговые вероятности валюты");
-        Check(veteransTutorial.Body.Contains("1–2 этажа — ровно 1") && veteransTutorial.Body.Contains("все 10 этажей — от 2 до 5"),
-            "Туториал: колода ветеранов показывает все диапазоны наследования навыков");
-        Check(personalRoomTutorial.Title == "Персональная комната отдыха" && personalRoomTutorial.Body.Contains("комнату ловушек") && personalRoomTutorial.Body.Contains("пивной погреб"),
+        TutorialContent.TryGet(TutorialContent.Boss, out var bossTutorial);
+        TutorialContent.TryGet(TutorialContent.Map, out var mapTutorial);
+        Check(gachaTutorial.Body.Contains("Первая копия") && gachaTutorial.Body.Contains("50"),
+            "Туториал: гача называет цену призыва и объясняет открытие героини первой копией");
+        Check(veteransTutorial.Body.Contains("оценка") && veteransTutorial.Body.Contains("наставник"),
+            "Туториал: колода ветеранов объясняет оценку и роль наставника");
+        Check(personalRoomTutorial.Body.Contains("комнату ловушек") && personalRoomTutorial.Body.Contains("пивной погреб"),
             "Туториал: персональная комната корректно названа для Дженифер, Вайолет и Саши");
-        Check(TutorialContent.TooltipArmor.Contains("положительный физический удар") && TutorialContent.TooltipShield.Contains("остаток снижает HP") &&
-              TutorialContent.TooltipActive != TutorialContent.TooltipAuto && TutorialContent.TooltipStealth.Contains("Объятия ночи") && TutorialContent.TooltipBerserk.Contains("может убить"),
-            "Тултипы: броня, щит, активный навык и Скрытность используют уточнённые формулировки");
+
+        // Регрессия: текст босса однажды уже отстал от кода — описывал фиксированный таймер и
+        // множители 150/175/200%, которых у боссов с BossKitData нет. Проверяем, что он говорит
+        // про телеграф, а не про отсчёт секунд.
+        Check(bossTutorial.Body.Contains("предупреждение") && !bossTutorial.Body.Contains("150%") && !bossTutorial.Body.Contains("каждые 5 секунд"),
+            "Туториал: босс описан через телеграф особой атаки, а не через устаревший таймер и множители");
+        Check(mapTutorial.Body.Contains("стрелка") || mapTutorial.Body.Contains("стрелк"),
+            "Туториал: карта этажа объясняет, что ходить можно только по стрелкам");
+
+        Check(TutorialContent.TooltipArmor.Contains("изнашивается") && TutorialContent.TooltipShield.Contains("магический урон") &&
+              TutorialContent.ActiveSkillTooltip("jennifer") != TutorialContent.ActiveSkillTooltip("violet") &&
+              TutorialContent.BerserkTooltip(30f).Contains("убить") && !string.IsNullOrWhiteSpace(TutorialContent.StealthTooltip(2.5f, 1)),
+            "Тултипы: броня и щит расшифрованы, активный навык и Берсерк собираются под конкретную героиню");
+
+        // Новые тултипы боя: подпись бейджа приходит с числом («Заморозка ×7», «Барьер 40/40»),
+        // а модификатор монстра — только как прилагательное внутри имени.
+        Check(TutorialContent.StatusTooltip("Заморозка ×7") != null && TutorialContent.StatusTooltip("Барьер 40/40") != null &&
+              TutorialContent.StatusTooltip("Рипост готов") != null && TutorialContent.StatusTooltip("Неизвестный эффект") == null,
+            "Тултипы: статус-эффекты боя расшифровываются по префиксу подписи");
+        Check(TutorialContent.ModifierTooltip("Бронебойный скелет") != null && TutorialContent.ModifierTooltip("Скелет") == null,
+            "Тултипы: модификатор монстра распознаётся по прилагательному в имени");
+        Check(TutorialContent.HelpEntriesFor("violet").All(entry => entry.Id != TutorialContent.JenniferActive) &&
+              TutorialContent.HelpEntriesFor("violet").Any(entry => entry.Id == TutorialContent.VioletActive) &&
+              TutorialContent.HelpEntriesFor(null).Count == TutorialContent.HelpEntries.Count,
+            "Справка: внутри забега показывает активный навык только выбранной героини");
 
         // 9.4/Codex P2: миграция старого сохранения без saveVersion (симулирует файл с диска до
         // этого фикса — JsonUtility молча оставит новые поля в дефолте, а не упадёт, но saveVersion
@@ -1625,8 +1649,16 @@ public static class PlayModeSmokeTest
             "Нелинейная карта: 38 узлов и 12 направленных cross-path переходов");
         Check(FloorMapGenerator.Validate(floorMap).Count == 0,
             "Нелинейная карта проходит полную validation");
-        Check(floorMap.Nodes.FindAll(node => node.RoomType == RoomType.Merchant).Count == 0,
-            "На первом этаже торговцы отсутствуют во всех мешках путей");
+        // Правило поменялось: раньше на первом этаже торговцев не было вовсе, теперь каждый этаж
+        // гарантированно получает минимум одного (MinShopsPerFloor + EnsureMinimumShop), но
+        // стартовая комната им быть не может, а на один путь приходится не больше MaxShopsPerPath.
+        var merchantNodes = floorMap.Nodes.FindAll(node => node.RoomType == RoomType.Merchant);
+        Check(merchantNodes.Count >= FloorMapGenerator.MinShopsPerFloor,
+            $"На первом этаже есть хотя бы один торговец ({merchantNodes.Count} шт.)");
+        Check(merchantNodes.TrueForAll(node => node.Kind != FloorMapNodeKind.Start),
+            "Торговец никогда не занимает стартовую комнату этажа");
+        Check(merchantNodes.TrueForAll(node => merchantNodes.FindAll(other => other.PathIndex == node.PathIndex).Count <= FloorMapGenerator.MaxShopsPerPath),
+            "На одном пути торговец встречается не больше одного раза");
         Check(floorMap.Nodes.FindAll(node => node.RoomType == RoomType.Trap).Count <= FloorMapGenerator.GlobalTrapLimit &&
               floorMap.Nodes.FindAll(node => node.RoomType == RoomType.Special).Count <= FloorMapGenerator.GlobalSpecialLimit,
             "Глобальные лимиты редких комнат соблюдаются");
