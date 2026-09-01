@@ -28,6 +28,12 @@ public class CombatManager : MonoBehaviour
     // Архитектурно не привязано к игроку — на будущее, если у монстров появятся активные навыки.
     public event System.Action<CombatantRuntime, string> ActiveSkillActivated;
 
+    // (доп., спрайтовая анимация): (атакующий, это обычная атака оружием?) — фиксирует момент
+    // взмаха, ДО разрешения уклонения/урона (см. ResolveAttack). isRegularAttack=false для ударов
+    // активного навыка — UI сам решает, проигрывать ли отдельную анимацию для них (см.
+    // ActiveSkillActivated) вместо того, чтобы полагаться на этот ивент 3 раза подряд.
+    public event System.Action<CombatantRuntime, bool> AttackPerformed;
+
     void Log(string message)
     {
         Debug.Log(message);
@@ -470,7 +476,9 @@ public class CombatManager : MonoBehaviour
     void TickCombatant(CombatantRuntime attacker, float deltaTime)
     {
         // 3.9 "Заморозка": замороженный участник не может атаковать; таймеры атаки не копятся.
-        if (!attacker.IsAlive || attacker.IsFrozen)
+        // AttackLocked — тот же эффект "не копится/не бьёт", но временно и по воле UI (см.
+        // CombatantRuntime.AttackLocked) — обычная атака не должна прерывать анимацию скилла.
+        if (!attacker.IsAlive || attacker.IsFrozen || attacker.AttackLocked)
         {
             return;
         }
@@ -626,6 +634,8 @@ public class CombatManager : MonoBehaviour
         {
             return;
         }
+
+        AttackPerformed?.Invoke(attacker, isRegularAttack);
 
         // "Уклонение" + пассивка предмета "Неуловимость" (3.10, Эфирный доспех) + бонусный стат
         // EvasionPercent (3.10 ФИКС, Кольцо ловкости/Амулет проворства — раньше игнорировался) +

@@ -8,6 +8,90 @@ public partial class RunFlowController
 {
     // ==================== Бой (раздел 4, 7.2) ====================
 
+    // (доп.): проигрывает кадры Sprite[] на UI Toolkit Image по FPS — замена Animator/AnimationClip,
+    // т.к. боевые спрайты живут в UI Toolkit (VisualElement), а не на GameObject/SpriteRenderer,
+    // на которых работает штатный Animator (см. обсуждение с пользователем).
+    static class SpriteFlipbook
+    {
+        public static IEnumerator Play(Image image, Sprite[] frames, float fps, bool loop, System.Action onComplete = null)
+        {
+            if (image == null || frames == null || frames.Length == 0)
+            {
+                onComplete?.Invoke();
+                yield break;
+            }
+
+            float frameDuration = 1f / fps;
+            do
+            {
+                foreach (var frame in frames)
+                {
+                    if (frame == null) continue;
+                    image.sprite = frame;
+                    yield return new WaitForSeconds(frameDuration);
+                }
+            } while (loop);
+
+            onComplete?.Invoke();
+        }
+    }
+
+    // (доп.): true, только пока играющий персонаж — Дженифер (сейчас единственная с готовыми
+    // анимациями; распознаётся по имени, тем же паттерном, что "Дымовая граната"/"3 быстрые
+    // атаки" выше по коду — у CombatantRuntime нет отдельного characterId).
+    bool IsJenniferPlayer => combatManager.Player != null && combatManager.Player.DisplayName == "Дженифер";
+
+    void StartPlayerIdleFlipbook()
+    {
+        if (!IsJenniferPlayer) return;
+        var frames = JenniferAnimationFrames.Idle;
+        if (playerFlipbookCoroutine != null) StopCoroutine(playerFlipbookCoroutine);
+        playerFlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(playerStageSprite, frames, 6f, loop: true));
+    }
+
+    void PlayPlayerOneShotFlipbook(Sprite[] frames, float fps, System.Action onComplete = null)
+    {
+        if (!IsJenniferPlayer || frames == null || frames.Length == 0)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+        if (playerFlipbookCoroutine != null) StopCoroutine(playerFlipbookCoroutine);
+        playerFlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(playerStageSprite, frames, fps, loop: false, onComplete: () =>
+        {
+            StartPlayerIdleFlipbook();
+            onComplete?.Invoke();
+        }));
+    }
+
+    void StopPlayerFlipbook()
+    {
+        if (playerFlipbookCoroutine != null)
+        {
+            StopCoroutine(playerFlipbookCoroutine);
+            playerFlipbookCoroutine = null;
+        }
+
+        // Защита от зависшей блокировки, если бой закончился/прервался прямо во время анимации
+        // скилла (её onComplete тогда не успевает снять AttackLocked сам) — Player переиспользуется
+        // между боями, залипший флаг иначе перманентно отключил бы обычные атаки во всех следующих боях.
+        if (combatManager.Player != null)
+        {
+            combatManager.Player.AttackLocked = false;
+        }
+        capturingSkillHits = false;
+        pendingSkillHits.Clear();
+        playerSkillAnimationPlaying = false;
+    }
+
+    // (доп.): обычная атака оружием (не удар активного навыка — тот запускается из
+    // OnActiveSkillActivated, иначе "3 быстрые атаки" переиграла бы флипбук 3 раза подряд).
+    void OnAttackPerformed(CombatantRuntime attacker, bool isRegularAttack)
+    {
+        if (!isRegularAttack || attacker != combatManager.Player) return;
+        PlayPlayerOneShotFlipbook(JenniferAnimationFrames.SwordAttack, 10f);
+    }
+
     int RollMonsterCount(int level) => MonsterEncounterBudget.RollMonsterCount(level);
 
     IEnumerator CombatRoomFlow(bool isBoss, FloorMapNode roomNode = null)
@@ -115,9 +199,11 @@ public partial class RunFlowController
         combatManager.LogMessage += OnCombatLog;
         combatManager.HitResolved += OnHitResolved;
         combatManager.ActiveSkillActivated += OnActiveSkillActivated;
+        combatManager.AttackPerformed += OnAttackPerformed;
         ShowOnly(combatPanel);
         combatManager.StartCombat(characterManager.Combatant, enemies);
         BuildEnemyStageEntries(enemies);
+        StartPlayerIdleFlipbook();
         if (isBoss)
         {
             tutorialManager?.QueueOnce(TutorialContent.Boss);
@@ -149,7 +235,19 @@ public partial class RunFlowController
         }
 
         UpdateCombatUI();
+
+        // (доп.): CombatManager.CheckCombatEnd() тикает СРАЗУ ПОСЛЕ TryActivateUniqueActiveSkill,
+        // в том же кадре — если скилл убивает последнего врага, IsCombatActive гаснет мгновенно,
+        // и без этого ожидания StopPlayerFlipbook() ниже оборвал бы анимацию скилла на середине
+        // (см. обсуждение с пользователем: "скил проскакивает до анимации... когда убивает противника").
+        // Бой уже логически закончен — просто даём доиграть визуал, прежде чем чистить состояние.
+        while (playerSkillAnimationPlaying)
+        {
+            yield return null;
+        }
+
         UnsubscribeCombatEvents();
+        StopPlayerFlipbook();
 
         for (int i = 0; i < characterManager.Combatant.Weapons.Count && i < originalStats.Count; i++)
         {
@@ -176,6 +274,7 @@ public partial class RunFlowController
         combatManager.LogMessage -= OnCombatLog;
         combatManager.HitResolved -= OnHitResolved;
         combatManager.ActiveSkillActivated -= OnActiveSkillActivated;
+        combatManager.AttackPerformed -= OnAttackPerformed;
     }
 
     void OnCombatLog(string message)
@@ -208,7 +307,13 @@ public partial class RunFlowController
         ShowOnly(combatPanel);
 
         var player = combatManager.Player;
-        playerStageSprite.sprite = player.Sprite;
+        // (доп.): пока флипбук (см. StartPlayerIdleFlipbook/PlayPlayerOneShotFlipbook) держит
+        // playerStageSprite сам — эта строка каждый кадр перетирала бы текущий кадр анимации
+        // обратно на статичный player.Sprite.
+        if (playerFlipbookCoroutine == null)
+        {
+            playerStageSprite.sprite = player.Sprite;
+        }
         playerNameLabel.text = $"{player.DisplayName} (ур. {characterManager.Level})";
         float playerHpPercent = player.MaxHP > 0f ? Mathf.Clamp01(player.CurrentHP / player.MaxHP) * 100f : 0f;
         playerHpFill.style.width = new Length(playerHpPercent, LengthUnit.Percent);
@@ -480,8 +585,27 @@ public partial class RunFlowController
         return null;
     }
 
+    Image FindStageSprite(CombatantRuntime combatant)
+    {
+        if (combatant == combatManager.Player)
+        {
+            return playerStageSprite;
+        }
+
+        foreach (var entry in enemyStageEntries)
+        {
+            if (entry.Combatant == combatant)
+            {
+                return entry.Sprite;
+            }
+        }
+
+        return null;
+    }
+
     // 4.7: единая точка подписки на CombatManager.HitResolved — всплывающая цифра урона + тряска
-    // спрайта цели (тряска пропускается при полном блоке, см. GDD 4.7).
+    // спрайта цели (тряска пропускается при полном блоке, см. GDD 4.7), плюс (доп.) короткая
+    // красная вспышка спрайта при получении урона и VFX "3 линии" для активного навыка Дженифер.
     void OnHitResolved(CombatantRuntime target, float damageToHP, bool isCrit, bool wasBlocked)
     {
         var wrapper = FindStageWrapper(target);
@@ -491,11 +615,120 @@ public partial class RunFlowController
         }
 
         string text = wasBlocked ? "БЛОК" : damageToHP.ToString("F0");
+
+        // "3 быстрые атаки": урон уже посчитан синхронно (см. CombatManager.
+        // TryActivateUniqueActiveSkill), но ВЕСЬ визуальный фидбек этого удара — цифра, тряска,
+        // красная вспышка, VFX — откладывается до конца анимации скилла целиком, одним пакетом
+        // (см. OnActiveSkillActivated), а не показывается мгновенно: иначе цифра урона/тряска
+        // опережали анимацию удара на ~секунду, что выглядело рассинхронизированно.
+        // target != Player: захватываем только удары ПО ПРОТИВНИКУ от самого скилла — иначе
+        // ответная атака врага по Дженифер в это же окно (см. capturingSkillHits ниже) тоже
+        // попала бы в пакет и могла перезаписать цель VFX на саму Дженифер (см. обсуждение бага).
+        if (capturingSkillHits && target != combatManager.Player)
+        {
+            pendingSkillHits.Add(new PendingSkillHit
+            {
+                Wrapper = wrapper,
+                Sprite = FindStageSprite(target),
+                Text = text,
+                IsCrit = isCrit,
+                WasBlocked = wasBlocked
+            });
+            return;
+        }
+
         StartCoroutine(SpawnFloatingCombatText(wrapper, text, isCrit, wasBlocked));
 
         if (!wasBlocked)
         {
             StartCoroutine(ChestRevealAnimator.Shake(wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
+
+            var sprite = FindStageSprite(target);
+            if (sprite != null)
+            {
+                StartCoroutine(FlashDamageTint(sprite));
+            }
+        }
+    }
+
+    // (доп.) Один захваченный удар "3 быстрые атаки", ждущий конца анимации скилла — см.
+    // capturingSkillHits/pendingSkillHits и OnHitResolved/OnActiveSkillActivated.
+    class PendingSkillHit
+    {
+        public VisualElement Wrapper;
+        public Image Sprite;
+        public string Text;
+        public bool IsCrit;
+        public bool WasBlocked;
+    }
+
+    // (доп.) Общая для игрока и врагов красная вспышка спрайта при получении урона — независимо
+    // от источника (обычная атака, активный навык, яд/кровотечение и т.д., см. вызовы HitResolved
+    // в CombatManager). Пропускается при блоке (см. OnHitResolved) — блок уже читается через
+    // текст "БЛОК" и отсутствие тряски, отдельная вспышка была бы избыточна.
+    IEnumerator FlashDamageTint(Image sprite)
+    {
+        const float duration = 0.18f;
+        var flashColor = new Color(1f, 0.35f, 0.35f, 1f);
+        sprite.tintColor = flashColor;
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            sprite.tintColor = Color.Lerp(flashColor, Color.white, elapsed / duration);
+            yield return null;
+        }
+        sprite.tintColor = Color.white;
+    }
+
+    // (доп.) "3 быстрые атаки": вместо анимирования трёх отдельных ударов на самой Дженифер,
+    // навык проигрывает один удар + это наложение на ЦЕЛИ — единая картинка с тремя линиями
+    // разреза уже визуально читается как "три попадания" (см. обсуждение выбора подхода).
+    IEnumerator SpawnSkillImpactVfx(VisualElement wrapper)
+    {
+        var vfxSprite = SkillImpactVfxSprite;
+        if (vfxSprite == null)
+        {
+            yield break;
+        }
+
+        var vfx = new Image { sprite = vfxSprite };
+        vfx.pickingMode = PickingMode.Ignore;
+        vfx.style.position = Position.Absolute;
+        vfx.style.width = new Length(70, LengthUnit.Percent);
+        vfx.style.height = new Length(70, LengthUnit.Percent);
+        vfx.style.left = new Length(15, LengthUnit.Percent);
+        vfx.style.top = new Length(15, LengthUnit.Percent);
+        vfx.style.opacity = 0f;
+        wrapper.Add(vfx);
+
+        const float fadeIn = 0.08f;
+        const float hold = 0.25f;
+        const float fadeOut = 0.25f;
+
+        float elapsed = 0f;
+        while (elapsed < fadeIn)
+        {
+            elapsed += Time.deltaTime;
+            vfx.style.opacity = Mathf.Clamp01(elapsed / fadeIn);
+            yield return null;
+        }
+        vfx.style.opacity = 1f;
+
+        yield return new WaitForSeconds(hold);
+
+        elapsed = 0f;
+        while (elapsed < fadeOut)
+        {
+            elapsed += Time.deltaTime;
+            vfx.style.opacity = 1f - Mathf.Clamp01(elapsed / fadeOut);
+            yield return null;
+        }
+
+        if (vfx.parent != null)
+        {
+            vfx.RemoveFromHierarchy();
         }
     }
 
@@ -554,6 +787,64 @@ public partial class RunFlowController
             StopCoroutine(skillBannerCoroutine);
         }
         skillBannerCoroutine = StartCoroutine(ShowSkillBanner(skillName));
+
+        // Дженифер "3 быстрые атаки": вместо анимации трёх отдельных ударов на самой Дженифер
+        // (не читалось — см. обсуждение), навык играет один яркий удар + VFX "3 линии" на цели.
+        // Урон всех 3 ударов считается синхронно ПРЯМО СЕЙЧАС (см. CombatManager), но их
+        // визуальный фидбек (HitResolved → OnHitResolved) захватывается, а не показывается сразу —
+        // см. capturingSkillHits/pendingSkillHits.
+        if (skillName == "3 быстрые атаки")
+        {
+            // Обычная атака не может начаться и оборвать анимацию скилла (см. CombatantRuntime.
+            // AttackLocked / TickCombatant) — снижает ДПС на время анимации, это осознанный выбор.
+            // Снимается в onComplete ниже; StopPlayerFlipbook — аварийный сброс, если бой прервётся раньше.
+            combatManager.Player.AttackLocked = true;
+            capturingSkillHits = true;
+            pendingSkillHits.Clear();
+            playerSkillAnimationPlaying = true;
+            StartCoroutine(CloseSkillHitCapture());
+
+            PlayPlayerOneShotFlipbook(JenniferAnimationFrames.SkillBrightStrike, 12f, onComplete: () =>
+            {
+                combatManager.Player.AttackLocked = false;
+                playerSkillAnimationPlaying = false;
+
+                // Все 3 захваченных удара показываются одним пакетом, синхронно с концом анимации —
+                // цифры/тряска/вспышка/VFX появляются вместе, а не вразнобой с самим ударом.
+                VisualElement impactWrapper = null;
+                foreach (var hit in pendingSkillHits)
+                {
+                    StartCoroutine(SpawnFloatingCombatText(hit.Wrapper, hit.Text, hit.IsCrit, hit.WasBlocked));
+                    if (!hit.WasBlocked)
+                    {
+                        StartCoroutine(ChestRevealAnimator.Shake(hit.Wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
+                        if (hit.Sprite != null)
+                        {
+                            StartCoroutine(FlashDamageTint(hit.Sprite));
+                        }
+                        impactWrapper = hit.Wrapper;
+                    }
+                }
+                pendingSkillHits.Clear();
+
+                if (impactWrapper != null)
+                {
+                    StartCoroutine(SpawnSkillImpactVfx(impactWrapper));
+                }
+            });
+        }
+    }
+
+    // (доп.): все 3 удара "3 быстрые атаки" резолвятся синхронно, в том же кадре, что и сама
+    // активация (см. CombatManager.TryActivateUniqueActiveSkill — цикл ResolveAttack идёт сразу
+    // после ActiveSkillActivated, без ожидания). Поэтому окно захвата фидбека закрывается уже на
+    // следующем кадре — держать capturingSkillHits открытым на всю анимацию (~0.9с) было ошибкой:
+    // любой урон, полученный Дженифер в это время (например, ответная атака врага — она НЕ
+    // заблокирована, заблокирована только атака самой Дженифер), тоже захватывался бы в пакет.
+    IEnumerator CloseSkillHitCapture()
+    {
+        yield return null;
+        capturingSkillHits = false;
     }
 
     IEnumerator ShowSkillBanner(string skillName)

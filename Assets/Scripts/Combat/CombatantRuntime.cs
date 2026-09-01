@@ -23,6 +23,12 @@ public class CombatantRuntime
     public bool IsPlayer;
     public bool IsBoss;
 
+    // (доп.): пока true — TickCombatant пропускает этого участника целиком (таймер атаки не
+    // копится, обычные атаки не резолвятся). Используется UI, чтобы обычная атака не могла начаться
+    // и оборвать проигрывание анимации активного навыка (см. RunFlowController.Combat.cs,
+    // OnActiveSkillActivated) — снижает ДПС на время анимации, это намеренно.
+    public bool AttackLocked;
+
     // 10.6: пиксель-арт спрайт персонажа/монстра (CharacterData.portrait / MonsterData.sprite),
     // для рендера в бою (CombatPanel). Может быть null (например, у Monster_Boss — арт ещё не готов).
     public Sprite Sprite;

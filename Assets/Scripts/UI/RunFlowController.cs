@@ -98,6 +98,28 @@ public partial class RunFlowController : MonoBehaviour
     Label skillActivationBanner;
     Coroutine skillBannerCoroutine;
 
+    // 4.7 (доп.): VFX "3 линии удара" на цели активного навыка Дженифер "3 быстрые атаки".
+    Sprite skillImpactVfxSprite;
+    Sprite SkillImpactVfxSprite => skillImpactVfxSprite ??= Resources.Load<Sprite>("VFX/Skill_ThreeStrikes_Impact");
+
+    // (доп.): пока true — OnHitResolved не показывает фидбек удара сразу, а копит его в
+    // pendingSkillHits. Урон "3 быстрые атаки" считается синхронно в момент активации (см.
+    // CombatManager), но весь ВИЗУАЛЬНЫЙ фидбек (цифра/тряска/вспышка/VFX) должен появиться вместе,
+    // синхронно с концом анимации скилла — иначе цифра урона опережала анимацию удара на ~секунду
+    // (см. обсуждение с пользователем). Воспроизводится и очищается в OnActiveSkillActivated
+    // (RunFlowController.Combat.cs).
+    bool capturingSkillHits;
+    readonly List<PendingSkillHit> pendingSkillHits = new List<PendingSkillHit>();
+
+    // (доп.): true, пока играет skill_bright_strike — CombatRoomFlow ждёт сброса этого флага перед
+    // финальным клинапом боя, даже если IsCombatActive уже погас в тот же кадр (скилл убил
+    // последнего врага) — см. StopPlayerFlipbook/OnActiveSkillActivated.
+    bool playerSkillAnimationPlaying;
+
+    // (доп.): спрайт-флипбук для Дженифер (idle/обычная атака/скилл) поверх playerStageSprite —
+    // см. SpriteFlipbook/JenniferAnimationFrames в RunFlowController.Combat.cs.
+    Coroutine playerFlipbookCoroutine;
+
     // 4.7: персистентные per-fight элементы врагов (не пересобираются каждый кадр — иначе любой
     // анимированный дочерний элемент, вроде всплывающей цифры урона, уничтожался бы ~16мс спустя).
     class EnemyStageEntry
