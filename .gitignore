@@ -72,11 +72,24 @@ mono_crash.*
 
 # Builds
 /*.rar
+/*.zip
 *.apk
 *.aab
 *.unitypackage
 *.unitypackage.meta
 *.app
+
+# Stray DAW/REAPER note exports at repo root (unrelated to the Unity project)
+/bass_notes.json
+/lead_notes.json
+/violet_bass.json
+/violet_chords.json
+/violet_drums.json
+/violet_lead.json
+/violet2_bass.json
+/violet2_chords.json
+/violet2_drums.json
+/violet2_lead.json
 
 # Crashlytics generated file
 crashlytics-build.properties
