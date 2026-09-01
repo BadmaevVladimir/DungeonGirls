@@ -27,7 +27,9 @@ public static class DamageCalculator
     public static DamageResult ApplyPhysicalDamage(CombatantRuntime target, float incomingDamage, float armorIgnorePercent = 0f)
     {
         incomingDamage = Mathf.Max(0f, incomingDamage);
-        float effectiveDefense = target.PhysicalDefenseCurrent * (1f - Mathf.Clamp01(armorIgnorePercent / 100f));
+        float cursedDefenseMultiplier = CursedItemRules.IsCurseActive(target, CursedEffectId.RecklessCharge)
+            ? CursedItemRules.RecklessDefenseMultiplier(target.CursedRecklessStacks) : 1f;
+        float effectiveDefense = target.PhysicalDefenseCurrent * cursedDefenseMultiplier * (1f - Mathf.Clamp01(armorIgnorePercent / 100f));
         float armorLoss = incomingDamage > 0f ? Mathf.Max(1f, Mathf.Floor(incomingDamage / 20f)) : 0f;
 
         if (incomingDamage < effectiveDefense)
@@ -82,7 +84,11 @@ public static class DamageCalculator
     public static DamageResult ApplyDamage(CombatantRuntime target, float incomingDamage, DamageType damageType, float armorIgnorePercent = 0f)
     {
         float resistancePercent = damageType == DamageType.Physical ? target.PhysicalResistancePercent : target.MagicalResistancePercent;
-        float damageAfterResistance = incomingDamage * (1f - Mathf.Clamp01(resistancePercent / 100f));
+        float receivedMultiplier = 1f;
+        var berserkerWeapon = target.FindCursedWeapon(CursedEffectId.BerserkerAxe);
+        if (berserkerWeapon != null && CursedItemRules.IsCurseActive(target, CursedEffectId.BerserkerAxe))
+            receivedMultiplier *= 1f + CursedItemRules.StackBonusPercent(berserkerWeapon.ItemRank, berserkerWeapon.CursedStacks) / 100f;
+        float damageAfterResistance = incomingDamage * receivedMultiplier * (1f - Mathf.Clamp01(resistancePercent / 100f));
 
         // Boss framework (минимальный слайс) — shield pool (BossAbilityEffectKind.ShieldPool) поглощает
         // урон ЛЮБОГО типа ДО брони/маг. щита, отдельно от них. Когда ShieldPoolCurrent==0 (подавляющее

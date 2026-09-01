@@ -426,7 +426,7 @@ public static class CombatantFactory
             // Баланс Варвара: двуручное оружие занимает оба слота рук, поэтому после всех
             // плоских прибавок получает собственный множитель урона. Общие процентные бонусы
             // применяются позднее к любой атаке одинаково, так что порядок не создаёт исключений.
-            if (item.isTwoHanded)
+            if (item.isTwoHanded && item.tier != ItemTier.Cursed)
             {
                 itemDamage *= 1.30f;
             }
@@ -449,8 +449,10 @@ public static class CombatantFactory
             float armorIgnorePercent = item.bonusStat != null && item.bonusStat.type == BonusStatType.ArmorIgnorePercent
                 ? StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel)
                 : 0f;
-            weapons.Add(new WeaponAttackState
+            var weaponState = new WeaponAttackState
             {
+                CursedEffect = item.cursedEffect,
+                ItemRank = item.EffectRank,
                 DamageMin = damageMin,
                 DamageMax = damageMax,
                 DamageType = item.damageType,
@@ -462,7 +464,21 @@ public static class CombatantFactory
                 ArmorIgnorePercent = armorIgnorePercent,
                 ExecutionLevel = passiveId == SkillId.Execution ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
                 GiantSlayerLevel = passiveId == SkillId.GiantSlayer ? StatScaling.ItemEffectRank(item.itemLevel) : 0
-            });
+            };
+            weapons.Add(weaponState);
+            if (item.isPairedWeapon)
+            {
+                // Два таймера, но каждый ResolveAttack получает ровно один WeaponAttackState и
+                // вызывает on-hit/on-crit эффекты ровно один раз.
+                weapons.Add(new WeaponAttackState
+                {
+                    CursedEffect = weaponState.CursedEffect, ItemRank = weaponState.ItemRank,
+                    DamageMin = weaponState.DamageMin, DamageMax = weaponState.DamageMax,
+                    DamageType = weaponState.DamageType, AttackSpeed = weaponState.AttackSpeed,
+                    ArmorPenetrationFlat = weaponState.ArmorPenetrationFlat,
+                    ArmorIgnorePercent = weaponState.ArmorIgnorePercent
+                });
+            }
 
             if (passiveId == SkillId.Repair)
             {

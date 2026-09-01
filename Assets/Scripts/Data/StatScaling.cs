@@ -30,6 +30,13 @@ public static class StatScaling
         float increment = Mathf.Max(1f, Mathf.Round(baseStat * 0.1f));
         return baseStat + increment * (level - 1);
     }
+
+    public static float ApplyTierAndLevel(float baseStat, float tierMultiplier, int level)
+    {
+        if (baseStat <= 0f) return baseStat;
+        float increment = Mathf.Max(1f, Mathf.Round(baseStat * 0.1f));
+        return baseStat * tierMultiplier + increment * (Mathf.Max(1, level) - 1);
+    }
 }
 
 // Единый баланс вторичных эффектов предметов. Ранг всегда 1–5 (ItemEffectRank),

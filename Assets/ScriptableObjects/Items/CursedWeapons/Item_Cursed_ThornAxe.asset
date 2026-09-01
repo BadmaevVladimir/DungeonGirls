@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c350a74c997f174b95013c19748ea00, type: 3}
+  m_Name: Item_Cursed_ThornAxe
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemName: "Терновый топор"
+  icon: {fileID: 21300000, guid: c6e748f6e5318ce408d5cea39b7d03e3, type: 3}
+  slot: 3
+  weaponSubtype: 7
+  isTwoHanded: 1
+  tier: 3
+  itemLevel: 1
+  itemRank: 1
+  allowedClasses:
+  - 3
+  cursedEffect: 8
+  positiveEffectDescription: "Запах крови: пока активно Кровотечение, скорость атаки +20/25/30/35/40% по рангу."
+  curseDescription: "Терновая рана: каждый крит накладывает на владельца Кровотечение уровня, равного рангу предмета."
+  handUsageDescription: "Двуручный топор. Занимает оба слота рук."
+  isPairedWeapon: 0
+  baseDamage: 20
+  damageType: 0
+  attackSpeed: 0.7
+  physicalDefense: 0
+  maxPhysicalDefenseBonus: 0
+  magicShieldBonus: 0
+  hpBonus: 0
+  rageBonusFlatPercent: 0
+  bonusStat:
+    type: 0
+    baseValue: 0
+  passiveSkill: {fileID: 0}
+

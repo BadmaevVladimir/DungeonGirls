@@ -18,6 +18,13 @@ public static class CombatantStatusEffects
         { "event_damage_down", "Урон снижен" },
         { "event_attack_speed_down", "Скорость атаки снижена" },
         { "alarm_damage_buff", "Урон усилен сигнализацией" },
+        { "cursed_oathbreaker", "Расплата" },
+        { "cursed_executioner", "Нетерпение палача" },
+        { "cursed_berserkeraxe", "Безрассудство" },
+        { "cursed_recklesscharge", "Открытая стойка" },
+        { "cursed_lastargument", "Запрет восстановления брони" },
+        { "cursed_betrayerandaccomplice", "Предательство скрытности" },
+        { "cursed_paranoiablades", "Срыв" },
     };
 
     public static List<(string label, bool isBuff)> GetActiveEffects(CombatantRuntime combatant)

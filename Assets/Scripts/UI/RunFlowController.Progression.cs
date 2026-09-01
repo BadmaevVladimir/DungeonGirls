@@ -115,8 +115,9 @@ public partial class RunFlowController
         campText.text = $"{characterManager.Character.characterName} отдыхает у привала..." +
             $"\n+{result.HpRestored:F0} HP" +
             (result.ArmorRestored > 0f ? $", +{result.ArmorRestored:F0} физ. защиты (Полевой ремонт)" : string.Empty) +
+            (result.BacklashDamage > 0f ? $"\nРасплата: −{result.BacklashDamage:F0} HP" : string.Empty) +
             $"\nОсталось рационов: {campManager.RationsRemaining}";
-        LogEvent($"[Привал] +{result.HpRestored:F0} HP{(result.ArmorRestored > 0f ? $", +{result.ArmorRestored:F0} физ. защиты" : string.Empty)}. Осталось рационов: {campManager.RationsRemaining}.");
+        LogEvent($"[Привал] +{result.HpRestored:F0} HP{(result.ArmorRestored > 0f ? $", +{result.ArmorRestored:F0} физ. защиты" : string.Empty)}{(result.BacklashDamage > 0f ? $", Расплата −{result.BacklashDamage:F0} HP" : string.Empty)}. Осталось рационов: {campManager.RationsRemaining}.");
 
         yield return WaitForClick(campContinueButton);
     }

@@ -48,4 +48,11 @@ public class BleedRulesTests
         Assert.IsFalse(BleedRules.CanTickCritically(4));
         Assert.IsTrue(BleedRules.CanTickCritically(5));
     }
+
+    [Test]
+    public void LevelFiveBleed_HasInfiniteDuration()
+    {
+        Assert.AreEqual(BleedRules.DurationSeconds, BleedRules.DurationForLevel(4));
+        Assert.IsTrue(float.IsPositiveInfinity(BleedRules.DurationForLevel(5)));
+    }
 }

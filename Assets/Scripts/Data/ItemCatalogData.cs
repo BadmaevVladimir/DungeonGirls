@@ -97,4 +97,21 @@ public class ItemCatalogData : ScriptableObject
         result = candidates[Random.Range(0, candidates.Count)];
         return true;
     }
+
+    public bool TryGetGuaranteedCursedItem(CursedEffectId effect, CharacterClass characterClass, out ItemData result)
+    {
+        if (items != null)
+        {
+            foreach (var item in items)
+            {
+                if (item != null && item.tier == ItemTier.Cursed && item.cursedEffect == effect && IsAllowedForClass(item, characterClass))
+                {
+                    result = item;
+                    return true;
+                }
+            }
+        }
+        result = null;
+        return false;
+    }
 }

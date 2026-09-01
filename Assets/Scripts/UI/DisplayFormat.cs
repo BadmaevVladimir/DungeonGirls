@@ -5,6 +5,10 @@ using UnityEngine;
 // (RarityLabel) или существовавшие только в RunFlowController но нужные обоим экранам.
 public static class DisplayFormat
 {
+    public static string RankLabel(int rank) => Mathf.Clamp(rank, 1, 5) switch
+    {
+        1 => "I", 2 => "II", 3 => "III", 4 => "IV", _ => "V"
+    };
     public static string CharacterClassDisplayName(CharacterClass characterClass) => characterClass switch
     {
         CharacterClass.Warrior => "Воин",
@@ -19,6 +23,7 @@ public static class DisplayFormat
         {
             case ItemTier.Common: return "Обычный";
             case ItemTier.Rare: return "Редкий";
+            case ItemTier.Cursed: return "Проклятый";
             default: return "Эпический";
         }
     }
@@ -79,12 +84,13 @@ public static class DisplayFormat
         }
 
         var lines = new List<string> { $"{SlotLabel(item)}, {RarityLabel(item.tier)}, ур. {item.itemLevel}" };
+        if (item.tier == ItemTier.Cursed) lines.Add($"Ранг эффекта: {RankLabel(item.EffectRank)} из V");
 
         if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
         {
             DamageCalculator.ComputeDamageRange(item.EffectiveDamage, out float dmgMin, out float dmgMax);
             lines.Add($"Урон: {dmgMin:F0}-{dmgMax:F0} ({item.damageType}), скорость атаки: {item.attackSpeed:F2}/с");
-            if (item.isTwoHanded)
+            if (item.isTwoHanded && item.tier != ItemTier.Cursed)
             {
                 lines.Add("Двуручное: занимает обе руки, но бьёт на 30% сильнее.");
             }
@@ -129,6 +135,11 @@ public static class DisplayFormat
         {
             lines.Add($"Пассивка «{item.passiveSkill.skillName}»: {item.passiveSkill.effectDescription}");
         }
+
+
+        if (!string.IsNullOrWhiteSpace(item.handUsageDescription)) lines.Add(item.handUsageDescription);
+        if (!string.IsNullOrWhiteSpace(item.positiveEffectDescription)) lines.Add($"Эффект: {item.positiveEffectDescription}");
+        if (!string.IsNullOrWhiteSpace(item.curseDescription)) lines.Add($"Проклятие: {item.curseDescription}");
 
         return string.Join("\n", lines);
     }

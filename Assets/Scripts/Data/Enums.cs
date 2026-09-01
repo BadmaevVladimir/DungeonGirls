@@ -38,7 +38,22 @@ public enum ItemTier
 {
     Common,
     Rare,
-    Epic
+    Epic,
+    // Добавлять только в конец: числовые значения старых ассетов/сохранений не меняются.
+    Cursed
+}
+
+public enum CursedEffectId
+{
+    None = 0,
+    Oathbreaker,
+    Executioner,
+    BerserkerAxe,
+    RecklessCharge,
+    LastArgument,
+    BetrayerAndAccomplice,
+    ParanoiaBlades,
+    ThornAxe
 }
 
 public enum SkillCategory

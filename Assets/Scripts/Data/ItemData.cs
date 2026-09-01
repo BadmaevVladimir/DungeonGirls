@@ -15,7 +15,17 @@ public class ItemData : ScriptableObject
     public bool isTwoHanded;
     public ItemTier tier;
     public int itemLevel = 1;
+    // Отдельный, сохранённый ранг специальных Cursed-эффектов. Старые предметы оставляют 0 и
+    // продолжают выводить ранг пассивки из itemLevel через StatScaling.ItemEffectRank.
+    [Range(0, 5)] public int itemRank;
     public CharacterClass[] allowedClasses;
+
+    public CursedEffectId cursedEffect;
+    [TextArea] public string positiveEffectDescription;
+    [TextArea] public string curseDescription;
+    [TextArea] public string handUsageDescription;
+    // Парное оружие — один ItemData/эквип, но два независимых источника атаки в бою.
+    public bool isPairedWeapon;
 
     public float baseDamage;
     public DamageType damageType = DamageType.Physical;
@@ -48,7 +58,15 @@ public class ItemData : ScriptableObject
     // них остаются свои проценты (см. CombatantFactory).
     // Тир уже запечён в баланс-ассете (baseDamage/physicalDefense каждого тира авторизован с
     // учётом множителя тира, см. 3.10) — поэтому здесь достаточно взять сохранённое поле как есть.
-    public float EffectiveDamage => StatScaling.ApplyLevelBonus(baseDamage, itemLevel);
+    public int EffectRank => cursedEffect != CursedEffectId.None
+        ? Mathf.Clamp(itemRank <= 0 ? 1 : itemRank, 1, 5)
+        : StatScaling.ItemEffectRank(itemLevel);
+
+    // Старые ассеты уже хранят умноженную на тир базу. Cursed хранит базу архетипа и применяет
+    // явно утверждённый ×2.2, а level-инкремент считает именно от базы до множителя.
+    public float EffectiveDamage => tier == ItemTier.Cursed
+        ? StatScaling.ApplyTierAndLevel(baseDamage, 2.2f, itemLevel)
+        : StatScaling.ApplyLevelBonus(baseDamage, itemLevel);
     public float EffectiveDefense => StatScaling.ApplyLevelBonus(physicalDefense, itemLevel);
     public float EffectiveMaxDefenseBonus => StatScaling.ApplyLevelBonus(maxPhysicalDefenseBonus, itemLevel);
     public float MagicShieldEffective => StatScaling.ApplyLevelBonus(magicShieldBonus, itemLevel);

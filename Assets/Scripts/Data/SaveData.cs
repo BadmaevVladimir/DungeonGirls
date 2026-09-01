@@ -39,6 +39,7 @@ public class VeteranEquipmentEntry
 {
     public string itemName;
     public int itemLevel;
+    public int itemRank;
 }
 
 [Serializable]

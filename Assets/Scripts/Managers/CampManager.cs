@@ -12,6 +12,7 @@ public class CampManager : MonoBehaviour
     {
         public float HpRestored;
         public float ArmorRestored;
+        public float BacklashDamage;
     }
 
     public bool TrySpendRation()
@@ -33,11 +34,18 @@ public class CampManager : MonoBehaviour
         float basePercent = 0.5f + BuildingCatalog.TavernCampHealBonusPercent(characterManager.TavernLevelThisRun) / 100f;
         float hpBefore = combatant.CurrentHP;
         combatant.CurrentHP = Mathf.Min(combatant.MaxHP, combatant.CurrentHP + combatant.MaxHP * basePercent * healMultiplier);
-        return new CampResult
+        var result = new CampResult
         {
             HpRestored = combatant.CurrentHP - hpBefore,
             ArmorRestored = RestoreCampArmor(characterManager)
         };
+        var oathbreaker = combatant.FindCursedWeapon(CursedEffectId.Oathbreaker);
+        if (oathbreaker != null && CursedItemRules.IsCurseActive(combatant, CursedEffectId.Oathbreaker))
+        {
+            result.BacklashDamage = CursedItemRules.CalculateNormalCritDamage(combatant, oathbreaker);
+            combatant.CurrentHP = Mathf.Max(0f, combatant.CurrentHP - result.BacklashDamage);
+        }
+        return result;
     }
 
     // Совместимый метод для существующих вызовов: тратит рацион, затем лечит.
@@ -56,6 +64,7 @@ public class CampManager : MonoBehaviour
     float RestoreCampArmor(CharacterManager characterManager)
     {
         var combatant = characterManager.Combatant;
+        if (CursedItemRules.IsCurseActive(combatant, CursedEffectId.LastArgument)) return 0f;
         int fieldRepairLevel = characterManager.Progress.GetEffectiveUniquePassiveLevel(SkillId.FieldRepair);
         float totalRepairPercent = (fieldRepairLevel > 0 ? fieldRepairLevel * 10f : 0f) +
             ItemEffectBalance.RepairCampArmorPercent(combatant.ItemRepairLevel) + BuildingCatalog.ForgeCampArmorRestorePercent(characterManager.ForgeLevelThisRun);

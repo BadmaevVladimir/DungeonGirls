@@ -4,6 +4,9 @@
 // собственной скорости атаки, бьют независимо друг от друга).
 public class WeaponAttackState
 {
+    public CursedEffectId CursedEffect;
+    public int ItemRank;
+    public int CursedStacks;
     public float DamageMin;
     public float DamageMax;
     public DamageType DamageType;

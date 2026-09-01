@@ -65,6 +65,7 @@ public class CharacterManager : MonoBehaviour
         }
 
         Combatant = CombatantFactory.CreatePlayerCombatant(character, Progress.Level, Progress, EquippedItems, tavernLevelThisRun, forgeLevelThisRun, templeLevelThisRun);
+        BindRuntimeServicesAndCurses();
     }
 
     public void BeginFloor()
@@ -188,6 +189,14 @@ public class CharacterManager : MonoBehaviour
         rebuilt.PhysicalDefenseCurrent = Mathf.Clamp(oldDefenseCurrent + (rebuilt.PhysicalDefenseMax - oldDefenseMax), 0f, rebuilt.PhysicalDefenseMax);
 
         Combatant = rebuilt;
+        BindRuntimeServicesAndCurses();
+    }
+
+    void BindRuntimeServicesAndCurses()
+    {
+        if (Combatant == null) return;
+        Combatant.AddRunCurrency = AddCurrency;
+        CursedItemRules.ApplyEquippedCurses(Combatant);
     }
 
     public bool IsAlive => Combatant != null && Combatant.IsAlive;

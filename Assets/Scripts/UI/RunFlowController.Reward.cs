@@ -13,11 +13,13 @@ public partial class RunFlowController
         element.RemoveFromClassList("rarity-common");
         element.RemoveFromClassList("rarity-rare");
         element.RemoveFromClassList("rarity-epic");
+        element.RemoveFromClassList("rarity-cursed");
         element.AddToClassList(tier switch
         {
             ItemTier.Common => "rarity-common",
             ItemTier.Rare => "rarity-rare",
-            _ => "rarity-epic"
+            ItemTier.Epic => "rarity-epic",
+            _ => "rarity-cursed"
         });
     }
 
@@ -176,7 +178,8 @@ public partial class RunFlowController
     {
         ItemTier.Common => "chest-reel-icon-common",
         ItemTier.Rare => "chest-reel-icon-rare",
-        _ => "chest-reel-icon-epic"
+        ItemTier.Epic => "chest-reel-icon-epic",
+        _ => "chest-reel-icon-cursed"
     };
 
     AudioClip ChestOpenClipFor(ItemTier tier) => tier switch
@@ -200,6 +203,7 @@ public partial class RunFlowController
         }
 
         var lines = new List<string> { $"{DisplayFormat.SlotLabel(item)}, {DisplayFormat.RarityLabel(item.tier)}, ур. {item.itemLevel}" };
+        if (item.tier == ItemTier.Cursed) lines.Add($"ранг эффекта {DisplayFormat.RankLabel(item.EffectRank)} из V");
 
         var mainStats = new List<string>();
         if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
@@ -212,7 +216,7 @@ public partial class RunFlowController
             mainStats.Add($"скорость атаки {item.attackSpeed:F2}/с");
             if (item.isTwoHanded)
             {
-                mainStats.Add("двуручное: урон +30%");
+                if (item.tier != ItemTier.Cursed) mainStats.Add("двуручное: урон +30%");
             }
         }
 
@@ -251,6 +255,10 @@ public partial class RunFlowController
         {
             lines.Add($"Пассивка: {item.passiveSkill.skillName}");
         }
+
+        if (!string.IsNullOrWhiteSpace(item.handUsageDescription)) lines.Add(item.handUsageDescription);
+        if (!string.IsNullOrWhiteSpace(item.positiveEffectDescription)) lines.Add($"Эффект: {item.positiveEffectDescription}");
+        if (!string.IsNullOrWhiteSpace(item.curseDescription)) lines.Add($"Проклятие: {item.curseDescription}");
 
         return string.Join("\n", lines);
     }

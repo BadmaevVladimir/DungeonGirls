@@ -95,7 +95,7 @@ public partial class RunFlowController
         {
             if (item == null) continue;
             veteran.finalEquipment.Add(item.itemName);
-            veteran.finalEquipmentSnapshot.Add(new VeteranEquipmentEntry { itemName = item.itemName, itemLevel = item.itemLevel });
+            veteran.finalEquipmentSnapshot.Add(new VeteranEquipmentEntry { itemName = item.itemName, itemLevel = item.itemLevel, itemRank = item.itemRank });
         }
 
         return veteran;

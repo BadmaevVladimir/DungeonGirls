@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c350a74c997f174b95013c19748ea00, type: 3}
+  m_Name: Item_Cursed_Executioner
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemName: "Палач"
+  icon: {fileID: 21300000, guid: 03e7d4583c5af7b40bee4c08dd53d81d, type: 3}
+  slot: 3
+  weaponSubtype: 2
+  isTwoHanded: 0
+  tier: 3
+  itemLevel: 1
+  itemRank: 1
+  allowedClasses:
+  - 0
+  - 3
+  cursedEffect: 2
+  positiveEffectDescription: "Казнь: по цели с HP ≤25% урон +100%."
+  curseDescription: "Нетерпение палача: по цели с HP ≥75% урон −25%."
+  handUsageDescription: ""
+  isPairedWeapon: 0
+  baseDamage: 10
+  damageType: 0
+  attackSpeed: 1
+  physicalDefense: 0
+  maxPhysicalDefenseBonus: 0
+  magicShieldBonus: 0
+  hpBonus: 0
+  rageBonusFlatPercent: 0
+  bonusStat:
+    type: 0
+    baseValue: 0
+  passiveSkill: {fileID: 0}
+

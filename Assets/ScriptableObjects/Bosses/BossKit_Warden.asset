@@ -15,7 +15,7 @@ MonoBehaviour:
   phases:
   - phaseName: "Страж"
     hpThresholdPercent: 100
-    phaseSprite: {fileID: 0}
+    phaseSprite: {fileID: 21300000, guid: d5c0a98392c141309e9b29885ac1a95a, type: 3}
     abilities:
     - displayName: "Страж поднимает
         щит"
@@ -39,7 +39,7 @@ MonoBehaviour:
   - phaseName: "Пробуждённый
       страж"
     hpThresholdPercent: 50
-    phaseSprite: {fileID: 0}
+    phaseSprite: {fileID: 21300000, guid: 8fd22e4346b5426aae8c4e22d39b6708, type: 3}
     abilities:
     - displayName: "Страж поднимает
         щит"

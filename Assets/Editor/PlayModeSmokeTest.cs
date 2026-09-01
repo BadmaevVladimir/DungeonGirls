@@ -425,7 +425,7 @@ public static class PlayModeSmokeTest
         // 8.2: доля редкостей предметов в сундуках
         var rewardManagerGO = new GameObject("SmokeTest_RewardManager");
         var rewardManager = rewardManagerGO.AddComponent<RewardManager>();
-        int commonCount = 0, rareCount = 0, epicCount = 0;
+        int commonCount = 0, rareCount = 0, epicCount = 0, cursedCount = 0;
         const int sampleSize = 20000;
         for (int i = 0; i < sampleSize; i++)
         {
@@ -434,12 +434,15 @@ public static class PlayModeSmokeTest
                 case ItemTier.Common: commonCount++; break;
                 case ItemTier.Rare: rareCount++; break;
                 case ItemTier.Epic: epicCount++; break;
+                case ItemTier.Cursed: cursedCount++; break;
             }
         }
         float commonPct = commonCount * 100f / sampleSize;
         float epicPct = epicCount * 100f / sampleSize;
-        Check(commonPct > 59f && commonPct < 65f, $"8.2 доля Обычных ~62%: {commonPct:F1}%");
+        float cursedPct = cursedCount * 100f / sampleSize;
+        Check(commonPct > 57f && commonPct < 63f, $"8.2 доля Обычных ~60%: {commonPct:F1}%");
         Check(epicPct > 1.5f && epicPct < 4.5f, $"8.2 доля Эпических ~3%: {epicPct:F1}%");
+        Check(cursedPct > 0.8f && cursedPct < 3.2f, $"8.2 доля Проклятых ~2%: {cursedPct:F1}%");
 
         // 3.6: источники опыта растут вместе с этажом
         Check(rewardManager.GetExperienceReward(ExperienceSource.CombatRoom, 1) == 10, "3.6 XP боевая комната этаж 1 = 10");
@@ -513,9 +516,14 @@ public static class PlayModeSmokeTest
             "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Epic_EpicTrophy.asset"
         };
         var classItems = classItemPaths.Select(AssetDatabase.LoadAssetAtPath<ItemData>).ToArray();
-        Check(productionCatalog != null && productionCatalog.items != null && productionCatalog.items.Length == 54 &&
+        Check(productionCatalog != null && productionCatalog.items != null && productionCatalog.items.Length == 62 &&
             classItems.All(item => item != null && Array.IndexOf(productionCatalog.items, item) >= 0),
-            "8.2 каталог содержит все 54 предмета, включая 18 классовых предметов Вайолет и Саши");
+            "8.2 каталог содержит все 62 предмета, включая 8 Cursed и 18 прежних классовых предметов Вайолет и Саши");
+
+        var cursedItems = productionCatalog.items.Where(item => item != null && item.tier == ItemTier.Cursed).ToArray();
+        Check(cursedItems.Length == 8 && cursedItems.All(item => item.slot == EquipmentSlot.Weapon && item.cursedEffect != CursedEffectId.None) &&
+            cursedItems.Select(item => item.cursedEffect).Distinct().Count() == 8,
+            "3.10 каталог содержит ровно 8 Cursed-оружий с уникальными stable effect id");
 
         Check(QuestCatalog.SwordInStone.SuccessRewardItemName == "Кровавый меч" &&
             QuestCatalog.SwordInStone.SuccessRewardItemTier == ItemTier.Epic &&

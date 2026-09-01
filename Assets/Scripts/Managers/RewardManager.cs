@@ -59,15 +59,7 @@ public class RewardManager : MonoBehaviour
     // Эпический 3% (было 60/30/10). Сундук босса гарантированно даёт минимум Редкий предмет.
     public ItemTier RollItemRarity(bool isBoss)
     {
-        float roll = Random.value * 100f;
-        ItemTier rarity = roll < 62f ? ItemTier.Common : roll < 97f ? ItemTier.Rare : ItemTier.Epic;
-
-        if (isBoss && rarity == ItemTier.Common)
-        {
-            rarity = ItemTier.Rare;
-        }
-
-        return rarity;
+        return ItemRarityTable.Roll(Random.value * 100f, isBoss);
     }
 
     // 3.9 "Удача" ур.5: 10% шанс получить дополнительную награду из сундука в конце боя.
@@ -106,6 +98,7 @@ public class RewardManager : MonoBehaviour
         {
             case ItemTier.Rare: return 1.2f;
             case ItemTier.Epic: return 1.5f;
+            case ItemTier.Cursed: return 1.5f; // тот же основной tier-множитель, что у Epic
             default: return 1.0f;
         }
     }
@@ -161,6 +154,14 @@ public class RewardManager : MonoBehaviour
         }
 
         return offers;
+    }
+
+    // Reusable flow для будущих special-room definitions: контент комнаты задаёт stable effect id,
+    // а общий каталог/классовая фильтрация и runtime-клон остаются теми же, что у сундуков.
+    public ItemData CreateGuaranteedCursedReward(CursedEffectId effect, CharacterClass characterClass, int itemLevel)
+    {
+        if (itemCatalog == null || !itemCatalog.TryGetGuaranteedCursedItem(effect, characterClass, out var baseItem)) return null;
+        return CreateItemAtExactLevel(baseItem, itemLevel);
     }
 
     // currencyBonus/noCurrency — модификаторы от квестов (5.4: "Загадка сфинкса" даёт +200
