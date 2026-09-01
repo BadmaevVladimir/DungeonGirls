@@ -10,10 +10,15 @@ public static class JenniferAnimationFrames
     static Sprite[] idle;
     static Sprite[] swordAttack;
     static Sprite[] skillBrightStrike;
+    static Sprite[] fastAttackLoop;
 
     public static Sprite[] Idle => idle ??= Load("Idle/idle", 4);
     public static Sprite[] SwordAttack => swordAttack ??= Load("SwordAttack/frame", 9);
     public static Sprite[] SkillBrightStrike => skillBrightStrike ??= Load("SkillBrightStrike/bright", 11);
+    // (доп.): непрерывная петля ударов — включается вместо SwordAttack, когда эффективный интервал
+    // атаки короче длительности одного проигрывания SwordAttack (см. RunFlowController.Combat.cs,
+    // OnAttackPerformed) — иначе анимация не успевала доиграть до следующего удара.
+    public static Sprite[] FastAttackLoop => fastAttackLoop ??= Load("FastAttackLoop/frame", 8);
 
     static Sprite[] Load(string prefix, int count)
     {

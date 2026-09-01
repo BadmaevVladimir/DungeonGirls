@@ -102,6 +102,20 @@ public partial class RunFlowController : MonoBehaviour
     Sprite skillImpactVfxSprite;
     Sprite SkillImpactVfxSprite => skillImpactVfxSprite ??= Resources.Load<Sprite>("VFX/Skill_ThreeStrikes_Impact");
 
+    // (доп.): одноразовый дым "Дымовой гранаты" Вайолет (на кастующей) и зацикленная аура
+    // "Берсерка" Саши (пока активен тумблер) — см. RunFlowController.Combat.cs.
+    Sprite smokeBombVfxSprite;
+    Sprite SmokeBombVfxSprite => smokeBombVfxSprite ??= Resources.Load<Sprite>("VFX/SmokeBomb_Puff");
+    Sprite berserkAuraVfxSprite;
+    Sprite BerserkAuraVfxSprite => berserkAuraVfxSprite ??= Resources.Load<Sprite>("VFX/Berserk_Aura");
+    Image berserkAuraElement;
+    bool berserkAuraActive;
+    Coroutine berserkAuraCoroutine;
+
+    // (доп.): true, пока проигрывается непрерывная петля ударов вместо одиночной анимации атаки —
+    // см. OnAttackPerformed/PlayableCharacterAnimations.FastAttackLoop в RunFlowController.Combat.cs.
+    bool playerInFastAttackMode;
+
     // (доп.): пока true — OnHitResolved не показывает фидбек удара сразу, а копит его в
     // pendingSkillHits. Урон "3 быстрые атаки" считается синхронно в момент активации (см.
     // CombatManager), но весь ВИЗУАЛЬНЫЙ фидбек (цифра/тряска/вспышка/VFX) должен появиться вместе,

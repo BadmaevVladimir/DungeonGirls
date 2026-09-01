@@ -15,6 +15,8 @@ public class ActiveDebuff
     // ниже, чтобы "Несгибаемый" (бонус урона "пока есть активный дебафф") не срабатывал ложно
     // от собственного баффа персонажа.
     public bool IsBuff;
+    public bool IsEquipmentCurse;
+    public CursedEffectId CursedEffect;
 }
 
 public class CombatantRuntime
@@ -106,6 +108,10 @@ public class CombatantRuntime
     public int ItemGoldenTouchLevel; // Корона Мидаса — бонус к валюте забега из сундука (8.2)
     public int ItemToughSoleLevel; // Бронированные сапоги — снижение урона от сработавших ловушек (5.5)
     public int ItemRepairLevel; // Молот кузнеца — бонус к восстановлению брони на привале (6.2)
+    public int CursedParanoiaStacks;
+    public int CursedRecklessStacks;
+    public float CursedRecklessDecayTimer;
+    public System.Action<int> AddRunCurrency;
 
     // 3.11 (Task 6b, item-passive wiring) — armor-bound пассивки эпических предметов, character-level,
     // тем же паттерном, что и три поля выше.
@@ -234,7 +240,10 @@ public class CombatantRuntime
 
     public bool IsAlive => CurrentHP > 0f;
 
-    public bool HasActiveDebuff => ActiveDebuffs.Exists(d => !d.IsBuff) || IsFrozen || FreezeStacks > 0;
+    public bool HasActiveDebuff => ActiveDebuffs.Exists(d => !d.IsBuff) || IsFrozen || FreezeStacks > 0 ||
+        HasBleed || PoisonStacks > 0 || RoguePoisonStacksOnTarget > 0 || CritChanceDebuffPercent > 0f;
+
+    public WeaponAttackState FindCursedWeapon(CursedEffectId effect) => Weapons.Find(w => w.CursedEffect == effect);
 
     // 3.11 (Варвар) — "Ярость" = 1% + % недостающего HP, ПЕРЕСЧИТЫВАЕТСЯ динамически
     // (не хранимое поле). Так 100% достижимы ещё при 1% HP. Флэт-бонусы (Пояс титана)
@@ -256,6 +265,15 @@ public class CombatantRuntime
 
         multiplier *= Mathf.Max(0.01f, 1f - FreezeStacks * 0.05f);
         multiplier *= 1f + ItemAttackSpeedBonusPercent / 100f; // 3.10 (ФИКС): AttackSpeedPercent от снаряжения
+
+        if (weapon.CursedEffect == CursedEffectId.BerserkerAxe)
+            multiplier *= 1f + CursedItemRules.StackBonusPercent(weapon.ItemRank, weapon.CursedStacks) / 100f;
+        else if (weapon.CursedEffect == CursedEffectId.RecklessCharge)
+            multiplier *= 1f + CursedItemRules.ChargeAttackSpeedPercent(weapon.ItemRank) / 100f;
+        else if (weapon.CursedEffect == CursedEffectId.ParanoiaBlades)
+            multiplier *= 1f + CursedItemRules.StackBonusPercent(weapon.ItemRank, CursedParanoiaStacks) / 100f;
+        else if (weapon.CursedEffect == CursedEffectId.ThornAxe && HasBleed)
+            multiplier *= 1f + CursedItemRules.ThornAttackSpeedBonusPercent(weapon.ItemRank) / 100f;
 
         // 3.11 (Варвар) — "Остервенелость": скорость атаки растёт с текущей Яростью.
         if (SkillFrenzyLevel > 0)

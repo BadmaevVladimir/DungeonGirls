@@ -45,6 +45,19 @@ public partial class HubManager
             RefreshBuildingsScreen();
             RefreshGachaScreen();
         }
+        else if (string.Equals(cheatCommandField.value?.Trim(), IWantBitchesCheat, System.StringComparison.OrdinalIgnoreCase))
+        {
+            int granted = 0;
+            foreach (var character in gachaCharacters)
+            {
+                if (character == null || string.IsNullOrEmpty(character.characterId)) continue;
+                saveManager.AddCharacterCopy(character.characterId);
+                granted++;
+            }
+            cheatResultLabel.text = $"Получено: +1 копия каждого персонажа ({granted}).";
+            cheatCommandField.value = string.Empty;
+            RefreshGachaScreen();
+        }
         else
         {
             cheatResultLabel.text = "Неизвестная команда.";

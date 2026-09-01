@@ -378,6 +378,9 @@ Button {
 
 .stealth-stage-active .stage-sprite {
     -unity-background-image-tint-color: rgb(155, 235, 255);
+    /* (доп.) сам спрайт полупрозрачный, пока активна Скрытность — независимо от источника
+       (Дымовая граната, Ускользание и т.п.), поверх уже существующего голубого tint/рамки. */
+    opacity: 0.55;
 }
 
 .enemy-stage-row {
@@ -721,6 +724,11 @@ Button {
     background-color: rgb(190, 110, 230);
 }
 
+/* Временное designer-facing значение Cursed, централизовано здесь до финальной палитры. */
+.chest-reel-icon-cursed {
+    background-color: rgb(155, 45, 65);
+}
+
 .merchant-offers-row {
     flex-direction: row;
     flex-wrap: wrap;
@@ -842,6 +850,10 @@ Button {
 
 .rarity-epic {
     color: rgb(190, 110, 230);
+}
+
+.rarity-cursed {
+    color: rgb(225, 75, 95);
 }
 
 .rarity-swatch {

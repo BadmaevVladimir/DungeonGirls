@@ -93,6 +93,10 @@ public partial class HubManager : MonoBehaviour
     const string GreedIsGoodCheat = "greedisgood";
     const int GreedIsGoodReward = 10000;
 
+    // Даёт по 1 копии каждого персонажа из gachaCharacters (см. SubmitCheatCommand в
+    // HubManager.Navigation.cs) — не через гачу, напрямую в saveManager.
+    const string IWantBitchesCheat = "iwantbitches";
+
     // Start() вместо OnEnable(): HubManager сидит на GameObject "GameManager", а UIDocument — на
     // отдельном GameObject "UI". Unity не гарантирует порядок OnEnable МЕЖДУ разными GameObject
     // (в отличие от порядка компонентов ВНУТРИ одного GameObject, где UIDocument идёт раньше

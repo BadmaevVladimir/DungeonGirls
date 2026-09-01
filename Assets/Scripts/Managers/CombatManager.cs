@@ -40,8 +40,7 @@ public class CombatManager : MonoBehaviour
         LogMessage?.Invoke(message);
     }
 
-    static bool IgnoresDebuffs(CombatantRuntime target) =>
-        target.SkillStubbornnessLevel > 0 && target.Rage > RageRules.StubbornnessThreshold(target.SkillStubbornnessLevel);
+    static bool IgnoresDebuffs(CombatantRuntime target) => CursedItemRules.IgnoresNewDebuffs(target);
 
     // Codex P1 (ФИКС, 2026-08-27): раньше CombatRoomFlow всегда передавал hitCount=3 и конфиг из
     // jenniferCharacter.uniqueActiveSkill — Плут получал бы конфигурацию Дженифер (неверный
@@ -242,7 +241,8 @@ public class CombatManager : MonoBehaviour
     static void ResetTemporaryStatuses(CombatantRuntime combatant)
     {
         if (combatant == null) return;
-        combatant.ActiveDebuffs.Clear();
+        // Equipment curses живут между боями, пока предмет надет; временные эффекты очищаются.
+        combatant.ActiveDebuffs.RemoveAll(d => !d.IsEquipmentCurse);
         combatant.CritChanceDebuffPercent = 0f;
         combatant.CritChanceDebuffTimer = 0f;
         combatant.PoisonStacks = 0;
@@ -271,6 +271,10 @@ public class CombatManager : MonoBehaviour
         combatant.CombatRegenCooldownRemaining = 0f;
         combatant.IsBerserkActive = false;
         combatant.BerserkTickAccumulator = 0f;
+        combatant.CursedParanoiaStacks = 0;
+        combatant.CursedRecklessStacks = 0;
+        combatant.CursedRecklessDecayTimer = 0f;
+        foreach (var weapon in combatant.Weapons) weapon.CursedStacks = 0;
     }
 
     void Update()
@@ -500,6 +504,15 @@ public class CombatManager : MonoBehaviour
     void UpdateStatusEffects(CombatantRuntime combatant, float deltaTime)
     {
         combatant.CombatRegenCooldownRemaining = Mathf.Max(0f, combatant.CombatRegenCooldownRemaining - deltaTime);
+        if (combatant.CursedRecklessStacks > 0)
+        {
+            combatant.CursedRecklessDecayTimer -= deltaTime;
+            if (combatant.CursedRecklessDecayTimer <= 0f)
+            {
+                combatant.CursedRecklessStacks = 0;
+                combatant.CursedRecklessDecayTimer = 0f;
+            }
+        }
         for (int i = combatant.ActiveDebuffs.Count - 1; i >= 0; i--)
         {
             var debuff = combatant.ActiveDebuffs[i];
@@ -586,7 +599,7 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        target.BleedTimer = BleedRules.NormalizeRemainingSeconds(target.BleedTimer) - deltaTime;
+        if (!float.IsPositiveInfinity(target.BleedTimer)) target.BleedTimer -= deltaTime;
 
         target.BleedTickAccumulator += deltaTime;
         while (target.BleedTickAccumulator >= 1f && target.HasBleed && target.IsAlive)
@@ -599,7 +612,7 @@ public class CombatManager : MonoBehaviour
             {
                 float detonationDamage = BleedRules.DetonationDamage(target.BleedDamagePerSecond, target.BleedTimer);
                 tickDamage += detonationDamage;
-                target.BleedTimer = BleedRules.DurationSeconds;
+                target.BleedTimer = BleedRules.DurationForLevel(target.BleedLevel);
                 Log($"[Combat] Критический тик кровотечения детонирует ещё {detonationDamage:F1} урона и обновляет длительность.");
             }
 
@@ -635,7 +648,20 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        bool wasStealthedAtAttackStart = attacker.IsStealthed;
         AttackPerformed?.Invoke(attacker, isRegularAttack);
+
+        if (weapon.CursedEffect == CursedEffectId.RecklessCharge && CursedItemRules.IsCurseActive(attacker, CursedEffectId.RecklessCharge))
+        {
+            attacker.CursedRecklessStacks = Mathf.Min(CursedItemRules.RecklessMaxStacks, attacker.CursedRecklessStacks + 1);
+            attacker.CursedRecklessDecayTimer = CursedItemRules.RecklessStackDecaySeconds;
+        }
+
+        if (wasStealthedAtAttackStart && weapon.CursedEffect == CursedEffectId.BetrayerAndAccomplice && CursedItemRules.IsCurseActive(attacker, CursedEffectId.BetrayerAndAccomplice))
+        {
+            attacker.StealthTimer = Mathf.Max(0f, attacker.StealthTimer - 0.25f);
+            if (attacker.StealthTimer <= 0f) attacker.IsStealthed = false;
+        }
 
         // "Уклонение" + пассивка предмета "Неуловимость" (3.10, Эфирный доспех) + бонусный стат
         // EvasionPercent (3.10 ФИКС, Кольцо ловкости/Амулет проворства — раньше игнорировался) +
@@ -694,10 +720,27 @@ public class CombatManager : MonoBehaviour
                 target.RiposteArmed = true;
             }
 
+            if (target.FindCursedWeapon(CursedEffectId.ParanoiaBlades) != null)
+                target.CursedParanoiaStacks = Mathf.Min(CursedItemRules.MaxStacks, target.CursedParanoiaStacks + 1);
+
             return;
         }
 
         float damage = Random.Range(weapon.DamageMin, weapon.DamageMax) * damageMultiplier;
+
+        if (weapon.CursedEffect == CursedEffectId.Executioner)
+        {
+            float executionerMultiplier = target.CurrentHP <= target.MaxHP * 0.25f
+                ? 2f
+                : CursedItemRules.IsCurseActive(attacker, CursedEffectId.Executioner) && target.CurrentHP >= target.MaxHP * 0.75f ? 0.75f : 1f;
+            damage *= executionerMultiplier;
+        }
+
+        if (weapon.CursedEffect == CursedEffectId.LastArgument)
+            damage += CursedItemRules.LastArgumentBonusDamage(attacker.MaxHP, weapon.ItemRank);
+
+        if (wasStealthedAtAttackStart && weapon.CursedEffect == CursedEffectId.BetrayerAndAccomplice)
+            damage *= 1f + CursedItemRules.StealthDamageBonusPercent(weapon.ItemRank) / 100f;
 
         // 1, п.3: постоянный бонус к магическому урону от основного пассивного навыка наставника ("Магнум Опус").
         if (attacker.IsPlayer && weapon.DamageType == DamageType.Magical && attacker.MentorMagicDamageBonusPercent > 0f)
@@ -774,6 +817,9 @@ public class CombatManager : MonoBehaviour
         {
             damage *= critMultiplier / 100f;
 
+            if (weapon.CursedEffect == CursedEffectId.Oathbreaker)
+                attacker.AddRunCurrency?.Invoke(CursedItemRules.OathbreakerCurrencyPerCrit);
+
             // "В глаз" (3.11, Плут): крит накладывает/обновляет Скрытность на 3с.
             if (attacker.SkillEyeForAnEyeLevel > 0)
             {
@@ -804,7 +850,10 @@ public class CombatManager : MonoBehaviour
         // бонус к урону только для целей ПРОБИТИЯ брони, добавляется прямо перед проверкой брони.
         float armorPenetrationDamage = weapon.DamageType == DamageType.Physical ? weapon.ArmorPenetrationFlat : 0f;
         float armorBeforeAttack = target.PhysicalDefenseCurrent;
-        var result = DamageCalculator.ApplyDamage(target, damage + armorPenetrationDamage, weapon.DamageType, weapon.ArmorIgnorePercent);
+        bool paranoiaCrash = target.CursedParanoiaStacks > 0 && CursedItemRules.IsCurseActive(target, CursedEffectId.ParanoiaBlades);
+        float paranoiaMultiplier = paranoiaCrash ? CursedItemRules.ParanoiaIncomingMultiplier(target.CursedParanoiaStacks) : 1f;
+        var result = DamageCalculator.ApplyDamage(target, (damage + armorPenetrationDamage) * paranoiaMultiplier, weapon.DamageType, weapon.ArmorIgnorePercent);
+        if (paranoiaCrash) target.CursedParanoiaStacks = 0;
         float normalArmorLost = armorBeforeAttack - target.PhysicalDefenseCurrent;
 
         // «Бронебойный» снимает дополнительную гарантированную броню после любой неуклонённой
@@ -834,6 +883,12 @@ public class CombatManager : MonoBehaviour
         // атаки оружием и каждый отдельный удар активного навыка (цикл в TryActivateUniqueActiveSkill
         // вызывает ResolveAttack по разу на удар, так что события уже приходят по одному, не суммарно).
         HitResolved?.Invoke(target, result.DamageToHP, isCrit, result.WasBlocked);
+
+        if (weapon.CursedEffect == CursedEffectId.BerserkerAxe)
+            weapon.CursedStacks = Mathf.Min(CursedItemRules.MaxStacks, weapon.CursedStacks + 1);
+
+        if (isCrit && weapon.CursedEffect == CursedEffectId.ThornAxe && attacker.IsAlive)
+            ApplyBleed(attacker, attacker, weapon.ItemRank);
 
         // Крит по уже кровоточащей цели немедленно наносит весь ожидаемый урон за оставшуюся
         // длительность и обновляет Кровотечение. Это не зависит от типа удара или брони: триггер —
@@ -1035,7 +1090,7 @@ public class CombatManager : MonoBehaviour
     {
         float detonationDamage = BleedRules.DetonationDamage(target.BleedDamagePerSecond, target.BleedTimer);
         target.CurrentHP -= detonationDamage;
-        target.BleedTimer = BleedRules.DurationSeconds;
+        target.BleedTimer = BleedRules.DurationForLevel(target.BleedLevel);
         HitResolved?.Invoke(target, detonationDamage, true, false);
         Log($"[Combat] Критический удар детонирует кровотечение на {target.DisplayName}: {detonationDamage:F1} урона; длительность обновлена.");
     }
@@ -1053,7 +1108,7 @@ public class CombatManager : MonoBehaviour
 
         target.HasBleed = true;
         target.BleedDamagePerSecond = BleedRules.DamagePerSecond(bleedLevel);
-        target.BleedTimer = BleedRules.DurationSeconds; // не стакается, обновляет длительность на всех уровнях
+        target.BleedTimer = BleedRules.DurationForLevel(bleedLevel); // не стакается, обновляет длительность
         target.BleedLevel = bleedLevel;
         target.BleedSource = source;
 

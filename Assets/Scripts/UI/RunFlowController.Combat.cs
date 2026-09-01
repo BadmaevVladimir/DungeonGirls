@@ -36,22 +36,22 @@ public partial class RunFlowController
         }
     }
 
-    // (доп.): true, только пока играющий персонаж — Дженифер (сейчас единственная с готовыми
-    // анимациями; распознаётся по имени, тем же паттерном, что "Дымовая граната"/"3 быстрые
-    // атаки" выше по коду — у CombatantRuntime нет отдельного characterId).
-    bool IsJenniferPlayer => combatManager.Player != null && combatManager.Player.DisplayName == "Дженифер";
+    // (доп.): true, пока у играющего персонажа есть готовые анимации (см. PlayableCharacterAnimations
+    // — распознаётся по DisplayName, тем же паттерном, что "Дымовая граната"/"3 быстрые атаки" выше
+    // по коду, т.к. у CombatantRuntime нет отдельного characterId).
+    bool HasAnimatedSprite => combatManager.Player != null && PlayableCharacterAnimations.Idle(combatManager.Player.DisplayName) != null;
 
     void StartPlayerIdleFlipbook()
     {
-        if (!IsJenniferPlayer) return;
-        var frames = JenniferAnimationFrames.Idle;
+        if (!HasAnimatedSprite) return;
+        var frames = PlayableCharacterAnimations.Idle(combatManager.Player.DisplayName);
         if (playerFlipbookCoroutine != null) StopCoroutine(playerFlipbookCoroutine);
         playerFlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(playerStageSprite, frames, 6f, loop: true));
     }
 
     void PlayPlayerOneShotFlipbook(Sprite[] frames, float fps, System.Action onComplete = null)
     {
-        if (!IsJenniferPlayer || frames == null || frames.Length == 0)
+        if (!HasAnimatedSprite || frames == null || frames.Length == 0)
         {
             onComplete?.Invoke();
             return;
@@ -82,14 +82,112 @@ public partial class RunFlowController
         capturingSkillHits = false;
         pendingSkillHits.Clear();
         playerSkillAnimationPlaying = false;
+        playerInFastAttackMode = false;
+
+        UpdateBerserkAura(false);
+    }
+
+    // (доп.): Саша "Берсерк" — ручной тумфбл без события активации, аура опрашивается каждый кадр
+    // (см. UpdateCombatUI) вместо реакции на ActiveSkillActivated. Элемент создаётся один раз лениво
+    // и вставляется В НАЧАЛО playerStageWrapper (index 0) — UI Toolkit рисует детей по порядку
+    // добавления, так что элемент с меньшим индексом оказывается ПОД спрайтом (который уже есть в
+    // UXML как единственный исходный child), а не поверх него.
+    void UpdateBerserkAura(bool active)
+    {
+        if (active == berserkAuraActive) return;
+        berserkAuraActive = active;
+
+        if (active)
+        {
+            if (berserkAuraElement == null)
+            {
+                var sprite = BerserkAuraVfxSprite;
+                if (sprite == null) return;
+
+                berserkAuraElement = new Image { sprite = sprite };
+                berserkAuraElement.pickingMode = PickingMode.Ignore;
+                berserkAuraElement.style.position = Position.Absolute;
+                berserkAuraElement.style.width = new Length(140, LengthUnit.Percent);
+                berserkAuraElement.style.height = new Length(140, LengthUnit.Percent);
+                berserkAuraElement.style.left = new Length(-20, LengthUnit.Percent);
+                berserkAuraElement.style.top = new Length(-20, LengthUnit.Percent);
+                playerStageWrapper.Insert(0, berserkAuraElement);
+            }
+
+            berserkAuraElement.style.display = DisplayStyle.Flex;
+            if (berserkAuraCoroutine == null)
+            {
+                berserkAuraCoroutine = StartCoroutine(PulseBerserkAura());
+            }
+        }
+        else
+        {
+            if (berserkAuraCoroutine != null)
+            {
+                StopCoroutine(berserkAuraCoroutine);
+                berserkAuraCoroutine = null;
+            }
+
+            if (berserkAuraElement != null)
+            {
+                berserkAuraElement.style.display = DisplayStyle.None;
+            }
+        }
+    }
+
+    // Пульсирующая яркость вместо настоящих кадров анимации — тот же приём, что и остальные VFX в
+    // этом файле (см. FlashDamageTint/SpawnSkillImpactVfx): один статичный спрайт, анимируется кодом.
+    IEnumerator PulseBerserkAura()
+    {
+        const float period = 0.6f;
+        while (true)
+        {
+            float phase = (Time.time % period) / period;
+            berserkAuraElement.style.opacity = 0.55f + 0.35f * Mathf.Sin(phase * Mathf.PI * 2f);
+            yield return null;
+        }
     }
 
     // (доп.): обычная атака оружием (не удар активного навыка — тот запускается из
     // OnActiveSkillActivated, иначе "3 быстрые атаки" переиграла бы флипбук 3 раза подряд).
+    const float AttackAnimationFps = 10f;
+
+    // (доп.): при высокой скорости атаки одиночная анимация (SwordAttack и т.п.) не успевает
+    // доиграть до следующего удара — PlayPlayerOneShotFlipbook перезапускает её с нуля каждый раз,
+    // визуально она "обрывается". Если эффективный интервал атаки короче длительности одиночной
+    // анимации — переключаемся на непрерывную петлю (FastAttackLoop) и просто даём ей играть дальше,
+    // не перезапуская на каждый удар. Обычная скорость атаки — прежнее поведение без изменений.
     void OnAttackPerformed(CombatantRuntime attacker, bool isRegularAttack)
     {
         if (!isRegularAttack || attacker != combatManager.Player) return;
-        PlayPlayerOneShotFlipbook(JenniferAnimationFrames.SwordAttack, 10f);
+
+        var attackFrames = PlayableCharacterAnimations.Attack(attacker.DisplayName);
+        if (attackFrames == null || attackFrames.Length == 0) return;
+
+        float oneShotDuration = attackFrames.Length / AttackAnimationFps;
+        float effectiveInterval = attacker.Weapons.Count > 0
+            ? attacker.GetEffectiveAttackInterval(attacker.Weapons[0])
+            : float.PositiveInfinity;
+
+        if (effectiveInterval < oneShotDuration)
+        {
+            if (!playerInFastAttackMode)
+            {
+                var loopFrames = PlayableCharacterAnimations.FastAttackLoop(attacker.DisplayName);
+                if (loopFrames != null && loopFrames.Length > 0)
+                {
+                    playerInFastAttackMode = true;
+                    if (playerFlipbookCoroutine != null) StopCoroutine(playerFlipbookCoroutine);
+                    playerFlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(playerStageSprite, loopFrames, 12f, loop: true));
+                }
+            }
+            // уже в режиме петли — ничего не делаем, пусть доигрывает дальше без перезапуска.
+        }
+        else
+        {
+            playerInFastAttackMode = false;
+            PlayPlayerOneShotFlipbook(attackFrames, AttackAnimationFps);
+        }
     }
 
     int RollMonsterCount(int level) => MonsterEncounterBudget.RollMonsterCount(level);
@@ -339,6 +437,11 @@ public partial class RunFlowController
             rageFill.style.width = new Length(Mathf.Clamp(rage, 0f, 100f), LengthUnit.Percent);
             rageIndicator.EnableInClassList("rage-indicator-high", rage >= 70f);
         }
+
+        // (доп.): Берсерк — ручной тумблер без события активации (см. CombatManager.SetBerserkActive/
+        // TryActivateUniqueActiveSkill), поэтому аура опрашивается тем же поллинг-паттерном, что и
+        // Ярость/Скрытность выше, а не через ActiveSkillActivated.
+        UpdateBerserkAura(isBarbarianCombat && player.IsBerserkActive);
 
         bool showStealth = CombatResourceVisibility.ShouldShowStealth(player);
         stealthIndicator.EnableInClassList("hidden", !showStealth);
@@ -832,6 +935,64 @@ public partial class RunFlowController
                     StartCoroutine(SpawnSkillImpactVfx(impactWrapper));
                 }
             });
+        }
+
+        // Вайолет "Дымовая граната": один короткий всплеск дыма на самой Вайолет в момент каста —
+        // общий индикатор Скрытности (от ЛЮБОГО источника, не только этого навыка) отдельно
+        // реализован через USS-класс .stealth-stage-active (см. GameStyles.uss), здесь только
+        // одноразовый VFX самого броска гранаты.
+        if (skillName == "Дымовая граната" && playerStageWrapper != null)
+        {
+            StartCoroutine(SpawnSmokeBombVfx(playerStageWrapper));
+        }
+    }
+
+    // (доп.): такой же по форме, как SpawnSkillImpactVfx, но появляется на кастующей (Вайолет), а не
+    // на цели, и запускается напрямую по имени навыка, а не через захват HitResolved — "Дымовая
+    // граната" не наносит урон, HitResolved для неё вообще не фигурирует.
+    IEnumerator SpawnSmokeBombVfx(VisualElement wrapper)
+    {
+        var vfxSprite = SmokeBombVfxSprite;
+        if (vfxSprite == null)
+        {
+            yield break;
+        }
+
+        var vfx = new Image { sprite = vfxSprite };
+        vfx.pickingMode = PickingMode.Ignore;
+        vfx.style.position = Position.Absolute;
+        vfx.style.width = new Length(80, LengthUnit.Percent);
+        vfx.style.height = new Length(80, LengthUnit.Percent);
+        vfx.style.left = new Length(10, LengthUnit.Percent);
+        vfx.style.top = new Length(10, LengthUnit.Percent);
+        vfx.style.opacity = 0f;
+        wrapper.Add(vfx);
+
+        const float fadeIn = 0.1f;
+        const float hold = 0.5f;
+        const float fadeOut = 0.6f;
+
+        float elapsed = 0f;
+        while (elapsed < fadeIn)
+        {
+            elapsed += Time.deltaTime;
+            vfx.style.opacity = Mathf.Clamp01(elapsed / fadeIn) * 0.9f;
+            yield return null;
+        }
+
+        yield return new WaitForSeconds(hold);
+
+        elapsed = 0f;
+        while (elapsed < fadeOut)
+        {
+            elapsed += Time.deltaTime;
+            vfx.style.opacity = 0.9f * (1f - Mathf.Clamp01(elapsed / fadeOut));
+            yield return null;
+        }
+
+        if (vfx.parent != null)
+        {
+            vfx.RemoveFromHierarchy();
         }
     }
 
