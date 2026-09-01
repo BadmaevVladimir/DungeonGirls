@@ -79,6 +79,10 @@ public partial class RunFlowController : MonoBehaviour
 
     // --- Панели контент-área ---
     VisualElement combatPanel;
+    VisualElement mapPanel;
+    VisualElement mapGraphContainer;
+    Label mapStatusLabel;
+    Button mapEnterCurrentButton;
     Image combatBackground;
     VisualElement eventPopup;
     VisualElement trapPopup;
@@ -102,6 +106,14 @@ public partial class RunFlowController : MonoBehaviour
         public VisualElement Wrapper;
         public Image Sprite;
         public Label StatusLabel;
+
+        // Boss framework (минимальный слайс) — reusable-телеграф специальной атаки: показывает
+        // "готовит: <имя способности>" + полоску обратного отсчёта ДО того, как способность
+        // срабатывает (см. BossEncounterState.PendingTelegraph). Не привязано к The Warden — читает
+        // CombatantRuntime.BossEncounter, так что работает для любого будущего босса без правок этого
+        // класса. У обычных врагов (BossEncounter == null) всегда скрыт.
+        public Label TelegraphLabel;
+        public VisualElement TelegraphBarFill;
     }
     readonly List<EnemyStageEntry> enemyStageEntries = new List<EnemyStageEntry>();
 
@@ -201,6 +213,9 @@ public partial class RunFlowController : MonoBehaviour
     bool sashaBeerCellarTriggeredThisRun;
     bool huntQuestTriggeredThisRun;
     bool swordInStoneSucceededThisRun;
+    bool pendingCombatReward;
+    bool pendingCombatWasBoss;
+    bool pendingStandaloneChestReward;
 
     CharacterData selectedCharacter;
     VeteranCharacter selectedMentor;
@@ -330,6 +345,10 @@ public partial class RunFlowController : MonoBehaviour
         roomProgressContainer = root.Q<VisualElement>("RoomProgressContainer");
 
         combatPanel = root.Q<VisualElement>("CombatPanel");
+        mapPanel = root.Q<VisualElement>("MapPanel");
+        mapGraphContainer = root.Q<VisualElement>("MapGraphContainer");
+        mapStatusLabel = root.Q<Label>("MapStatusLabel");
+        mapEnterCurrentButton = root.Q<Button>("MapEnterCurrentButton");
         combatBackground = root.Q<Image>("CombatBackground");
         if (combatBackground != null && combatBackgroundSprite != null)
         {
@@ -442,22 +461,25 @@ public partial class RunFlowController : MonoBehaviour
         while (true)
         {
             floorManager.SetFloorState(FloorState.FloorStart);
-            floorManager.GenerateRoomBag(dungeonManager.CurrentFloorNumber);
+            floorManager.GenerateFloorMap(dungeonManager.CurrentFloorNumber);
             characterManager.BeginFloor(); // 8.5: сброс счётчика пройденных комнат этого этажа
+            ResolveGeneratedFloorMapContent();
             totalRoomsThisFloorCached = floorManager.TotalRoomsOnFloor;
             UpdateTopBar();
+            yield return MapPreviewFlow();
 
             bool floorLost = false;
 
             while (true)
             {
                 floorManager.SetFloorState(FloorState.RoomEntry);
-                bool drewFromBag = floorManager.TryDrawNextRoom(out var roomType);
-                bool isBossRoom = !drewFromBag;
+                FloorMapNode currentNode = floorManager.CurrentNode;
+                bool isBossRoom = currentNode.Kind == FloorMapNodeKind.Boss;
 
-                yield return ResolveRoom(roomType, isBossRoom);
+                ResetPendingRoomRewards();
+                yield return ResolveMapNode(currentNode);
 
-                floorManager.MarkRoomCompleted();
+                floorManager.MarkCurrentRoomCompleted();
                 UpdateTopBar();
 
                 if (!characterManager.IsAlive)
@@ -486,6 +508,8 @@ public partial class RunFlowController : MonoBehaviour
                         }
                     }
 
+                    yield return ResolvePendingRoomRewards();
+
                     break; // этаж пройден (2.5: комната босса всегда последняя)
                 }
 
@@ -504,6 +528,12 @@ public partial class RunFlowController : MonoBehaviour
                         break;
                     }
                 }
+
+                yield return ResolvePendingRoomRewards();
+
+                // Even a single target (notably Boss) is selected on the map; navigation never
+                // infers reachability from depth alone.
+                yield return MapChoiceFlow();
             }
 
             if (floorLost)
@@ -525,29 +555,34 @@ public partial class RunFlowController : MonoBehaviour
         yield return ShowResultsFlow(victory);
     }
 
-    IEnumerator ResolveRoom(RoomType roomType, bool isBoss)
+    IEnumerator ResolveMapNode(FloorMapNode node)
     {
-        switch (roomType)
+        yield return ResolveRoom(node);
+    }
+
+    IEnumerator ResolveRoom(FloorMapNode node)
+    {
+        switch (node.RoomType)
         {
             case RoomType.Combat:
                 floorManager.SetFloorState(FloorState.CombatResolve);
-                yield return CombatRoomFlow(false);
+                yield return CombatRoomFlow(false, node);
                 break;
             case RoomType.Boss:
                 floorManager.SetFloorState(FloorState.CombatResolve);
-                yield return CombatRoomFlow(true);
+                yield return CombatRoomFlow(true, node);
                 break;
             case RoomType.Merchant:
                 floorManager.SetFloorState(FloorState.MerchantResolve);
-                yield return MerchantRoomFlow();
+                yield return MerchantRoomFlow(node);
                 break;
             case RoomType.Trap:
                 floorManager.SetFloorState(FloorState.TrapResolve);
-                yield return TrapRoomFlow();
+                yield return TrapRoomFlow(node);
                 break;
             case RoomType.Special:
                 floorManager.SetFloorState(FloorState.EventResolve);
-                yield return EventRoomFlow();
+                yield return EventRoomFlow(node);
                 break;
         }
     }
@@ -615,7 +650,7 @@ public partial class RunFlowController : MonoBehaviour
         // модальный оверлей поверх текущей сцены, видимостью которого управляют
         // ShowRewardOverlay/HideRewardOverlay через класс "hidden", а не через style.display
         // отсюда (иначе инлайновый display:none из этого метода забивал бы класс насовсем).
-        foreach (var panel in new[] { combatPanel, eventPopup, trapPopup, levelUpPanel, campPanel, merchantPanel, itemComparePanel })
+        foreach (var panel in new[] { combatPanel, mapPanel, eventPopup, trapPopup, levelUpPanel, campPanel, merchantPanel, itemComparePanel })
         {
             panel.style.display = panel == panelToShow ? DisplayStyle.Flex : DisplayStyle.None;
         }

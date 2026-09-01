@@ -1616,19 +1616,20 @@ public static class PlayModeSmokeTest
             }
         }
 
-        // 8.4: состав мешка комнат
+        // 8.4 / nonlinear floor map: graph shape and explicit rare-room limits.
         var floorManagerGO = new GameObject("SmokeTest_FloorManager");
         var floorManager = floorManagerGO.AddComponent<FloorManager>();
-        floorManager.GenerateRoomBag(1);
-        int combatCount = floorManager.RoomBag.FindAll(r => r == RoomType.Combat).Count;
-        int merchantCount = floorManager.RoomBag.FindAll(r => r == RoomType.Merchant).Count;
-        int trapCount = floorManager.RoomBag.FindAll(r => r == RoomType.Trap).Count;
-        int specialCount = floorManager.RoomBag.FindAll(r => r == RoomType.Special).Count;
-        Check(combatCount == 8 && merchantCount == 0 && trapCount == 2 && specialCount == 1 && floorManager.RoomBag.Count == 11,
-            $"8.4 первый этаж без торговца: combat={combatCount}, merchant={merchantCount}, trap={trapCount}, special={specialCount}, total={floorManager.RoomBag.Count} (ожидалось 8/0/2/1/11)");
-        floorManager.GenerateRoomBag(2);
-        Check(floorManager.RoomBag.FindAll(r => r == RoomType.Merchant).Count == 1 && floorManager.RoomBag.Count == 12,
-            "8.4 со второго этажа торговец и 12-комнатный мешок возвращаются");
+        floorManager.GenerateFloorMap(1, 12345);
+        var floorMap = floorManager.CurrentMap;
+        Check(floorMap != null && floorMap.Nodes.Count == 38 && floorMap.Edges.FindAll(edge => edge.Kind == FloorMapEdgeKind.CrossPath).Count == 12,
+            "Нелинейная карта: 38 узлов и 12 направленных cross-path переходов");
+        Check(FloorMapGenerator.Validate(floorMap).Count == 0,
+            "Нелинейная карта проходит полную validation");
+        Check(floorMap.Nodes.FindAll(node => node.RoomType == RoomType.Merchant).Count == 0,
+            "На первом этаже торговцы отсутствуют во всех мешках путей");
+        Check(floorMap.Nodes.FindAll(node => node.RoomType == RoomType.Trap).Count <= FloorMapGenerator.GlobalTrapLimit &&
+              floorMap.Nodes.FindAll(node => node.RoomType == RoomType.Special).Count <= FloorMapGenerator.GlobalSpecialLimit,
+            "Глобальные лимиты редких комнат соблюдаются");
         UnityEngine.Object.DestroyImmediate(floorManagerGO);
 
         var warlock = AssetDatabase.LoadAssetAtPath<MonsterData>("Assets/ScriptableObjects/Monsters/Monster_Warlock.asset");

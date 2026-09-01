@@ -7,9 +7,9 @@ public partial class RunFlowController
 {
     // ==================== Ловушка (5.5) и квесты TryOrSkip (5.4) — общий попап ====================
 
-    IEnumerator TrapRoomFlow()
+    IEnumerator TrapRoomFlow(FloorMapNode roomNode)
     {
-        var trap = TrapCatalog.All[Random.Range(0, TrapCatalog.All.Length)];
+        var trap = GetResolvedTrap(roomNode);
         trapPopupTitle.text = "Ловушка";
         yield return ShowChancePopupAndWait(trap.DescriptionText, trap.Level, trap.SuccessText, trap.FailText, "Попытаться пройти ловушку", "Пойти дальше");
 
@@ -26,7 +26,7 @@ public partial class RunFlowController
             }
             else
             {
-                yield return ShowRewardChestFlow(dungeonManager.CurrentFloorNumber, false);
+                pendingStandaloneChestReward = true;
             }
         }
         else
@@ -98,26 +98,18 @@ public partial class RunFlowController
 
     // ==================== Особая комната / квест (5.3-5.4) ====================
 
-    QuestDefinition PickQuestForFloor(int floor)
+    IEnumerator EventRoomFlow(FloorMapNode roomNode)
     {
-        var quest = QuestCatalog.PickForFloor(floor, huntQuestTriggeredThisRun, swordInStoneSucceededThisRun);
-        if (quest == QuestCatalog.Hunt) huntQuestTriggeredThisRun = true;
-        return quest;
-    }
-
-    IEnumerator EventRoomFlow()
-    {
-        // Персональная комната отдыха конкурирует с квестами внутри особой комнаты: 30% на
-        // каждую подходящую особую комнату, но не чаще одного раза за забег. Дженифер находит
-        // горячие источники, Вайолет — комнату ловушек, а Саша — пивной погреб. Такие комнаты
-        // не могут стать первой комнатой всего забега.
-        if (characterManager.RoomsClearedThisRun > 0 && Random.value < 0.30f && TryReservePersonalRestRoom())
+        if (string.Equals(roomNode.ContentKey, PersonalRestContentKey, System.StringComparison.Ordinal))
         {
+            if (!TryReservePersonalRestRoom())
+                throw new System.InvalidOperationException($"Personal rest content for node {roomNode.Id} was already consumed.");
             yield return PersonalRestRoomFlow();
             yield break;
         }
 
-        var quest = PickQuestForFloor(dungeonManager.CurrentFloorNumber);
+        var quest = GetResolvedQuest(roomNode);
+        if (quest == QuestCatalog.Hunt) huntQuestTriggeredThisRun = true;
 
         if (quest.InteractionType == QuestInteractionType.MultipleChoice)
         {
@@ -282,9 +274,9 @@ public partial class RunFlowController
 
     // ==================== Торговец (5.2) ====================
 
-    IEnumerator MerchantRoomFlow()
+    IEnumerator MerchantRoomFlow(FloorMapNode roomNode)
     {
-        var offers = rewardManager.GenerateMerchantOffers(characterManager.Level, characterManager.Character.characterClass);
+        var offers = GetResolvedMerchantOffers(roomNode);
 
         bool leave = false;
         while (!leave)

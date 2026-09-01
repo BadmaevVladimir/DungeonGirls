@@ -141,6 +141,20 @@ public static class CombatantFactory
         };
         runtime.CurrentHP = runtime.MaxHP;
 
+        // Boss framework (минимальный слайс): монстр с назначенным bossKit получает свежий
+        // BossEncounterState на этот конкретный бой (фаза/кулдауны не должны переживать между боями)
+        // + опциональный спрайт фазы 0, если авторы задали отдельный "боевой" спрайт для неё (иначе
+        // остаётся monster.sprite, как у любого другого монстра).
+        if (monster.bossKit != null && monster.bossKit.phases.Count > 0)
+        {
+            runtime.BossEncounter = new BossEncounterState(monster.bossKit);
+            var phase0Sprite = monster.bossKit.phases[0].phaseSprite;
+            if (phase0Sprite != null)
+            {
+                runtime.Sprite = phase0Sprite;
+            }
+        }
+
         runtime.Weapons.Add(new WeaponAttackState
         {
             DamageMin = damageMin,

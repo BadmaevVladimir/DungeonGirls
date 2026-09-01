@@ -10,6 +10,7 @@ public enum FloorState
     RewardChest,
     LevelUpChoice,
     CampPhase,
+    MapChoice,
     PathContinue,
     FloorEnd
 }

@@ -122,6 +122,16 @@
         <ui:VisualElement name="MainRow" class="main-row">
         <ui:VisualElement name="ContentArea" class="content-area">
 
+            <ui:VisualElement name="MapPanel" class="panel map-panel hidden">
+                <ui:Label text="Карта этажа" class="panel-title" />
+                <ui:Label name="MapStatusLabel" text="Выберите следующую комнату" class="body-label map-status-label" />
+                <ui:ScrollView name="MapGraphScroll" mode="Horizontal" class="floor-map-scroll">
+                    <ui:VisualElement name="MapGraphContainer" />
+                </ui:ScrollView>
+                <ui:Label text="Стрелки показывают только разрешённые переходы вперёд. Конкретное содержимое комнаты скрыто до входа." class="floor-map-legend" />
+                <ui:Button name="MapEnterCurrentButton" text="Войти в стартовую комнату" class="button-primary hidden" />
+            </ui:VisualElement>
+
             <ui:VisualElement name="CombatPanel" class="panel hidden">
                 <!-- src="project://database/..." does not resolve at runtime (confirmed via PlayModeSmokeTest);
                      sprite is assigned in code by RunFlowController.combatBackgroundSprite instead. -->

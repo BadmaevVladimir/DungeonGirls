@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85d8396258c4c6f479339f1b761e13f9, type: 3}
+  m_Name: BossKit_Warden
+  m_EditorClassIdentifier: DungeonGirls.Runtime::BossKitData
+  phases:
+  - phaseName: "Страж"
+    hpThresholdPercent: 100
+    phaseSprite: {fileID: 0}
+    abilities:
+    - displayName: "Страж поднимает
+        щит"
+      effectKind: 1
+      triggerKind: 1
+      cooldownSeconds: 15
+      initialDelaySeconds: 4
+      telegraphSeconds: 0
+      damageMultiplier: 1.5
+      shieldAmount: 40
+      shieldDurationSeconds: 6
+    - displayName: "Тяжёлый замах"
+      effectKind: 0
+      triggerKind: 1
+      cooldownSeconds: 12
+      initialDelaySeconds: 6
+      telegraphSeconds: 2
+      damageMultiplier: 1.6
+      shieldAmount: 0
+      shieldDurationSeconds: 0
+  - phaseName: "Пробуждённый
+      страж"
+    hpThresholdPercent: 50
+    phaseSprite: {fileID: 0}
+    abilities:
+    - displayName: "Страж поднимает
+        щит"
+      effectKind: 1
+      triggerKind: 1
+      cooldownSeconds: 10
+      initialDelaySeconds: 2
+      telegraphSeconds: 0
+      damageMultiplier: 1.5
+      shieldAmount: 40
+      shieldDurationSeconds: 5
+    - displayName: "Сокрушительный
+        замах"
+      effectKind: 0
+      triggerKind: 1
+      cooldownSeconds: 9
+      initialDelaySeconds: 3
+      telegraphSeconds: 1.2
+      damageMultiplier: 1.8
+      shieldAmount: 0
+      shieldDurationSeconds: 0

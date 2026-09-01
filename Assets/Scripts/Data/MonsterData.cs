@@ -18,6 +18,12 @@ public class MonsterData : ScriptableObject
 
     public PassiveSkillData passiveSkill;
 
+    // Boss framework (минимальный слайс, см. Docs/Design/2026-09-01-floor-boss-system-design.md):
+    // опциональный компаньон, только для isBoss=true. null = монстр (даже с isBoss=true) продолжает
+    // работать через старую CombatManager.TickBossHeavyAttacks — не ломает существующих боссов без
+    // авторского контента (см. CombatantFactory.CreateMonsterCombatant).
+    public BossKitData bossKit;
+
     // 2.8: род названия монстра — согласование прилагательного модификатора.
     public MonsterGender gender = MonsterGender.Masculine;
 

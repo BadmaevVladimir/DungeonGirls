@@ -10,7 +10,7 @@ public partial class RunFlowController
 
     int RollMonsterCount(int level) => MonsterEncounterBudget.RollMonsterCount(level);
 
-    IEnumerator CombatRoomFlow(bool isBoss)
+    IEnumerator CombatRoomFlow(bool isBoss, FloorMapNode roomNode = null)
     {
         var enemies = new List<CombatantRuntime>();
         if (isBoss)
@@ -21,27 +21,27 @@ public partial class RunFlowController
         {
             // 2.7/8.4: уровень монстра растёт с позицией уже пройденных комнат этажа в мешке.
             int monsterLevel = 1 + floorManager.RoomsCompletedOnFloor / 3;
-            int count = RollMonsterCount(characterManager.Level);
-            int remainingThreatBudget = MonsterEncounterBudget.GetThreatBudget(dungeonManager.CurrentFloorNumber);
-
-            // 2.4: тиры суммируются — этаж 5 видит и тир-1, и тир-4 монстров, не только последний
-            // открытый тир (см. "черновое распределение по этажам").
-            var eligibleMonsters = regularMonsterPool.FindAll(m => m != null && m.minFloorTier <= dungeonManager.CurrentFloorNumber);
-            if (eligibleMonsters.Count == 0)
+            if (roomNode != null)
             {
-                eligibleMonsters = regularMonsterPool;
+                foreach (var data in GetResolvedMonsters(roomNode))
+                    enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber, monsterLevel));
             }
-
-            for (int i = 0; i < count; i++)
+            else
             {
-                var data = MonsterEncounterBudget.RollAffordableMonster(eligibleMonsters, remainingThreatBudget);
-                if (data == null)
+                // Вложенный бой от проваленной «Сигнализации» не является узлом карты и
+                // поэтому по-прежнему формируется в момент срабатывания ловушки.
+                int count = RollMonsterCount(characterManager.Level);
+                int remainingThreatBudget = MonsterEncounterBudget.GetThreatBudget(dungeonManager.CurrentFloorNumber);
+                var eligibleMonsters = regularMonsterPool.FindAll(m => m != null && m.minFloorTier <= dungeonManager.CurrentFloorNumber);
+                if (eligibleMonsters.Count == 0) eligibleMonsters = regularMonsterPool;
+                for (int i = 0; i < count; i++)
                 {
-                    break;
-                }
+                    var data = MonsterEncounterBudget.RollAffordableMonster(eligibleMonsters, remainingThreatBudget);
+                    if (data == null) break;
 
-                enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber, monsterLevel));
-                remainingThreatBudget -= MonsterEncounterBudget.GetThreatCost(data);
+                    enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber, monsterLevel));
+                    remainingThreatBudget -= MonsterEncounterBudget.GetThreatCost(data);
+                }
             }
         }
 
@@ -159,17 +159,8 @@ public partial class RunFlowController
         // эффект/всплывающее число урона (см. 4.7) до того, как сцена начнёт темнеть под награду.
         yield return new WaitForSeconds(0.45f);
 
-        var levelsGained = characterManager.GrantExperience(rewardManager, isBoss ? ExperienceSource.Boss : ExperienceSource.CombatRoom, dungeonManager.CurrentFloorNumber);
-        foreach (int reachedLevel in levelsGained)
-        {
-            bool activeUpgraded = characterManager.Progress.TryAutoUpgradeUniqueActiveAtLevel(reachedLevel);
-            string activeUpgradeNotice = activeUpgraded
-                ? $"Уникальный активный навык «{characterManager.Progress.Character.uniqueActiveSkill.skillName}» автоматически повышен до ур. {characterManager.Progress.UniqueActiveLevel}."
-                : null;
-            yield return LevelUpFlow(activeUpgradeNotice);
-        }
-
-        yield return ShowRewardChestFlow(dungeonManager.CurrentFloorNumber, isBoss);
+        pendingCombatReward = true;
+        pendingCombatWasBoss |= isBoss;
     }
 
     void UnsubscribeCombatEvents()
@@ -298,6 +289,18 @@ public partial class RunFlowController
             entry.Wrapper.style.marginBottom = stageFloorGap;
             entry.Sprite.EnableInClassList("enemy-stage-sprite-dead", !entry.Combatant.IsAlive);
             UpdateStatusLabel(entry.StatusLabel, entry.Combatant);
+
+            // Boss framework (минимальный слайс) — смена спрайта между фазами (CombatManager.
+            // TickBossEncounters переписывает CombatantRuntime.Sprite при входе в новую фазу; сам
+            // Image-элемент строится один раз в BuildEnemyStageEntries, поэтому src нужно перечитывать
+            // каждый кадр здесь, как и остальное per-frame состояние). Для не-боссов Sprite не меняется
+            // после старта боя — присваивание того же значения каждый кадр безвредно.
+            if (entry.Sprite.sprite != entry.Combatant.Sprite)
+            {
+                entry.Sprite.sprite = entry.Combatant.Sprite;
+            }
+
+            UpdateBossTelegraph(entry);
         }
 
         activeSkillButton.EnableInClassList("hidden", isBarbarianCombat);
@@ -348,9 +351,59 @@ public partial class RunFlowController
             statusLabel.enableRichText = true;
             wrapper.Add(statusLabel);
 
+            // Boss framework (минимальный слайс) — reusable-телеграф специальной атаки. Собирается для
+            // ЛЮБОГО противника (не только боссов), но остаётся скрытым, пока у CombatantRuntime.
+            // BossEncounter нет ожидающего телеграфа (см. UpdateBossTelegraph) — обычные враги просто
+            // никогда не показывают его.
+            var telegraphLabel = new Label();
+            telegraphLabel.AddToClassList("boss-telegraph-label");
+            telegraphLabel.AddToClassList("hidden");
+            wrapper.Add(telegraphLabel);
+
+            var telegraphBarBg = new VisualElement();
+            telegraphBarBg.AddToClassList("boss-telegraph-bar-bg");
+            telegraphBarBg.AddToClassList("hidden");
+            var telegraphBarFill = new VisualElement();
+            telegraphBarFill.AddToClassList("boss-telegraph-bar-fill");
+            telegraphBarBg.Add(telegraphBarFill);
+            wrapper.Add(telegraphBarBg);
+
             enemyStageRow.Add(wrapper);
-            enemyStageEntries.Add(new EnemyStageEntry { Combatant = enemy, Wrapper = wrapper, Sprite = sprite, StatusLabel = statusLabel });
+            enemyStageEntries.Add(new EnemyStageEntry
+            {
+                Combatant = enemy,
+                Wrapper = wrapper,
+                Sprite = sprite,
+                StatusLabel = statusLabel,
+                TelegraphLabel = telegraphLabel,
+                TelegraphBarFill = telegraphBarFill
+            });
         }
+    }
+
+    // Boss framework (минимальный слайс) — reusable UI-слой для "готовит особую атаку" ЛЮБОГО
+    // будущего босса: читает CombatantRuntime.BossEncounter.PendingTelegraph (см. BossEncounterState),
+    // ничего не знает о The Warden конкретно. Полингом за кадр, тем же паттерном, что и HP-бары/
+    // статус-баджи выше — не отдельная event+coroutine подсистема, чтобы не плодить новый механизм
+    // там, где уже есть работающий (см. отчёт по задаче — обсуждение архитектурного выбора).
+    void UpdateBossTelegraph(EnemyStageEntry entry)
+    {
+        var telegraph = entry.Combatant.BossEncounter?.PendingTelegraph;
+        bool hasTelegraph = telegraph.HasValue && entry.Combatant.IsAlive;
+
+        entry.TelegraphLabel.EnableInClassList("hidden", !hasTelegraph);
+        entry.TelegraphBarFill.parent.EnableInClassList("hidden", !hasTelegraph);
+        if (!hasTelegraph)
+        {
+            return;
+        }
+
+        var info = telegraph.Value;
+        entry.TelegraphLabel.text = $"⚠ {info.DisplayName}";
+        float progressPercent = info.TotalSeconds > 0f
+            ? Mathf.Clamp01(1f - info.RemainingSeconds / info.TotalSeconds) * 100f
+            : 100f;
+        entry.TelegraphBarFill.style.width = new Length(progressPercent, LengthUnit.Percent);
     }
 
     // 4.7 [ОБНОВЛЕНО]: средне-насыщенные (не пастель, не кислотные) баф/дебафф-подписи — rich-text

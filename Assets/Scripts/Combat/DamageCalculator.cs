@@ -9,6 +9,11 @@ public static class DamageCalculator
         // true, если урон был полностью заблокирован, но всё равно износил броню.
         // Магический щит эту логику не использует — у ApplyMagicalDamage всегда false.
         public bool ArmorWornOnBlock;
+        // Boss framework (минимальный слайс) — сколько урона поглотил CombatantRuntime.ShieldPool*
+        // ДО брони/щита (см. ApplyDamage ниже). Только для UI/лога; WasBlocked/ArmorWornOnBlock не
+        // учитывают это отдельно — если shield pool поглотил ВЕСЬ урон, остаток = 0 естественно
+        // проходит через обычную ветку "полный блок" ApplyPhysicalDamage/ApplyMagicalDamage.
+        public float ShieldPoolDamageAbsorbed;
     }
 
     // 3.3 [ОБНОВЛЕНО после анализа брони]: любой положительный физический удар гарантированно
@@ -79,8 +84,22 @@ public static class DamageCalculator
         float resistancePercent = damageType == DamageType.Physical ? target.PhysicalResistancePercent : target.MagicalResistancePercent;
         float damageAfterResistance = incomingDamage * (1f - Mathf.Clamp01(resistancePercent / 100f));
 
-        return damageType == DamageType.Physical
+        // Boss framework (минимальный слайс) — shield pool (BossAbilityEffectKind.ShieldPool) поглощает
+        // урон ЛЮБОГО типа ДО брони/маг. щита, отдельно от них. Когда ShieldPoolCurrent==0 (подавляющее
+        // большинство целей — обычные монстры/игрок без активного щита-способности) эта ветка не
+        // меняет ничего: shieldAbsorbed=0, поведение байт-в-байт как раньше.
+        float shieldAbsorbed = 0f;
+        if (target.ShieldPoolCurrent > 0f && damageAfterResistance > 0f)
+        {
+            shieldAbsorbed = Mathf.Min(target.ShieldPoolCurrent, damageAfterResistance);
+            target.ShieldPoolCurrent -= shieldAbsorbed;
+            damageAfterResistance -= shieldAbsorbed;
+        }
+
+        var result = damageType == DamageType.Physical
             ? ApplyPhysicalDamage(target, damageAfterResistance, armorIgnorePercent)
             : ApplyMagicalDamage(target, damageAfterResistance);
+        result.ShieldPoolDamageAbsorbed = shieldAbsorbed;
+        return result;
     }
 }

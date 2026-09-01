@@ -194,6 +194,101 @@ Button {
     flex-grow: 1;
 }
 
+.map-panel {
+    flex-direction: column;
+}
+
+.map-status-label {
+    margin-bottom: 10px;
+}
+
+.floor-map-scroll {
+    flex-grow: 1;
+    min-height: 500px;
+    background-color: rgb(22, 22, 28);
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.floor-map-strip {
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 450px;
+}
+
+.floor-map-node-column {
+    width: 112px;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.floor-map-common-column {
+    justify-content: center;
+}
+
+.floor-map-depth-label {
+    height: 30px;
+    -unity-text-align: middle-center;
+    color: rgb(190, 190, 205);
+    -unity-font-style: bold;
+}
+
+.floor-map-node {
+    width: 104px;
+    height: 92px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    background-color: rgb(56, 56, 66);
+    border-color: rgb(85, 85, 98);
+    border-width: 2px;
+}
+
+.floor-map-node-visited {
+    background-color: rgb(48, 91, 58);
+    border-color: rgb(91, 170, 105);
+}
+
+.floor-map-node-current {
+    background-color: rgb(75, 96, 145);
+    border-color: rgb(128, 170, 255);
+}
+
+.floor-map-node-reachable {
+    background-color: rgb(112, 75, 25);
+    border-color: rgb(255, 190, 66);
+    color: rgb(255, 244, 205);
+}
+
+.floor-map-node-future {
+    opacity: 0.55;
+}
+
+.floor-map-edge-column {
+    width: 94px;
+    flex-shrink: 0;
+    align-items: stretch;
+}
+
+#EdgeColumnSpacer {
+    height: 30px;
+}
+
+.floor-map-edge-label {
+    height: 100px;
+    -unity-text-align: middle-center;
+    color: rgb(205, 177, 100);
+    font-size: 11px;
+    white-space: normal;
+}
+
+.floor-map-legend {
+    margin-top: 8px;
+    color: rgb(155, 155, 170);
+    font-size: 12px;
+}
+
 .panel-title {
     font-size: 26px;
     -unity-font-style: bold;
@@ -339,6 +434,46 @@ Button {
     color: rgb(205, 230, 255);
     background-color: rgba(14, 30, 52, 0.94);
     border-color: rgb(105, 175, 244);
+}
+
+/* Boss framework (минимальный слайс) — reusable-телеграф "готовит особую атаку", над головой
+   конкретного противника (см. RunFlowController.BuildEnemyStageEntries/UpdateBossTelegraph). Тёплый
+   тревожный цвет, чтобы не путаться с обычными баф/дебафф-баджами (.combat-status-badge) ниже. */
+.boss-telegraph-label {
+    position: absolute;
+    top: -34px;
+    left: 50%;
+    translate: -50% 0;
+    min-width: 90px;
+    padding: 3px 8px;
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: rgb(255, 224, 168);
+    background-color: rgba(74, 24, 10, 0.92);
+    border-width: 1px;
+    border-color: rgb(255, 140, 46);
+    border-radius: 6px;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgb(0, 0, 0);
+}
+
+.boss-telegraph-bar-bg {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    translate: -50% 0;
+    width: 60%;
+    height: 6px;
+    background-color: rgba(40, 14, 8, 0.85);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.boss-telegraph-bar-fill {
+    height: 100%;
+    background-color: rgb(255, 140, 46);
 }
 
 /* 4.7 [ОБНОВЛЕНО]: список баффов/дебаффов участника боя — под спрайтом. Прошлая пастель почти не

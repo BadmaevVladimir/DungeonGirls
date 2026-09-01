@@ -45,9 +45,26 @@ public class CombatantRuntime
     // 4.3: кулдаун уникального активного навыка (только у игрока в прототипе).
     public float ActiveSkillCooldownTimer;
 
-    // Боссы независимо от обычных атак готовят «Тяжёлую атаку» 5 секунд.
+    // Боссы независимо от обычных атак готовят «Тяжёлую атаку» 5 секунд. Легаси-путь для боссов БЕЗ
+    // BossKitData (см. BossEncounter ниже) — CombatManager.TickBossHeavyAttacks пропускает боссов,
+    // у которых BossEncounter != null, чтобы не бить дважды.
     public float BossHeavyAttackTimer;
     public float BossHeavyAttackDamageMultiplier = 1.5f;
+
+    // Boss framework (минимальный слайс): null для всех не-боссов и для боссов без bossKit (см.
+    // MonsterData.bossKit/CombatantFactory). Владеет фазой/кулдаунами/ожидающим телеграфом этого
+    // конкретного боя — см. BossEncounterState, CombatManager.TickBossEncounters.
+    public BossEncounterState BossEncounter;
+
+    // Boss framework (минимальный слайс) — отдельный shield pool способности (BossAbilityEffectKind.
+    // ShieldPool), НЕ путать с MagicShieldCurrent/Max выше (тот — экипировка/маг. щит персонажа,
+    // блокирует только Magical урон). Этот пул поглощает урон ЛЮБОГО типа ДО HP — см.
+    // DamageCalculator.ApplyDamage. Генерик-поле на CombatantRuntime (не только для боссов), чтобы в
+    // будущем его могли переиспользовать другие сущности/эффекты без новых полей.
+    public float ShieldPoolMax;
+    public float ShieldPoolCurrent;
+    // float.PositiveInfinity = щит живёт, пока не поглотит весь урон (нет принудительного таймера).
+    public float ShieldPoolExpireTimer = float.PositiveInfinity;
 
     // Уровни навыков из 3.9, известных этому участнику боя (0 = не известен).
     // На практике заполняются только у игрока через CombatantFactory.ApplyCharacterSkills.

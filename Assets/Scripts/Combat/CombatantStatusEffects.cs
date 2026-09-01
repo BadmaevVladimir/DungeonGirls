@@ -91,6 +91,14 @@ public static class CombatantStatusEffects
             effects.Add(("Рипост готов", true));
         }
 
+        // Boss framework (минимальный слайс) — shield pool способности (см. CombatantRuntime.
+        // ShieldPoolCurrent/Max), НЕ путать с MagicShieldCurrent/Max (те не отображаются здесь вовсе —
+        // у игрока свой отдельный HUD-индикатор "Щит", см. RunFlowController.Combat.UpdateCombatUI).
+        if (combatant.ShieldPoolCurrent > 0f)
+        {
+            effects.Add(($"Барьер {combatant.ShieldPoolCurrent:F0}/{combatant.ShieldPoolMax:F0}", true));
+        }
+
         if (combatant.PhysicalResistancePercent > 0f)
         {
             effects.Add(($"Физ. сопротивление {combatant.PhysicalResistancePercent:F0}%", true));

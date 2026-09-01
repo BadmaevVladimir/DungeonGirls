@@ -317,7 +317,8 @@ public class CombatManager : MonoBehaviour
         }
 
         TickMonsterPeriodicPassives(deltaTime); // "Тёмное исцеление" / "Двойной удар" (2.4)
-        TickBossHeavyAttacks(deltaTime);
+        TickBossHeavyAttacks(deltaTime); // легаси-путь: боссы БЕЗ BossKitData (см. BossEncounter ниже)
+        TickBossEncounters(deltaTime); // boss framework: боссы С BossKitData
 
         CheckCombatEnd();
         if (!IsCombatActive)
@@ -368,7 +369,9 @@ public class CombatManager : MonoBehaviour
                 return;
             }
 
-            if (!enemy.IsAlive || !enemy.IsBoss || enemy.Weapons.Count == 0)
+            // Boss framework (минимальный слайс): боссы С BossKitData используют TickBossEncounters
+            // вместо этого легаси-таймера — не бить дважды за один и тот же "тяжёлый удар".
+            if (!enemy.IsAlive || !enemy.IsBoss || enemy.Weapons.Count == 0 || enemy.BossEncounter != null)
             {
                 continue;
             }
@@ -384,6 +387,81 @@ public class CombatManager : MonoBehaviour
             ActiveSkillActivated?.Invoke(enemy, "Тяжёлая атака");
             Log($"[Combat] {enemy.DisplayName} завершает подготовку «Тяжёлой атаки» ({multiplier * 100f:F0}% урона).");
             ResolveAttack(enemy, enemy.Weapons[0], multiplier, isRegularAttack: false);
+        }
+    }
+
+    // Boss framework (минимальный слайс, см. Docs/Design/2026-09-01-floor-boss-system-design.md) —
+    // для каждого живого боевого босса с назначенным BossKitData (enemy.BossEncounter != null):
+    // 1) проверяет переход в следующую фазу по HP% (один раз за пересечение порога — см.
+    //    BossEncounterState.TryEnterNextPhase), меняет спрайт и объявляет фазу баннером;
+    // 2) иначе тикает BossEncounterState (кулдауны/ожидающий телеграф) и исполняет ровно одну готовую
+    //    способность за кадр, тем же намеренно упрощённым паттерном, что и TickMonsterPeriodicPassives/
+    //    TickBossHeavyAttacks выше.
+    void TickBossEncounters(float deltaTime)
+    {
+        foreach (var enemy in Enemies)
+        {
+            if (!IsCombatActive || !Player.IsAlive)
+            {
+                return;
+            }
+
+            if (!enemy.IsAlive || enemy.BossEncounter == null)
+            {
+                continue;
+            }
+
+            var state = enemy.BossEncounter;
+            float hpPercent = enemy.MaxHP > 0f ? enemy.CurrentHP / enemy.MaxHP * 100f : 0f;
+            if (state.TryEnterNextPhase(hpPercent, out var newPhase))
+            {
+                if (newPhase.phaseSprite != null)
+                {
+                    enemy.Sprite = newPhase.phaseSprite;
+                }
+
+                ActiveSkillActivated?.Invoke(enemy, newPhase.phaseName);
+                Log($"[Boss] {enemy.DisplayName} переходит в фазу «{newPhase.phaseName}» (HP {hpPercent:F0}%).");
+                continue; // новая фаза резолвит свои кулдауны/телеграфы со следующего Tick.
+            }
+
+            state.Tick(deltaTime, out var readyAbility);
+            if (readyAbility != null)
+            {
+                ExecuteBossAbility(enemy, readyAbility);
+            }
+        }
+    }
+
+    // Исполняет ОДИН эффект способности босса — resolves либо мгновенно (telegraphSeconds==0), либо
+    // после того, как BossEncounterState.Tick досчитал pending-телеграф до нуля. Закрытый switch по
+    // effectKind (см. BossAbilityEffectKind) — новый effectKind добавляется сюда только когда реально
+    // появляется механика, которую нельзя выразить существующими двумя.
+    void ExecuteBossAbility(CombatantRuntime boss, BossAbilityConfig ability)
+    {
+        switch (ability.effectKind)
+        {
+            case BossAbilityEffectKind.HeavyAttack:
+                if (boss.Weapons.Count == 0)
+                {
+                    return;
+                }
+
+                // ResolveAttack сам бейлит, если игрок уже мёртв/цель недоступна (см. её начало) —
+                // безопасно вызывать здесь без дополнительной проверки на "цель умерла во время
+                // телеграфа".
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName} завершает подготовку «{ability.displayName}» ({ability.damageMultiplier * 100f:F0}% урона).");
+                ResolveAttack(boss, boss.Weapons[0], ability.damageMultiplier, isRegularAttack: false);
+                break;
+
+            case BossAbilityEffectKind.ShieldPool:
+                boss.ShieldPoolMax = ability.shieldAmount;
+                boss.ShieldPoolCurrent = ability.shieldAmount;
+                boss.ShieldPoolExpireTimer = ability.shieldDurationSeconds > 0f ? ability.shieldDurationSeconds : float.PositiveInfinity;
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName} активирует «{ability.displayName}»: щит {ability.shieldAmount:F0}.");
+                break;
         }
     }
 
@@ -473,6 +551,19 @@ public class CombatManager : MonoBehaviour
             if (combatant.CritChanceDebuffTimer <= 0f)
             {
                 combatant.CritChanceDebuffPercent = 0f;
+            }
+        }
+
+        // Boss framework (минимальный слайс) — shield pool с ограниченным сроком (shieldDurationSeconds
+        // > 0 в BossAbilityConfig) спадает по таймеру, даже если урон его не выбил полностью.
+        // float.PositiveInfinity (бессрочный щит) никогда не проходит "<= 0f" — тикать нечего.
+        if (combatant.ShieldPoolCurrent > 0f && !float.IsPositiveInfinity(combatant.ShieldPoolExpireTimer))
+        {
+            combatant.ShieldPoolExpireTimer -= deltaTime;
+            if (combatant.ShieldPoolExpireTimer <= 0f)
+            {
+                combatant.ShieldPoolCurrent = 0f;
+                combatant.ShieldPoolMax = 0f;
             }
         }
     }
