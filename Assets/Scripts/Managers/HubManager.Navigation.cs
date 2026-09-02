@@ -15,6 +15,7 @@ public partial class HubManager
         veteranDeckScreen.style.display = DisplayStyle.None;
         charactersScreen.style.display = DisplayStyle.None;
         CloseCheatMenu();
+        RefreshVillagePlates();
         mainMenuScreen.style.display = DisplayStyle.Flex;
     }
 
@@ -239,6 +240,7 @@ public partial class HubManager
         resetProgressConfirmPopup.style.display = DisplayStyle.None;
         RefreshBuildingsScreen();
         RefreshGachaScreen();
+        RefreshVillagePlates();
         StartOpeningSequence();
     }
 }

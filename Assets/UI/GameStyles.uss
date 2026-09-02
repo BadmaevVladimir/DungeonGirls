@@ -1146,3 +1146,394 @@ Button {
     font-size: 15px;
     white-space: normal;
 }
+
+/* ==================== Главное меню: деревня (карта + левая панель) ====================
+   Портирован утверждённый макет main_menu_village_v5.html. Веб-приёмы, которых нет в
+   UI Toolkit, заменены: градиенты — плоскими цветами, radial-gradient — спрайтом SoftGlow,
+   @keyframes — корутинами в HubManager.Village.cs, aspect-ratio — расчётом в C#,
+   ::after-«хвостики» плашек — опущены (плашка и так примыкает к зданию). */
+
+.village-shell {
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: flex-start;
+    background-color: rgb(18, 16, 22);
+}
+
+/* Попапы чит-меню и сброса прогресса остаются обычными детьми MainMenuScreen (разметка не
+   менялась), но в row-раскладке их нужно вынуть из потока — иначе они встали бы третьей колонкой. */
+.village-shell > .panel {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+}
+
+/* ---------- левая панель ---------- */
+.village-nav-panel {
+    width: 320px;
+    flex-shrink: 0;
+    background-color: rgb(28, 25, 34);
+    border-right-width: 1px;
+    border-right-color: rgb(51, 46, 60);
+    padding: 36px 24px 24px 24px;
+    flex-direction: column;
+}
+
+.village-brand {
+    margin-bottom: 16px;
+}
+
+.village-brand-eyebrow {
+    font-size: 11px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: rgb(138, 106, 44);
+    margin-bottom: 6px;
+}
+
+.village-brand-title {
+    font-size: 32px;
+    -unity-font-style: bold;
+    color: rgb(236, 227, 209);
+    margin: 0;
+}
+
+.village-brand-title-accent {
+    color: rgb(219, 164, 63);
+}
+
+.village-hint-row {
+    font-size: 13px;
+    color: rgb(107, 101, 88);
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(51, 46, 60);
+    white-space: normal;
+}
+
+.village-nav-list {
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.village-nav-item {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-radius: 6px;
+    padding: 11px 10px 11px 10px;
+    margin: 1px 0 1px 0;
+    color: rgb(157, 150, 137);
+    font-size: 14px;
+    -unity-text-align: middle-left;
+    border-left-width: 2px;
+    border-left-color: rgba(0, 0, 0, 0);
+    transition-property: background-color, color;
+    transition-duration: 0.12s;
+}
+
+.village-nav-item:hover {
+    background-color: rgb(36, 32, 48);
+    color: rgb(236, 227, 209);
+    border-left-color: rgb(79, 132, 137);
+}
+
+.village-panel-footer {
+    border-top-width: 1px;
+    border-top-color: rgb(51, 46, 60);
+    padding-top: 12px;
+    margin-top: 16px;
+    flex-direction: column;
+}
+
+.village-footer-link {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-radius: 6px;
+    padding: 7px 10px 7px 10px;
+    margin: 1px 0 1px 0;
+    font-size: 13px;
+    color: rgb(107, 101, 88);
+    -unity-text-align: middle-left;
+    transition-property: background-color, color;
+    transition-duration: 0.12s;
+}
+
+.village-footer-link:hover {
+    background-color: rgb(36, 32, 48);
+    color: rgb(157, 150, 137);
+}
+
+.village-footer-link-danger:hover {
+    color: rgb(168, 72, 60);
+}
+
+/* ---------- сцена с картой ---------- */
+.village-stage {
+    flex-grow: 1;
+    background-color: rgb(13, 11, 16);
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    overflow: hidden;
+}
+
+/* Размер задаётся из C# (HubManager.Village.cs) — в UI Toolkit нет aspect-ratio. */
+.village-map-root {
+    position: relative;
+    overflow: hidden;
+    border-radius: 6px;
+}
+
+.village-map-image {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.village-fx {
+    position: absolute;
+}
+
+.village-water-shimmer {
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0.6;
+}
+
+.village-cloud {
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.village-cloud-0 {
+    width: 38%;
+    height: 34%;
+    top: -12%;
+}
+
+.village-cloud-1 {
+    width: 26%;
+    height: 24%;
+    top: 26%;
+}
+
+.village-cloud-2 {
+    width: 32%;
+    height: 30%;
+    top: 58%;
+}
+
+.village-glow {
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.village-glow-forge {
+    left: 32.5%;
+    top: 20%;
+    width: 8%;
+    height: 9%;
+    -unity-background-image-tint-color: rgba(255, 168, 58, 0.75);
+}
+
+.village-glow-tavern {
+    left: 70.5%;
+    top: 45%;
+    width: 9%;
+    height: 9%;
+    -unity-background-image-tint-color: rgba(255, 196, 96, 0.55);
+}
+
+.village-glow-fountain {
+    left: 46.5%;
+    top: 42%;
+    width: 9%;
+    height: 9%;
+    -unity-background-image-tint-color: rgba(190, 232, 255, 0.6);
+}
+
+.village-glow-dungeon {
+    left: 47%;
+    top: 73%;
+    width: 16%;
+    height: 15%;
+    -unity-background-image-tint-color: rgba(158, 116, 206, 0.55);
+}
+
+.village-mist {
+    left: 50.5%;
+    top: 68%;
+    width: 9%;
+    height: 16%;
+}
+
+.village-mist-puff {
+    position: absolute;
+    bottom: 0;
+    width: 62%;
+    height: 55%;
+    opacity: 0;
+    -unity-background-scale-mode: scale-and-crop;
+    -unity-background-image-tint-color: rgba(176, 150, 214, 0.6);
+}
+
+.village-mist-puff-0 {
+    left: 50%;
+}
+
+.village-mist-puff-1 {
+    left: 28%;
+}
+
+.village-mist-puff-2 {
+    left: 70%;
+}
+
+/* ---------- кликабельные зоны ---------- */
+.village-spot {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    border-width: 0;
+    padding: 0;
+    margin: 0;
+    min-width: auto;
+    min-height: auto;
+    overflow: visible;
+}
+
+.village-spot-forge {
+    left: 23.7%;
+    top: 10%;
+    width: 20.6%;
+    height: 27.5%;
+}
+
+.village-spot-temple {
+    left: 60.9%;
+    top: 0;
+    width: 15.8%;
+    height: 31.2%;
+}
+
+.village-spot-tavern {
+    left: 65.7%;
+    top: 36.2%;
+    width: 17.4%;
+    height: 25%;
+}
+
+.village-spot-dungeon {
+    left: 41.9%;
+    top: 58.7%;
+    width: 26.1%;
+    height: 36.2%;
+}
+
+/* radial-gradient в USS нет — подсветка при наведении рисуется спрайтом SoftGlow.png. */
+.village-spot-glow {
+    position: absolute;
+    left: -16%;
+    top: -16%;
+    right: -16%;
+    bottom: -16%;
+    opacity: 0;
+    -unity-background-scale-mode: scale-and-crop;
+    transition-property: opacity;
+    transition-duration: 0.18s;
+}
+
+.village-spot:hover > .village-spot-glow {
+    opacity: 1;
+}
+
+.village-spot-glow-forge {
+    -unity-background-image-tint-color: rgba(255, 170, 60, 0.5);
+}
+
+.village-spot-glow-temple {
+    -unity-background-image-tint-color: rgba(168, 206, 230, 0.5);
+}
+
+.village-spot-glow-tavern {
+    -unity-background-image-tint-color: rgba(255, 190, 90, 0.5);
+}
+
+.village-spot-glow-dungeon {
+    -unity-background-image-tint-color: rgba(158, 116, 206, 0.55);
+}
+
+/* ---------- плашки с названиями ---------- */
+.village-plate {
+    position: absolute;
+    left: 50%;
+    translate: -50% 0;
+    background-color: rgb(239, 225, 188);
+    border-width: 2px;
+    border-color: rgb(107, 79, 42);
+    border-radius: 3px;
+    padding: 3px 10px 4px 10px;
+    align-items: center;
+    transition-property: translate;
+    transition-duration: 0.15s;
+}
+
+.village-plate-above {
+    bottom: 100%;
+    margin-bottom: 7px;
+}
+
+.village-plate-below {
+    top: 100%;
+    margin-top: 7px;
+}
+
+.village-spot:hover > .village-plate {
+    translate: -50% -2px;
+}
+
+.village-plate-name {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(63, 44, 21);
+    -unity-text-outline-width: 0;
+    white-space: nowrap;
+}
+
+.village-plate-level {
+    font-size: 10px;
+    -unity-font-style: bold;
+    color: rgb(122, 90, 42);
+    -unity-text-outline-width: 0;
+    margin-top: 1px;
+    white-space: nowrap;
+}
+
+/* Плашка подземелья — главное действие сцены; сдвинута вправо, иначе накрывает фонтан. */
+.village-plate-dungeon {
+    left: 74%;
+    background-color: rgb(44, 36, 50);
+    border-color: rgb(219, 164, 63);
+    padding: 4px 14px 5px 14px;
+}
+
+.village-plate-dungeon > .village-plate-name {
+    color: rgb(239, 225, 188);
+    font-size: 11px;
+    letter-spacing: 1px;
+    -unity-text-outline-width: 0.75px;
+}
+
+.village-plate-cta {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: rgb(219, 164, 63);
+    letter-spacing: 0.5px;
+    margin-top: 1px;
+    white-space: nowrap;
+}
+

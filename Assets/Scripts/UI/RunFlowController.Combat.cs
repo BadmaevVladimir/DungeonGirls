@@ -8,33 +8,8 @@ public partial class RunFlowController
 {
     // ==================== Бой (раздел 4, 7.2) ====================
 
-    // (доп.): проигрывает кадры Sprite[] на UI Toolkit Image по FPS — замена Animator/AnimationClip,
-    // т.к. боевые спрайты живут в UI Toolkit (VisualElement), а не на GameObject/SpriteRenderer,
-    // на которых работает штатный Animator (см. обсуждение с пользователем).
-    static class SpriteFlipbook
-    {
-        public static IEnumerator Play(Image image, Sprite[] frames, float fps, bool loop, System.Action onComplete = null)
-        {
-            if (image == null || frames == null || frames.Length == 0)
-            {
-                onComplete?.Invoke();
-                yield break;
-            }
-
-            float frameDuration = 1f / fps;
-            do
-            {
-                foreach (var frame in frames)
-                {
-                    if (frame == null) continue;
-                    image.sprite = frame;
-                    yield return new WaitForSeconds(frameDuration);
-                }
-            } while (loop);
-
-            onComplete?.Invoke();
-        }
-    }
+    // (доп.): кадровая анимация вынесена в общий SpriteFlipbook (Assets/Scripts/UI/SpriteFlipbook.cs) —
+    // ей пользуется и блеск воды на карте деревни (HubManager.Village.cs).
 
     // (доп.): true, пока у играющего персонажа есть готовые анимации (см. PlayableCharacterAnimations
     // — распознаётся по DisplayName, тем же паттерном, что "Дымовая граната"/"3 быстрые атаки" выше
@@ -45,6 +20,10 @@ public partial class RunFlowController
     {
         if (!HasAnimatedSprite) return;
         var frames = PlayableCharacterAnimations.Idle(combatManager.Player.DisplayName);
+        // БАГФИКС: петля быстрых атак здесь вытесняется idle-анимацией, поэтому флаг обязан
+        // сброситься вместе с ней — иначе OnAttackPerformed продолжит считать, что петля всё ещё
+        // крутится, и перестанет запускать анимацию атаки вообще (см. комментарий ниже).
+        playerInFastAttackMode = false;
         if (playerFlipbookCoroutine != null) StopCoroutine(playerFlipbookCoroutine);
         playerFlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(playerStageSprite, frames, 6f, loop: true));
     }
@@ -56,6 +35,12 @@ public partial class RunFlowController
             onComplete?.Invoke();
             return;
         }
+        // БАГФИКС (Дженифер, «3 быстрые атаки»): анимация навыка идёт через этот же метод и
+        // вытесняет петлю быстрых атак. Без сброса флага после навыка обычная атака больше никогда
+        // не анимировалась: OnAttackPerformed видел playerInFastAttackMode == true, решал, что петля
+        // играет сама, и не трогал флипбук — а тот уже вернулся в idle. Сбрасываем в общем месте,
+        // чтобы то же самое не всплыло у будущих навыков с собственной анимацией.
+        playerInFastAttackMode = false;
         if (playerFlipbookCoroutine != null) StopCoroutine(playerFlipbookCoroutine);
         playerFlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(playerStageSprite, frames, fps, loop: false, onComplete: () =>
         {

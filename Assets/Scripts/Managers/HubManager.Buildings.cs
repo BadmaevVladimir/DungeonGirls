@@ -35,6 +35,7 @@ public partial class HubManager
         if (saveManager.TryUpgradeBuilding(building))
         {
             RefreshBuildingsScreen();
+            RefreshVillagePlates(); // уровень на плашке здания на карте деревни
         }
     }
 

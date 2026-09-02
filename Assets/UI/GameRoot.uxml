@@ -1,17 +1,86 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
     <Style src="GameStyles.uss" />
 
-    <ui:VisualElement name="MainMenuScreen" class="full-screen">
-        <ui:Label text="Dungeon Girls" class="title-label" />
-        <ui:Button name="StartRunButton" text="Начать забег" class="button-primary" />
-        <ui:Button name="BuildingsButton" text="Здания" class="button-secondary" />
-        <ui:Button name="GachaButton" text="Гача" class="button-secondary" />
-        <ui:Button name="VeteranDeckButton" text="Ветераны" class="button-secondary" />
-        <ui:Button name="CharactersButton" text="Персонажи" class="button-secondary" />
-        <ui:Button name="HelpButton" text="Справка" class="button-secondary" />
-        <ui:Button name="CheatMenuButton" text="Чит-меню" class="button-secondary" />
-        <ui:Button name="QuitGameButton" text="Выйти из игры" class="button-secondary" />
-        <ui:Button name="ResetProgressButton" text="Сбросить прогресс" class="button-secondary" />
+    <ui:VisualElement name="MainMenuScreen" class="full-screen village-shell">
+        <!-- Левая панель-хром: бренд, подсказка, навигация, служебные ссылки. -->
+        <ui:VisualElement name="VillageNavPanel" class="village-nav-panel">
+            <ui:VisualElement class="village-brand">
+                <ui:Label text="Рогалик · подземелье" class="village-brand-eyebrow" />
+                <ui:Label text="Dungeon" class="village-brand-title" />
+                <ui:Label text="Girls" class="village-brand-title village-brand-title-accent" />
+            </ui:VisualElement>
+
+            <ui:Label text="Кликните по зданию на карте" class="village-hint-row" />
+
+            <ui:VisualElement class="village-nav-list">
+                <ui:Button name="CharactersButton" text="Персонажи" class="village-nav-item" />
+                <ui:Button name="GachaButton" text="Гача" class="village-nav-item" />
+                <ui:Button name="VeteranDeckButton" text="Ветераны" class="village-nav-item" />
+                <ui:Button name="HelpButton" text="Справка" class="village-nav-item" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="village-panel-footer">
+                <ui:Button name="CheatMenuButton" text="Чит-меню" class="village-footer-link" />
+                <ui:Button name="QuitGameButton" text="Выйти из игры" class="village-footer-link" />
+                <ui:Button name="ResetProgressButton" text="Сбросить прогресс" class="village-footer-link village-footer-link-danger" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Правая сцена: карта деревни с кликабельными зданиями. -->
+        <ui:VisualElement name="VillageStage" class="village-stage">
+            <ui:VisualElement name="VillageMapRoot" class="village-map-root">
+                <ui:Image name="VillageMapImage" class="village-map-image" picking-mode="Ignore" />
+                <ui:Image name="VillageWaterShimmer" class="village-fx village-water-shimmer" picking-mode="Ignore" />
+
+                <ui:VisualElement name="VillageCloud0" class="village-fx village-cloud village-cloud-0" picking-mode="Ignore" />
+                <ui:VisualElement name="VillageCloud1" class="village-fx village-cloud village-cloud-1" picking-mode="Ignore" />
+                <ui:VisualElement name="VillageCloud2" class="village-fx village-cloud village-cloud-2" picking-mode="Ignore" />
+
+                <ui:VisualElement name="ForgeFireGlow" class="village-fx village-glow village-glow-forge" picking-mode="Ignore" />
+                <ui:VisualElement name="TavernWindowsGlow" class="village-fx village-glow village-glow-tavern" picking-mode="Ignore" />
+                <ui:VisualElement name="FountainGlow" class="village-fx village-glow village-glow-fountain" picking-mode="Ignore" />
+                <ui:VisualElement name="DungeonGlow" class="village-fx village-glow village-glow-dungeon" picking-mode="Ignore" />
+
+                <ui:VisualElement name="DungeonMist" class="village-fx village-mist" picking-mode="Ignore">
+                    <ui:VisualElement name="MistPuff0" class="village-mist-puff village-mist-puff-0" picking-mode="Ignore" />
+                    <ui:VisualElement name="MistPuff1" class="village-mist-puff village-mist-puff-1" picking-mode="Ignore" />
+                    <ui:VisualElement name="MistPuff2" class="village-mist-puff village-mist-puff-2" picking-mode="Ignore" />
+                </ui:VisualElement>
+
+                <ui:Button name="ForgeSpotButton" class="village-spot village-spot-forge">
+                    <ui:VisualElement name="ForgeSpotGlow" class="village-spot-glow village-spot-glow-forge" picking-mode="Ignore" />
+                    <ui:VisualElement class="village-plate village-plate-above" picking-mode="Ignore">
+                        <ui:Label text="Кузница" class="village-plate-name" picking-mode="Ignore" />
+                        <ui:Label name="ForgePlateLevel" text="Ур. 1 / 5" class="village-plate-level" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:Button>
+
+                <ui:Button name="TempleSpotButton" class="village-spot village-spot-temple">
+                    <ui:VisualElement name="TempleSpotGlow" class="village-spot-glow village-spot-glow-temple" picking-mode="Ignore" />
+                    <ui:VisualElement class="village-plate village-plate-below" picking-mode="Ignore">
+                        <ui:Label text="Храм" class="village-plate-name" picking-mode="Ignore" />
+                        <ui:Label name="TemplePlateLevel" text="Ур. 1 / 5" class="village-plate-level" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:Button>
+
+                <ui:Button name="TavernSpotButton" class="village-spot village-spot-tavern">
+                    <ui:VisualElement name="TavernSpotGlow" class="village-spot-glow village-spot-glow-tavern" picking-mode="Ignore" />
+                    <ui:VisualElement class="village-plate village-plate-below" picking-mode="Ignore">
+                        <ui:Label text="Таверна" class="village-plate-name" picking-mode="Ignore" />
+                        <ui:Label name="TavernPlateLevel" text="Ур. 1 / 5" class="village-plate-level" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:Button>
+
+                <ui:Button name="StartRunButton" class="village-spot village-spot-dungeon">
+                    <ui:VisualElement name="DungeonSpotGlow" class="village-spot-glow village-spot-glow-dungeon" picking-mode="Ignore" />
+                    <ui:VisualElement name="DungeonPlate" class="village-plate village-plate-above village-plate-dungeon" picking-mode="Ignore">
+                        <ui:Label text="Подземелье" class="village-plate-name" picking-mode="Ignore" />
+                        <ui:Label text="Начать забег ▼" class="village-plate-cta" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:Button>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
         <ui:VisualElement name="CheatMenuPopup" class="panel hidden" style="max-width: 420px; flex-grow: 0;">
             <ui:Label text="Чит-меню" class="panel-title" />
             <ui:Label text="Введи команду для тестирования." class="body-label" />

@@ -47,7 +47,8 @@ public partial class HubManager : MonoBehaviour
     VisualElement veteranDeckScreen;
     VisualElement charactersScreen;
 
-    Button buildingsButton;
+    // Кнопки "Здания" больше нет: экран зданий открывается кликом по домику на карте деревни
+    // (ForgeSpotButton/TempleSpotButton/TavernSpotButton, см. HubManager.Village.cs).
     Button gachaButton;
     Button veteranDeckButton;
     Button charactersButton;
@@ -115,7 +116,7 @@ public partial class HubManager : MonoBehaviour
         vnManager.SceneCompleted += OnVNSceneCompleted;
         BindTutorialTooltips();
 
-        buildingsButton.clicked += OpenBuildings;
+        SetUpVillageMap();
         gachaButton.clicked += OpenGacha;
         buildingsBackButton.clicked += OpenVillage;
         gachaBackButton.clicked += OpenVillage;
@@ -191,7 +192,6 @@ public partial class HubManager : MonoBehaviour
         veteranDeckScreen = root.Q<VisualElement>("VeteranDeckScreen");
         charactersScreen = root.Q<VisualElement>("CharactersScreen");
 
-        buildingsButton = root.Q<Button>("BuildingsButton");
         gachaButton = root.Q<Button>("GachaButton");
         veteranDeckButton = root.Q<Button>("VeteranDeckButton");
         charactersButton = root.Q<Button>("CharactersButton");
@@ -235,6 +235,8 @@ public partial class HubManager : MonoBehaviour
         cheatResultLabel = root.Q<Label>("CheatResultLabel");
         cheatSubmitButton = root.Q<Button>("CheatSubmitButton");
         cheatCloseButton = root.Q<Button>("CheatCloseButton");
+
+        CacheVillageElements(root);
     }
 
 }
