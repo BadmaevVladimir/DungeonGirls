@@ -66,6 +66,8 @@ public partial class RunFlowController
         }
         capturingSkillHits = false;
         pendingSkillHits.Clear();
+        capturingAttackHits = false;
+        pendingAttackHits.Clear();
         playerSkillAnimationPlaying = false;
         playerInFastAttackMode = false;
 
@@ -177,8 +179,33 @@ public partial class RunFlowController
         else
         {
             playerInFastAttackMode = false;
+
+            // Урон уже посчитан (AttackPerformed приходит из начала ResolveAttack, HitResolved —
+            // следом, в этом же кадре), а анимация только начинает замах. Придерживаем фидбек до
+            // кадра реального касания, иначе цифра урона опережает удар на полсекунды.
+            // В режиме петли быстрых атак этого не делаем: там персонаж бьёт непрерывно, отдельного
+            // «момента касания» у кадра нет, а задержка только рассинхронизировала бы фидбек.
+            int impactFrame = PlayableCharacterAnimations.AttackImpactFrame(attacker.DisplayName);
+            if (impactFrame > 0)
+            {
+                capturingAttackHits = true;
+                pendingAttackHits.Clear();
+                StartCoroutine(ReleaseAttackHitsAtImpact(impactFrame / AttackAnimationFps));
+            }
+
             PlayPlayerOneShotFlipbook(attackFrames, AttackAnimationFps);
         }
+    }
+
+    // Окно захвата закрывается через кадр (удар этой же атаки резолвится синхронно сразу после
+    // AttackPerformed), а сам пакет фидбека выпускается, когда анимация дойдёт до касания.
+    IEnumerator ReleaseAttackHitsAtImpact(float impactDelaySeconds)
+    {
+        yield return null;
+        capturingAttackHits = false;
+
+        yield return new WaitForSeconds(impactDelaySeconds);
+        ReplayPendingHits(pendingAttackHits);
     }
 
     // (доп.): та же идея, что PlayPlayerOneShotFlipbook, но для обычных монстров — один
@@ -805,18 +832,52 @@ public partial class RunFlowController
             return;
         }
 
+        // То же самое, но для обычной атаки: удар уже посчитан, а анимация только начала замах —
+        // придерживаем фидбек до кадра, на котором оружие достаёт цель (см. OnAttackPerformed).
+        // target != Player по той же причине, что и у скилла: ответная атака врага по игроку в это
+        // же окно не должна уехать вместе с нашим ударом.
+        if (capturingAttackHits && target != combatManager.Player)
+        {
+            pendingAttackHits.Add(new PendingSkillHit
+            {
+                Wrapper = wrapper,
+                Sprite = FindStageSprite(target),
+                Text = text,
+                IsCrit = isCrit,
+                WasBlocked = wasBlocked
+            });
+            return;
+        }
+
+        ShowHitFeedback(wrapper, FindStageSprite(target), text, isCrit, wasBlocked);
+    }
+
+    // (доп.) Один пакет визуального фидбека удара: всплывающая цифра, тряска цели и красная вспышка.
+    // Вынесено отдельно, потому что вызывается и сразу (обычный путь), и отложенно — из
+    // ReplayPendingHits для придержанных ударов обычной атаки и активного навыка.
+    void ShowHitFeedback(VisualElement wrapper, Image sprite, string text, bool isCrit, bool wasBlocked)
+    {
         StartCoroutine(SpawnFloatingCombatText(wrapper, text, isCrit, wasBlocked));
 
-        if (!wasBlocked)
+        if (wasBlocked)
         {
-            StartCoroutine(ChestRevealAnimator.Shake(wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
-
-            var sprite = FindStageSprite(target);
-            if (sprite != null)
-            {
-                StartCoroutine(FlashDamageTint(sprite));
-            }
+            return;
         }
+
+        StartCoroutine(ChestRevealAnimator.Shake(wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
+        if (sprite != null)
+        {
+            StartCoroutine(FlashDamageTint(sprite));
+        }
+    }
+
+    void ReplayPendingHits(List<PendingSkillHit> hits)
+    {
+        foreach (var hit in hits)
+        {
+            ShowHitFeedback(hit.Wrapper, hit.Sprite, hit.Text, hit.IsCrit, hit.WasBlocked);
+        }
+        hits.Clear();
     }
 
     // (доп.) Один захваченный удар "3 быстрые атаки", ждущий конца анимации скилла — см.
@@ -982,14 +1043,9 @@ public partial class RunFlowController
                 VisualElement impactWrapper = null;
                 foreach (var hit in pendingSkillHits)
                 {
-                    StartCoroutine(SpawnFloatingCombatText(hit.Wrapper, hit.Text, hit.IsCrit, hit.WasBlocked));
+                    ShowHitFeedback(hit.Wrapper, hit.Sprite, hit.Text, hit.IsCrit, hit.WasBlocked);
                     if (!hit.WasBlocked)
                     {
-                        StartCoroutine(ChestRevealAnimator.Shake(hit.Wrapper, 0.2f, new Vector3(5f, 3f, 0f), 6));
-                        if (hit.Sprite != null)
-                        {
-                            StartCoroutine(FlashDamageTint(hit.Sprite));
-                        }
                         impactWrapper = hit.Wrapper;
                     }
                 }

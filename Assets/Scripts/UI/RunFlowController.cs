@@ -116,6 +116,12 @@ public partial class RunFlowController : MonoBehaviour
     // см. OnAttackPerformed/PlayableCharacterAnimations.FastAttackLoop в RunFlowController.Combat.cs.
     bool playerInFastAttackMode;
 
+    // (доп.): то же, что capturingSkillHits/pendingSkillHits ниже, но для ОБЫЧНОЙ атаки: фидбек
+    // удара придерживается до кадра, на котором оружие достаёт цель (см.
+    // PlayableCharacterAnimations.AttackImpactFrame), иначе он опережает саму анимацию замаха.
+    bool capturingAttackHits;
+    readonly List<PendingSkillHit> pendingAttackHits = new List<PendingSkillHit>();
+
     // (доп.): пока true — OnHitResolved не показывает фидбек удара сразу, а копит его в
     // pendingSkillHits. Урон "3 быстрые атаки" считается синхронно в момент активации (см.
     // CombatManager), но весь ВИЗУАЛЬНЫЙ фидбек (цифра/тряска/вспышка/VFX) должен появиться вместе,
