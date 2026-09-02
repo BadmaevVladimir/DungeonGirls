@@ -150,6 +150,14 @@ public partial class RunFlowController : MonoBehaviour
         // класса. У обычных врагов (BossEncounter == null) всегда скрыт.
         public Label TelegraphLabel;
         public VisualElement TelegraphBarFill;
+
+        // (доп.): PixelLab idle/attack-анимации обычных монстров (см. MonsterAnimations,
+        // RunFlowController.Combat.cs — BuildEnemyStageEntries/OnAttackPerformed). Null для
+        // монстров без готовых анимаций (в т.ч. боссов — те держат Sprite статично/по фазам через
+        // BossEncounter, см. UpdateCombatUI) — тогда Sprite обновляется старым статичным путём.
+        public Sprite[] IdleFrames;
+        public Sprite[] AttackFrames;
+        public Coroutine FlipbookCoroutine;
     }
     readonly List<EnemyStageEntry> enemyStageEntries = new List<EnemyStageEntry>();
 

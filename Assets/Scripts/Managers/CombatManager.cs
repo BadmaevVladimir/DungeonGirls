@@ -92,6 +92,22 @@ public class CombatManager : MonoBehaviour
         activeSkillAutoMode = autoMode;
     }
 
+    // БАГФИКС: Варвар вообще не вызывает ConfigureUniqueActiveSkill (Берсерк — ручной тумблер, см.
+    // SetBerserkActive выше), поэтому без явного сброса IsActiveSkillConfigured/activeSkillId
+    // остаются от ПРЕДЫДУЩЕГО боя (например, "Дымовая граната" Плута) — CombatManager переиспользуется
+    // между забегами/боями. В авто-режиме Tick() затем вызывал TryActivateUniqueActiveSkill() по
+    // старому activeSkillId и давал Варвару чужой навык (замечено: Саша получала Скрытность от
+    // "Дымовой гранаты", хотя у неё нет этого навыка и активка вообще не конфигурировалась).
+    public void ClearUniqueActiveSkillConfiguration()
+    {
+        IsActiveSkillConfigured = false;
+        activeSkillId = SkillId.None;
+        activeSkillName = null;
+        activeSkillHitCount = 0;
+        activeSkillDamageMultiplierPerHit = 0f;
+        activeSkillCooldownSeconds = 0f;
+    }
+
     // 3.11 (Варвар) — "Берсерк": ручной тумблер, а не кулдаун-навык, только у игрока (ГДД явно
     // говорит, что монстры этот навык никогда не получают). Хук для будущей UI-кнопки (out of
     // scope этого плана, см. RunFlowController) — мирроит форму SetActiveSkillAutoMode выше.

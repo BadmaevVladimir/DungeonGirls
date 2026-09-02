@@ -159,7 +159,13 @@ public partial class RunFlowController
     // не перезапуская на каждый удар. Обычная скорость атаки — прежнее поведение без изменений.
     void OnAttackPerformed(CombatantRuntime attacker, bool isRegularAttack)
     {
-        if (!isRegularAttack || attacker != combatManager.Player) return;
+        if (!isRegularAttack) return;
+
+        if (attacker != combatManager.Player)
+        {
+            OnEnemyAttackPerformed(attacker);
+            return;
+        }
 
         var attackFrames = PlayableCharacterAnimations.Attack(attacker.DisplayName);
         if (attackFrames == null || attackFrames.Length == 0) return;
@@ -188,6 +194,36 @@ public partial class RunFlowController
             playerInFastAttackMode = false;
             PlayPlayerOneShotFlipbook(attackFrames, AttackAnimationFps);
         }
+    }
+
+    // (доп.): та же идея, что PlayPlayerOneShotFlipbook, но для обычных монстров — один
+    // проигрыш AttackFrames, затем возврат к idle-петле. Без FastAttackLoop-аналога: у монстров
+    // нет "3 быстрые атаки"-подобных механик, ускоряющих эффективный интервал атаки настолько,
+    // чтобы одиночная анимация не успевала доиграть (см. обсуждение с пользователем в задаче).
+    void OnEnemyAttackPerformed(CombatantRuntime attacker)
+    {
+        EnemyStageEntry entry = null;
+        foreach (var candidate in enemyStageEntries)
+        {
+            if (candidate.Combatant == attacker)
+            {
+                entry = candidate;
+                break;
+            }
+        }
+
+        if (entry == null || !entry.Combatant.IsAlive || entry.AttackFrames == null || entry.AttackFrames.Length == 0)
+        {
+            return;
+        }
+
+        float fps = MonsterAnimations.AttackFps(attacker.MonsterAnimationKey);
+        if (entry.FlipbookCoroutine != null) StopCoroutine(entry.FlipbookCoroutine);
+        entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(entry.Sprite, entry.AttackFrames, fps, loop: false, onComplete: () =>
+        {
+            if (!entry.Combatant.IsAlive || entry.IdleFrames == null || entry.IdleFrames.Length == 0) return;
+            entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(entry.Sprite, entry.IdleFrames, 6f, loop: true));
+        }));
     }
 
     int RollMonsterCount(int level) => MonsterEncounterBudget.RollMonsterCount(level);
@@ -285,6 +321,7 @@ public partial class RunFlowController
             // не используются для него вовсе — UI использует berserkToggle (см. ниже), не
             // activeSkillButton/autoModeToggle.
             combatManager.SetBerserkActive(false); // сброс на начало боя — тумблер не переносится между боями
+            combatManager.ClearUniqueActiveSkillConfiguration(); // см. комментарий в CombatManager — иначе тянется активка предыдущего боя
         }
         else
         {
@@ -516,12 +553,27 @@ public partial class RunFlowController
             entry.Sprite.EnableInClassList("enemy-stage-sprite-dead", !entry.Combatant.IsAlive);
             UpdateStatusLabel(entry.StatusLabel, entry.Combatant);
 
+            if (!entry.Combatant.IsAlive)
+            {
+                // (доп.): монстр с PixelLab-анимацией не должен продолжать идле/атаку-петлю после
+                // смерти — останавливаем один раз при переходе в мёртвое состояние (FlipbookCoroutine
+                // уже null на следующих кадрах, повторный StopCoroutine не вызывается).
+                if (entry.FlipbookCoroutine != null)
+                {
+                    StopCoroutine(entry.FlipbookCoroutine);
+                    entry.FlipbookCoroutine = null;
+                }
+            }
+
             // Boss framework (минимальный слайс) — смена спрайта между фазами (CombatManager.
             // TickBossEncounters переписывает CombatantRuntime.Sprite при входе в новую фазу; сам
             // Image-элемент строится один раз в BuildEnemyStageEntries, поэтому src нужно перечитывать
             // каждый кадр здесь, как и остальное per-frame состояние). Для не-боссов Sprite не меняется
-            // после старта боя — присваивание того же значения каждый кадр безвредно.
-            if (entry.Sprite.sprite != entry.Combatant.Sprite)
+            // после старта боя — присваивание того же значения каждый кадр безвредно. Пропускается для
+            // монстров с PixelLab-анимацией (entry.IdleFrames != null) — там sprite-ом уже управляет
+            // флипбук-корутина (см. BuildEnemyStageEntries/OnEnemyAttackPerformed), эта строка
+            // перетирала бы текущий кадр анимации обратно на статичный Sprite каждый тик.
+            if (entry.IdleFrames == null && entry.Sprite.sprite != entry.Combatant.Sprite)
             {
                 entry.Sprite.sprite = entry.Combatant.Sprite;
             }
@@ -549,6 +601,18 @@ public partial class RunFlowController
     // только их IsAlive) — размер спрайта зависит от количества (4.1: 1-3 в обычной комнате).
     void BuildEnemyStageEntries(List<CombatantRuntime> enemies)
     {
+        // (доп.): останавливаем флипбук-корутины прошлого боя — enemyStageEntries.Clear() ниже
+        // просто роняет ссылки, но сами StartCoroutine-корутины на RunFlowController живут дальше
+        // и продолжали бы писать в уже удалённые Image-элементы, если их явно не остановить.
+        foreach (var previousEntry in enemyStageEntries)
+        {
+            if (previousEntry.FlipbookCoroutine != null)
+            {
+                StopCoroutine(previousEntry.FlipbookCoroutine);
+                previousEntry.FlipbookCoroutine = null;
+            }
+        }
+
         enemyStageRow.Clear();
         enemyStageEntries.Clear();
 
@@ -595,7 +659,7 @@ public partial class RunFlowController
             wrapper.Add(telegraphBarBg);
 
             enemyStageRow.Add(wrapper);
-            enemyStageEntries.Add(new EnemyStageEntry
+            var entry = new EnemyStageEntry
             {
                 Combatant = enemy,
                 Wrapper = wrapper,
@@ -603,7 +667,23 @@ public partial class RunFlowController
                 StatusLabel = statusLabel,
                 TelegraphLabel = telegraphLabel,
                 TelegraphBarFill = telegraphBarFill
-            });
+            };
+            enemyStageEntries.Add(entry);
+
+            // (доп.): PixelLab idle/attack-анимации обычных монстров (см. MonsterAnimations) —
+            // боссы (enemy.BossEncounter != null) исключены нарочно, они держат Sprite сами через
+            // существующую систему статичного/фазового спрайта (BossEncounterState), которую эта
+            // задача не трогает.
+            if (enemy.BossEncounter == null)
+            {
+                var idleFrames = MonsterAnimations.Idle(enemy.MonsterAnimationKey);
+                if (idleFrames != null && idleFrames.Length > 0)
+                {
+                    entry.IdleFrames = idleFrames;
+                    entry.AttackFrames = MonsterAnimations.Attack(enemy.MonsterAnimationKey);
+                    entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(sprite, idleFrames, 6f, loop: true));
+                }
+            }
         }
     }
 

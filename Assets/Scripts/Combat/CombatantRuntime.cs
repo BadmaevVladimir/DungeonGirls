@@ -35,6 +35,11 @@ public class CombatantRuntime
     // для рендера в бою (CombatPanel). Может быть null (например, у Monster_Boss — арт ещё не готов).
     public Sprite Sprite;
 
+    // (доп.): немодифицированное MonsterData.monsterName (без префикса-прилагательного модификатора,
+    // см. CombatantFactory.CreateMonsterCombatant) — стабильный ключ для поиска idle/attack-анимации
+    // в MonsterAnimations, т.к. DisplayName выше может стать "Бронебойный Скелет" и т.п. Null у игрока.
+    public string MonsterAnimationKey;
+
     public float MaxHP;
     public float CurrentHP;
 

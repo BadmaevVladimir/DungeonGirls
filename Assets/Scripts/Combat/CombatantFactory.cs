@@ -129,6 +129,7 @@ public static class CombatantFactory
         var runtime = new CombatantRuntime
         {
             DisplayName = monster.monsterName,
+            MonsterAnimationKey = monster.monsterName,
             IsPlayer = false,
             IsBoss = monster.isBoss,
             BossHeavyAttackDamageMultiplier = BossHeavyAttackMultiplierForFloor(floorIndex),
