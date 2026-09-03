@@ -84,6 +84,11 @@ public static class SpriteFloorAnalyzer
         return fraction;
     }
 
+    // ФИКС-ЗАМЕТКА: AssetDatabase.SaveAssets() ниже пересериализует ВЕСЬ BossKitData-ассет, а не
+    // только floorPaddingFraction — при повторном запуске этого инструмента ожидайте, что diff
+    // покажет переформатирование ВСЕХ текстовых полей (Cyrillic-строки → \uXXXX escape) как побочный
+    // эффект. Это безвредно (значение строки не меняется, только YAML-кодировка), не путать с
+    // реальным изменением контента.
     static void RunOnBossKits()
     {
         var guids = AssetDatabase.FindAssets("t:BossKitData");
