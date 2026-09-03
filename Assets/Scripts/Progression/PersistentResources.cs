@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 public static class PersistentResourceIds
 {
@@ -45,6 +46,23 @@ public static class PersistentResourceDisplay
         PersistentResourceIds.AncientShard => "Древний осколок",
         _ => id
     };
+
+    // Плейсхолдер-стиль (3.8): PixelLab-иконки лежат в Assets/Resources/Icons/{Ingredients,
+    // ForgeMaterials}/{resourceId}.png — Icon() кэширует результат Resources.Load, null допустим
+    // (UI откатывается на текстовый чип без иконки, ничего не падает).
+    static readonly Dictionary<string, Sprite> IconCache = new Dictionary<string, Sprite>(StringComparer.Ordinal);
+
+    public static Sprite Icon(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return null;
+        if (IconCache.TryGetValue(id, out var cached)) return cached;
+
+        bool isForgeMaterial = Array.IndexOf(PersistentResourceIds.ForgeMaterials, id) >= 0;
+        string folder = isForgeMaterial ? "ForgeMaterials" : "Ingredients";
+        var sprite = Resources.Load<Sprite>($"Icons/{folder}/{id}");
+        IconCache[id] = sprite;
+        return sprite;
+    }
 }
 
 [Serializable]

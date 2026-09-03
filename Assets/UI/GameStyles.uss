@@ -1006,6 +1006,246 @@ Button {
     margin-bottom: 20px;
 }
 
+/* --- Таверна / Кузница (доработка Codex: крафт-экраны, 8.1/8.2) --- */
+
+.craft-screen-bg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.craft-screen-scrim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(15, 13, 12, 0.62);
+}
+
+.craft-details-icon {
+    width: 56px;
+    height: 56px;
+    align-self: center;
+    margin-bottom: 8px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.resource-chip-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.recipe-card-icon {
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+    -unity-background-scale-mode: scale-to-fit;
+    flex-shrink: 0;
+}
+
+.recipe-card-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.recipe-card-text {
+    flex-shrink: 1;
+    white-space: normal;
+    color: rgb(232, 232, 236);
+    font-size: 15px;
+}
+
+.craft-screen-header {
+    width: 100%;
+    max-width: 1100px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.resource-bar-row {
+    width: 100%;
+    max-width: 1100px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+
+.resource-chip {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgb(40, 40, 48);
+    border-width: 1px;
+    border-color: rgb(90, 90, 100);
+    border-radius: 5px;
+    padding: 6px 12px;
+    margin: 4px;
+}
+
+.resource-chip-label {
+    font-size: 15px;
+    color: rgb(224, 218, 203);
+}
+
+.craft-screen-body {
+    width: 100%;
+    max-width: 1100px;
+    flex-grow: 1;
+    flex-direction: row;
+}
+
+.craft-recipe-scroll {
+    flex-grow: 1;
+    flex-basis: 60%;
+    max-height: 620px;
+    background-color: rgb(22, 22, 28);
+    border-radius: 6px;
+    padding: 10px;
+    margin-right: 14px;
+}
+
+.craft-details-panel {
+    width: 380px;
+    flex-shrink: 0;
+    align-items: stretch;
+}
+
+.recipe-card {
+    background-color: rgb(40, 40, 48);
+    color: rgb(232, 232, 236);
+    border-width: 1px;
+    border-color: rgb(105, 105, 122);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    white-space: normal;
+    -unity-text-align: upper-left;
+    height: auto;
+}
+
+.recipe-card:hover {
+    background-color: rgb(52, 52, 62);
+}
+
+.recipe-card-selected {
+    border-width: 2px;
+    border-color: rgb(184, 142, 62);
+}
+
+.recipe-card-locked {
+    opacity: 0.55;
+}
+
+.resource-cost-row {
+    font-size: 15px;
+    margin-bottom: 3px;
+    white-space: normal;
+}
+
+.resource-cost-ok {
+    color: rgb(120, 210, 130);
+}
+
+.resource-cost-missing {
+    color: rgb(230, 110, 100);
+}
+
+.craft-feedback-label {
+    -unity-text-align: middle-center;
+    color: rgb(120, 210, 130);
+    font-size: 16px;
+    -unity-font-style: bold;
+    margin-top: 6px;
+}
+
+.forge-category-row {
+    width: 100%;
+    max-width: 1100px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.forge-category-tab {
+    background-color: rgb(40, 40, 48);
+    color: rgb(200, 200, 210);
+    border-width: 1px;
+    border-color: rgb(90, 90, 100);
+    border-radius: 5px;
+    padding: 7px 14px;
+    margin: 3px;
+    font-size: 15px;
+}
+
+.forge-category-tab-active {
+    background-color: rgb(70, 100, 160);
+    color: rgb(255, 255, 255);
+    border-color: rgb(184, 142, 62);
+}
+
+.forge-weapon-card {
+    background-color: rgb(40, 40, 48);
+    color: rgb(232, 232, 236);
+    border-width: 1px;
+    border-color: rgb(160, 80, 220);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    white-space: normal;
+    -unity-text-align: upper-left;
+    height: auto;
+}
+
+.forge-weapon-card:hover {
+    background-color: rgb(52, 52, 62);
+}
+
+.forge-weapon-card-selected {
+    border-width: 2px;
+    border-color: rgb(184, 142, 62);
+}
+
+.forge-weapon-card-locked {
+    opacity: 0.55;
+    border-color: rgb(90, 90, 100);
+}
+
+.forge-weapon-card-created {
+    border-color: rgb(90, 200, 100);
+}
+
+.prepared-dishes-container {
+    width: 100%;
+    flex-direction: column;
+    margin-bottom: 10px;
+}
+
+.prepared-dish-row {
+    background-color: rgb(40, 40, 48);
+    color: rgb(232, 232, 236);
+    border-width: 1px;
+    border-color: rgb(105, 105, 122);
+    border-radius: 5px;
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    white-space: normal;
+    -unity-text-align: upper-left;
+    height: auto;
+}
+
+.prepared-dish-row-selected {
+    border-width: 2px;
+    border-color: rgb(184, 142, 62);
+}
+
 /* --- Хаб / здания / гача (Фаза 5) --- */
 
 .currency-label {

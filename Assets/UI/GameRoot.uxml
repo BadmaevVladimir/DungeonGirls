@@ -180,6 +180,80 @@
         <ui:Button name="CharactersBackButton" text="Назад" class="button-secondary" />
     </ui:VisualElement>
 
+    <ui:VisualElement name="TavernScreen" class="full-screen hidden" style="flex-direction: column;">
+        <ui:Image name="TavernBackgroundImage" class="craft-screen-bg" scale-mode="ScaleAndCrop" />
+        <ui:VisualElement class="craft-screen-scrim" />
+        <ui:VisualElement class="craft-screen-header">
+            <ui:Label text="ТАВЕРНА" class="title-label" style="margin-bottom: 0;" />
+            <ui:VisualElement style="flex-direction: row; align-items: center;">
+                <ui:Label name="TavernScreenLevelLabel" text="Уровень 0 / 5" class="currency-label" style="margin-bottom: 0; margin-right: 14px;" />
+                <ui:Label name="TavernScreenUpgradeCostLabel" text="" class="body-label" style="margin-bottom: 0; margin-right: 10px;" />
+                <ui:Button name="TavernScreenUpgradeButton" text="Улучшить таверну" class="button-secondary" />
+            </ui:VisualElement>
+            <ui:Button name="TavernScreenBackButton" text="Назад" class="button-secondary" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="TavernIngredientBar" class="resource-bar-row" />
+
+        <ui:VisualElement class="craft-screen-body">
+            <ui:ScrollView name="TavernRecipeScrollView" class="craft-recipe-scroll" />
+
+            <ui:VisualElement name="TavernDetailsPanel" class="panel craft-details-panel hidden">
+                <ui:Image name="TavernDetailsIcon" class="craft-details-icon" />
+                <ui:Label name="TavernDetailsName" text="" class="panel-title" />
+                <ui:Label name="TavernDetailsEffect" text="" class="body-label" />
+                <ui:VisualElement name="TavernDetailsCostRows" />
+                <ui:Label name="TavernDetailsPreparedLabel" text="" class="body-label" />
+                <ui:Button name="TavernCookButton" text="ПРИГОТОВИТЬ" class="button-primary" />
+                <ui:Label name="TavernFeedbackLabel" text="Приготовлено!" class="craft-feedback-label hidden" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <ui:VisualElement name="ForgeScreen" class="full-screen hidden" style="flex-direction: column;">
+        <ui:Image name="ForgeBackgroundImage" class="craft-screen-bg" scale-mode="ScaleAndCrop" />
+        <ui:VisualElement class="craft-screen-scrim" />
+        <ui:VisualElement class="craft-screen-header">
+            <ui:Label text="КУЗНИЦА" class="title-label" style="margin-bottom: 0;" />
+            <ui:VisualElement style="flex-direction: row; align-items: center;">
+                <ui:Label name="ForgeScreenLevelLabel" text="Уровень 0 / 5" class="currency-label" style="margin-bottom: 0; margin-right: 14px;" />
+                <ui:Label name="ForgeScreenUpgradeCostLabel" text="" class="body-label" style="margin-bottom: 0; margin-right: 10px;" />
+                <ui:Button name="ForgeScreenUpgradeButton" text="Улучшить кузницу" class="button-secondary" />
+            </ui:VisualElement>
+            <ui:Button name="ForgeScreenBackButton" text="Назад" class="button-secondary" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="ForgeMaterialBar" class="resource-bar-row" />
+        <ui:VisualElement name="ForgeCategoryRow" class="forge-category-row" />
+
+        <ui:VisualElement class="craft-screen-body">
+            <ui:ScrollView name="ForgeWeaponGrid" class="craft-recipe-scroll" mode="Vertical" />
+
+            <ui:VisualElement name="ForgeDetailsPanel" class="panel craft-details-panel hidden">
+                <ui:Image name="ForgeDetailsIcon" class="craft-details-icon" />
+                <ui:Label name="ForgeDetailsName" text="" class="panel-title" />
+                <ui:Label name="ForgeDetailsMeta" text="" class="body-label" style="color: rgb(190, 110, 230);" />
+                <ui:Label name="ForgeDetailsEffect" text="" class="body-label" />
+                <ui:VisualElement name="ForgeDetailsCostRows" />
+                <ui:Button name="ForgeResearchButton" text="ВЫКОВАТЬ ПРОТОТИП" class="button-primary" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="ForgeConfirmPopup" class="panel hidden" style="position: absolute; max-width: 460px; flex-grow: 0;">
+            <ui:Label text="Подтверждение" class="panel-title" />
+            <ui:Label name="ForgeConfirmLabel" text="" class="body-label" />
+            <ui:VisualElement style="flex-direction: row; justify-content: center;">
+                <ui:Button name="ForgeConfirmCancelButton" text="ОТМЕНА" class="button-secondary" />
+                <ui:Button name="ForgeConfirmConfirmButton" text="ВЫКОВАТЬ" class="button-primary" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="ForgeUnlockPopup" class="panel hidden" style="position: absolute; max-width: 460px; flex-grow: 0;">
+            <ui:Label name="ForgeUnlockLabel" text="" class="body-label" style="-unity-text-align: middle-center;" />
+            <ui:Button name="ForgeUnlockCloseButton" text="Ок" class="button-primary" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
     <ui:VisualElement name="RunScreen" class="run-root hidden">
         <ui:VisualElement name="TopBar" class="top-bar">
             <ui:Label name="FloorLabel" text="Этаж 1/10" class="top-bar-label" />
@@ -268,6 +342,8 @@
             <ui:VisualElement name="CampPanel" class="panel hidden">
                 <ui:Label text="Привал" class="panel-title" />
                 <ui:Label name="CampText" text="Дженифер отдыхает..." class="body-label" />
+                <ui:Label name="PreparedDishesTitle" text="ПРИГОТОВЛЕННЫЕ БЛЮДА" class="pause-section-title hidden" />
+                <ui:VisualElement name="PreparedDishesContainer" class="prepared-dishes-container" />
                 <ui:Button name="CampAcceptButton" text="Встать на привал" class="button-primary" />
                 <ui:Button name="CampDeclineButton" text="Идти дальше" class="button-secondary" />
                 <ui:Button name="CampContinueButton" text="Продолжить" class="button-primary" />

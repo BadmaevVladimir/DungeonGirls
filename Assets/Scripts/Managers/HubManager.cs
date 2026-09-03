@@ -41,6 +41,12 @@ public partial class HubManager : MonoBehaviour
     static readonly BuildingType[] BuildingOrder = { BuildingType.Forge, BuildingType.Temple, BuildingType.Tavern };
     static readonly string[] BuildingIds = { "Forge", "Temple", "Tavern" };
 
+    // Созданы один раз в Start() и живут всё время хаба — TavernService/ForgeService не хранят
+    // подписок на события (только persist-callback), поэтому пересоздание не ломает state, но одна
+    // общая пара инстансов проще для UI (единый binding вместо CreateXService() в каждом обработчике).
+    TavernService tavernService;
+    ForgeService forgeService;
+
     VisualElement mainMenuScreen;
     VisualElement buildingsScreen;
     VisualElement gachaScreen;
@@ -110,6 +116,8 @@ public partial class HubManager : MonoBehaviour
     {
         var root = uiDocument.rootVisualElement;
         CacheElements(root);
+        tavernService = saveManager.CreateTavernService();
+        forgeService = saveManager.CreateForgeService();
         tutorialManager = TutorialManager.GetOrCreate(uiDocument, saveManager);
         vnManager = uiDocument.GetComponent<VNManager>();
         if (vnManager == null) vnManager = uiDocument.gameObject.AddComponent<VNManager>();
@@ -117,6 +125,8 @@ public partial class HubManager : MonoBehaviour
         BindTutorialTooltips();
 
         SetUpVillageMap();
+        SetUpTavernScreen();
+        SetUpForgeScreen();
         gachaButton.clicked += OpenGacha;
         buildingsBackButton.clicked += OpenVillage;
         gachaBackButton.clicked += OpenVillage;
@@ -237,6 +247,8 @@ public partial class HubManager : MonoBehaviour
         cheatCloseButton = root.Q<Button>("CheatCloseButton");
 
         CacheVillageElements(root);
+        CacheTavernElements(root);
+        CacheForgeElements(root);
     }
 
 }

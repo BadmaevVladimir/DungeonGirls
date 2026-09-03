@@ -21,17 +21,12 @@ public enum FoodEffectType
     RoyalCombination
 }
 
-[Serializable]
-public class FoodEffectConfig
-{
-    public FoodEffectType effectType;
-    public float primaryValue;
-    public float secondaryValue;
-    public float tertiaryValue;
-    public float procChance;
-    public float thresholdPercent;
-}
-
+// FoodRecipeData объявлен ПЕРВЫМ классом в файле намеренно (после enum выше): Unity's MonoImporter
+// связывает .cs-ассет с первым объявленным в нём классом, а AssetDatabase.CreateAsset ищет
+// MonoScript именно по этой связи. Когда FoodEffectConfig стоял первым (не-ScriptableObject класс),
+// AssetDatabase.CreateAsset<FoodRecipeData> в batchmode-генераторе (ProgressionContentAssetGenerator)
+// стабильно писал m_Script: {fileID: 0} ("No script asset for FoodRecipeData") — не держите здесь
+// других классов выше FoodRecipeData.
 [CreateAssetMenu(fileName = "FoodRecipe", menuName = "DungeonGirls/Tavern Food Recipe")]
 public class FoodRecipeData : ScriptableObject
 {
@@ -43,6 +38,20 @@ public class FoodRecipeData : ScriptableObject
     public FoodEffectConfig effect = new FoodEffectConfig();
     [Min(1)] public int durationRooms = 3;
     [TextArea] public string description;
+    // Плейсхолдер-стиль (3.8): null допустим — UI показывает цветной свотч вместо иконки,
+    // пока нет пиксель-арта блюда.
+    public Sprite icon;
+}
+
+[Serializable]
+public class FoodEffectConfig
+{
+    public FoodEffectType effectType;
+    public float primaryValue;
+    public float secondaryValue;
+    public float tertiaryValue;
+    public float procChance;
+    public float thresholdPercent;
 }
 
 // Backward-compatible alias for the initial backend API.
@@ -212,47 +221,13 @@ public sealed class ActiveFoodBuff
     }
 }
 
+// Данные (кто/что) живут в Assets/Resources/Progression/FoodRecipes/*.asset (сгенерированы
+// ProgressionContentAssetGenerator.Generate — см. комментарий в файле генератора про причину
+// batchmode-генерации вместо ручного YAML). Этот класс — только registry поверх них, без единого
+// рецепта в самом коде.
 public static class FoodRecipeCatalog
 {
+    const string ResourcesPath = "Progression/FoodRecipes";
     static FoodRecipeData[] recipes;
-    public static IReadOnlyList<FoodRecipeData> All => recipes ??= CreateAll();
-
-    static FoodRecipeData[] CreateAll() => new[]
-    {
-        Make("meat_stew", "Мясное рагу", 1, FoodEffectType.MaxHp, 8, (PersistentResourceIds.RawMeat,2),(PersistentResourceIds.RootVegetables,1)),
-        Make("mushroom_soup", "Грибной суп", 1, FoodEffectType.ReceivedHealing, 10, (PersistentResourceIds.CaveMushrooms,2),(PersistentResourceIds.HealingHerbs,1)),
-        Make("knight_porridge", "Рыцарская каша", 1, FoodEffectType.BarrierAfterRest, 10, (PersistentResourceIds.Grain,2),(PersistentResourceIds.Dairy,1)),
-        Make("warden_roast", "Жаркое Стража", 2, FoodEffectType.PhysicalDamage, 6, (PersistentResourceIds.RawMeat,2),(PersistentResourceIds.CaveMushrooms,1)),
-        Make("root_puree", "Корнеплодное пюре", 2, FoodEffectType.ArmorEffectiveness, 6, (PersistentResourceIds.RootVegetables,2),(PersistentResourceIds.Dairy,1)),
-        Make("herbal_broth", "Травяной бульон", 2, FoodEffectType.HealAfterRoom, 3, (PersistentResourceIds.HealingHerbs,2),(PersistentResourceIds.Grain,1)),
-        Make("hunters_omelette", "Омлет охотника", 3, FoodEffectType.CritChancePoints, 4, (PersistentResourceIds.MonsterEggs,2),(PersistentResourceIds.RawMeat,1)),
-        Make("spicy_omelette", "Острый омлет", 3, FoodEffectType.AttackSpeed, 5, (PersistentResourceIds.MonsterEggs,2),(PersistentResourceIds.HealingHerbs,1)),
-        Make("mushroom_pie", "Грибной пирог", 3, FoodEffectType.NegativeStatusDuration, 20, (PersistentResourceIds.CaveMushrooms,1),(PersistentResourceIds.Grain,1),(PersistentResourceIds.Dairy,1)),
-        Make("explorer_stew", "Похлёбка исследователя", 4, FoodEffectType.BonusIngredientAfterRoom, 0, (PersistentResourceIds.RootVegetables,1),(PersistentResourceIds.CaveMushrooms,1),(PersistentResourceIds.Grain,1), procChance:.25f),
-        Make("hearty_breakfast", "Сытный завтрак", 4, FoodEffectType.AllDamageAndMaxHp, 4, (PersistentResourceIds.RawMeat,1),(PersistentResourceIds.MonsterEggs,1),(PersistentResourceIds.Grain,1), secondary:5),
-        Make("healing_casserole", "Целебная запеканка", 4, FoodEffectType.LowHealthHeal, 8, (PersistentResourceIds.HealingHerbs,1),(PersistentResourceIds.Dairy,1),(PersistentResourceIds.MonsterEggs,1), threshold:30),
-        Make("veterans_steak", "Стейк ветерана", 5, FoodEffectType.BossDamage, 10, (PersistentResourceIds.RawMeat,2),(PersistentResourceIds.EtherealSpice,1)),
-        Make("ethereal_soup", "Эфирный суп", 5, FoodEffectType.BlockFirstNegativeStatus, 0, (PersistentResourceIds.CaveMushrooms,1),(PersistentResourceIds.HealingHerbs,1),(PersistentResourceIds.EtherealSpice,1)),
-        Make("royal_pie", "Королевский пирог", 5, FoodEffectType.RoyalCombination, 5, (PersistentResourceIds.Grain,1),(PersistentResourceIds.Dairy,1),(PersistentResourceIds.MonsterEggs,1),(PersistentResourceIds.EtherealSpice,1), secondary:5, tertiary:5)
-    };
-
-    static FoodRecipeData Make(string id, string name, int level, FoodEffectType type, float primary,
-        (string id,int amount) a, (string id,int amount) b, (string id,int amount)? c = null,
-        (string id,int amount)? d = null, float secondary = 0, float tertiary = 0,
-        float procChance = 0, float threshold = 0)
-    {
-        var value = ScriptableObject.CreateInstance<FoodRecipeData>();
-        value.recipeId = id;
-        value.resultFoodId = "food_" + id;
-        value.displayName = name;
-        value.requiredTavernLevel = level;
-        value.durationRooms = 3;
-        value.ingredientCosts.Add(new ResourceAmount(a.id, a.amount));
-        value.ingredientCosts.Add(new ResourceAmount(b.id, b.amount));
-        if (c.HasValue) value.ingredientCosts.Add(new ResourceAmount(c.Value.id, c.Value.amount));
-        if (d.HasValue) value.ingredientCosts.Add(new ResourceAmount(d.Value.id, d.Value.amount));
-        value.effect = new FoodEffectConfig { effectType=type, primaryValue=primary, secondaryValue=secondary,
-            tertiaryValue=tertiary, procChance=procChance, thresholdPercent=threshold };
-        return value;
-    }
+    public static IReadOnlyList<FoodRecipeData> All => recipes ??= Resources.LoadAll<FoodRecipeData>(ResourcesPath);
 }

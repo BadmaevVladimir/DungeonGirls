@@ -19,6 +19,15 @@ public class ForgeBlueprintData : ScriptableObject
     [TextArea] public string description;
 }
 
+// UI-facing state for one blueprint card (Forge screen) — mirrors TavernRecipeState's role.
+public enum ForgeBlueprintState
+{
+    AvailableToResearch,
+    BlueprintLocked,
+    NotEnoughMaterials,
+    PrototypeCreated
+}
+
 public sealed class ForgeService
 {
     readonly SaveData data;
@@ -43,6 +52,17 @@ public sealed class ForgeService
         return true;
     }
 
+    public ForgeBlueprintState GetBlueprintState(ForgeBlueprintData blueprint)
+    {
+        if (blueprint == null || string.IsNullOrWhiteSpace(blueprint.blueprintId)) return ForgeBlueprintState.BlueprintLocked;
+        if (IsPrototypeResearched(blueprint.prototypeId)) return ForgeBlueprintState.PrototypeCreated;
+        if (!access.IsUnlocked(blueprint.blueprintId, data.unlockedForgeBlueprints)) return ForgeBlueprintState.BlueprintLocked;
+        if (!new ResourceInventory(data.resources).CanAfford(blueprint.materialCost)) return ForgeBlueprintState.NotEnoughMaterials;
+        return ForgeBlueprintState.AvailableToResearch;
+    }
+
+    public int GetMaterialAmount(string resourceId) => new ResourceInventory(data.resources).GetAmount(resourceId);
+
     public bool TryResearch(ForgeBlueprintData blueprint)
     {
         if (blueprint == null || string.IsNullOrWhiteSpace(blueprint.blueprintId) ||
@@ -62,45 +82,12 @@ public sealed class ForgeService
     }
 }
 
+// Данные живут в Assets/Resources/Progression/ForgeBlueprints/*.asset (сгенерированы
+// ProgressionContentAssetGenerator.Generate, itemPrototype-ссылки указывают на существующие
+// ассеты в ForgePrototypes/). Этот класс — только registry поверх них.
 public static class ForgeBlueprintCatalog
 {
+    const string ResourcesPath = "Progression/ForgeBlueprints";
     static ForgeBlueprintData[] blueprints;
-    public static IReadOnlyList<ForgeBlueprintData> All => blueprints ??= CreateAll();
-
-    static ForgeBlueprintData[] CreateAll() => new[]
-    {
-        Make("resonance_scimitar", "Скимитар Резонанса", WeaponSubtype.Sword,
-            WeaponPrototypeEffectId.ResonanceScimitar, 5f, 5f, 4, 3, 2, 1, 1),
-        Make("spell_eater", "Пожиратель чар", WeaponSubtype.Axe,
-            WeaponPrototypeEffectId.SpellEater, 1f, 0f, 0, 3, 2, 2, 1),
-        Make("lightning_spear", "Копьё молний", WeaponSubtype.Spear,
-            WeaponPrototypeEffectId.LightningSpear, 50f, 0f, 3, 3, 3, 1, 1),
-        Make("pendulum", "Маятник", WeaponSubtype.Hammer,
-            WeaponPrototypeEffectId.Pendulum, 20f, 100f, 0, 4, 1, 2, 1),
-        Make("day_and_night", "День и Ночь", WeaponSubtype.Blade,
-            WeaponPrototypeEffectId.DayAndNight, 50f, 50f, 0, 4, 3, 2, 1),
-        Make("last_argument_prototype", "Последний аргумент", WeaponSubtype.TwoHandedAxe,
-            WeaponPrototypeEffectId.LastArgumentConversion, 1f, 0f, 0, 4, 1, 3, 1)
-    };
-
-    static ForgeBlueprintData Make(string id, string name, WeaponSubtype category,
-        WeaponPrototypeEffectId effect, float primary, float secondary, int maxStacks,
-        int steel, int crystal, int core, int shard)
-    {
-        var value = ScriptableObject.CreateInstance<ForgeBlueprintData>();
-        value.blueprintId = "blueprint_" + id;
-        value.prototypeId = "prototype_" + id;
-        value.displayName = name;
-        value.weaponCategory = category;
-        value.rarity = ItemTier.Epic;
-        value.effect = effect;
-        value.primaryEffectValue = primary;
-        value.secondaryEffectValue = secondary;
-        value.maxStacks = maxStacks;
-        value.materialCost.Add(new ResourceAmount(PersistentResourceIds.TemperedSteel, steel));
-        value.materialCost.Add(new ResourceAmount(PersistentResourceIds.MagicCrystal, crystal));
-        value.materialCost.Add(new ResourceAmount(PersistentResourceIds.MonsterCore, core));
-        value.materialCost.Add(new ResourceAmount(PersistentResourceIds.AncientShard, shard));
-        return value;
-    }
+    public static IReadOnlyList<ForgeBlueprintData> All => blueprints ??= Resources.LoadAll<ForgeBlueprintData>(ResourcesPath);
 }

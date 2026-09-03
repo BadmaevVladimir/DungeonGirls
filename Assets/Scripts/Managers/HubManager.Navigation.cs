@@ -14,6 +14,8 @@ public partial class HubManager
         gachaScreen.style.display = DisplayStyle.None;
         veteranDeckScreen.style.display = DisplayStyle.None;
         charactersScreen.style.display = DisplayStyle.None;
+        tavernScreen.style.display = DisplayStyle.None;
+        forgeScreen.style.display = DisplayStyle.None;
         CloseCheatMenu();
         RefreshVillagePlates();
         mainMenuScreen.style.display = DisplayStyle.Flex;

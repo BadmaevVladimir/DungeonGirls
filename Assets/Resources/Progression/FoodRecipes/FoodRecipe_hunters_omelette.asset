@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75ac74ed960a4225aaf797303bcc9f60, type: 3}
+  m_Name: FoodRecipe_hunters_omelette
+  m_EditorClassIdentifier: DungeonGirls.Runtime::FoodRecipeData
+  recipeId: hunters_omelette
+  displayName: "\u041E\u043C\u043B\u0435\u0442 \u043E\u0445\u043E\u0442\u043D\u0438\u043A\u0430"
+  resultFoodId: food_hunters_omelette
+  requiredTavernLevel: 3
+  ingredientCosts:
+  - resourceId: monster_eggs
+    amount: 2
+  - resourceId: raw_meat
+    amount: 1
+  effect:
+    effectType: 6
+    primaryValue: 4
+    secondaryValue: 0
+    tertiaryValue: 0
+    procChance: 0
+    thresholdPercent: 0
+  durationRooms: 3
+  description: "+4 \u043F\u0440\u043E\u0446\u0435\u043D\u0442\u043D\u044B\u0445 \u043F\u0443\u043D\u043A\u0442\u0430
+    \u043A \u0448\u0430\u043D\u0441\u0443 \u043A\u0440\u0438\u0442\u0430 \u043D\u0430
+    3 \u043A\u043E\u043C\u043D\u0430\u0442\u044B \u043F\u043E\u0441\u043B\u0435 \u043F\u0440\u0438\u0432\u0430\u043B\u0430."
+  icon: {fileID: 21300000, guid: f7718f60dcb6d7948822c751b4f55aeb, type: 3}

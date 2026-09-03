@@ -82,18 +82,69 @@ public partial class RunFlowController
         var combatant = characterManager.Combatant;
         campText.text = $"Можно встать на привал (потратит 1 рацион). Здоровье: {Mathf.Max(combatant.CurrentHP, 0f):F0}/{combatant.MaxHP:F0}. Осталось рационов: {campManager.RationsRemaining}.";
         SetCampOfferButtonsVisible(true);
+        PopulatePreparedDishes();
 
         yield return WaitForAnyClick(campAcceptButton, campDeclineButton);
         SetCampOfferButtonsVisible(false);
+        preparedDishesContainer.Clear();
+        preparedDishesTitle.AddToClassList("hidden");
 
         bool accepted = clickedIndex == 0;
         if (!accepted)
         {
+            selectedPreparedDish = null;
             LogEvent("[Привал] Игрок отказался от привала.");
             yield break;
         }
 
         yield return CampPhaseCoroutine();
+    }
+
+    // ПРИГОТОВЛЕННЫЕ БЛЮДА (доработка Codex, Phase 6): показывает блюда с quantity > 0 через
+    // tavernService и позволяет выбрать одно на этот привал. Пустой список не блокирует привал —
+    // базовые правила рациона/лечения (6.x) работают как прежде без еды.
+    void PopulatePreparedDishes()
+    {
+        preparedDishesContainer.Clear();
+        selectedPreparedDish = null;
+        var available = new List<FoodRecipeData>();
+        foreach (var recipe in FoodRecipeCatalog.All)
+            if (tavernService.GetPreparedCount(recipe.resultFoodId) > 0) available.Add(recipe);
+
+        preparedDishesTitle.EnableInClassList("hidden", available.Count == 0);
+        if (available.Count == 0) return;
+
+        var rowsByRecipe = new Dictionary<FoodRecipeData, Button>();
+        foreach (var recipe in available)
+        {
+            var capturedRecipe = recipe;
+            int count = tavernService.GetPreparedCount(recipe.resultFoodId);
+            var row = new Button(() => TogglePreparedDishSelection(capturedRecipe, rowsByRecipe));
+            row.AddToClassList("prepared-dish-row");
+
+            var inner = new VisualElement();
+            inner.AddToClassList("recipe-card-row");
+            if (recipe.icon != null)
+            {
+                var image = new Image { sprite = recipe.icon, scaleMode = ScaleMode.ScaleToFit };
+                image.AddToClassList("recipe-card-icon");
+                inner.Add(image);
+            }
+            var text = new Label($"{recipe.displayName} ×{count}\n{recipe.description}");
+            text.AddToClassList("recipe-card-text");
+            inner.Add(text);
+            row.Add(inner);
+
+            preparedDishesContainer.Add(row);
+            rowsByRecipe[recipe] = row;
+        }
+    }
+
+    void TogglePreparedDishSelection(FoodRecipeData recipe, Dictionary<FoodRecipeData, Button> rowsByRecipe)
+    {
+        selectedPreparedDish = selectedPreparedDish == recipe ? null : recipe;
+        foreach (var pair in rowsByRecipe)
+            pair.Value.EnableInClassList("prepared-dish-row-selected", pair.Key == selectedPreparedDish);
     }
 
     void SetCampOfferButtonsVisible(bool visible)
@@ -110,9 +161,21 @@ public partial class RunFlowController
         yield return TryPlayCampSceneAfterRation();
 
         float multiplier = healMultiplierOverride > 0f ? healMultiplierOverride : characterManager.Modifiers.ConsumeCampHealMultiplier();
-        var result = campManager.RestoreAtCamp(characterManager, multiplier);
+        CampManager.CampResult result;
+        string dishNotice = string.Empty;
+        if (selectedPreparedDish != null && tavernService.TryConsumeDishAtCamp(selectedPreparedDish, campManager, characterManager, out result, multiplier))
+        {
+            dishNotice = $"\nСъедено: {selectedPreparedDish.displayName}";
+            LogEvent($"[Привал] Съедено приготовленное блюдо: {selectedPreparedDish.displayName}.");
+        }
+        else
+        {
+            result = campManager.RestoreAtCamp(characterManager, multiplier);
+        }
+        selectedPreparedDish = null;
 
-        campText.text = $"{characterManager.Character.characterName} отдыхает у привала..." +
+        campText.text = dishNotice + (string.IsNullOrEmpty(dishNotice) ? string.Empty : "\n") +
+            $"{characterManager.Character.characterName} отдыхает у привала..." +
             $"\n+{result.HpRestored:F0} HP" +
             (result.ArmorRestored > 0f ? $", +{result.ArmorRestored:F0} физ. защиты (Полевой ремонт)" : string.Empty) +
             (result.BacklashDamage > 0f ? $"\nРасплата: −{result.BacklashDamage:F0} HP" : string.Empty) +

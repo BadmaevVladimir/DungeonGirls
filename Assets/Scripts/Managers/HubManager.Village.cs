@@ -87,10 +87,13 @@ public partial class HubManager
     {
         LoadVillageSprites();
 
-        // Кнопка "Здания" убрана из меню: тот же экран открывают три домика на карте.
-        if (forgeSpotButton != null) forgeSpotButton.clicked += OpenBuildings;
+        // Кнопка "Здания" убрана из меню: три домика на карте открывают каждый свой экран.
+        // Кузница/Таверна теперь ведут на новые функциональные экраны (крафт/готовка) — уровень
+        // и апгрейд здания встроены в них же (см. HubManager.Forge.cs/Tavern.cs), а не только
+        // в общий BuildingsScreen. Храм своего экрана пока не получил — ведёт на BuildingsScreen.
+        if (forgeSpotButton != null) forgeSpotButton.clicked += OpenForge;
         if (templeSpotButton != null) templeSpotButton.clicked += OpenBuildings;
-        if (tavernSpotButton != null) tavernSpotButton.clicked += OpenBuildings;
+        if (tavernSpotButton != null) tavernSpotButton.clicked += OpenTavern;
 
         // В UI Toolkit нет aspect-ratio — пропорции 632:400 держим вручную по размеру сцены.
         if (villageStage != null)

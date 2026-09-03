@@ -516,9 +516,12 @@ public static class PlayModeSmokeTest
             "Assets/ScriptableObjects/Items/Trophies/Item_Trophy_Epic_EpicTrophy.asset"
         };
         var classItems = classItemPaths.Select(AssetDatabase.LoadAssetAtPath<ItemData>).ToArray();
-        Check(productionCatalog != null && productionCatalog.items != null && productionCatalog.items.Length == 62 &&
+        // 62 было верно до коммита 733b54d (Forge/Tavern/Progression) — тот добавил 6 прототипов
+        // оружия Кузницы (ForgePrototypes/) в тот же каталог, подняв счётчик до 68. Этот smoke test
+        // не запускался между тем коммитом и доработкой Tavern/Forge UI, поэтому проверка отстала.
+        Check(productionCatalog != null && productionCatalog.items != null && productionCatalog.items.Length == 68 &&
             classItems.All(item => item != null && Array.IndexOf(productionCatalog.items, item) >= 0),
-            "8.2 каталог содержит все 62 предмета, включая 8 Cursed и 18 прежних классовых предметов Вайолет и Саши");
+            "8.2 каталог содержит все 68 предметов (62 базовых + 6 прототипов Кузницы), включая 8 Cursed и 18 прежних классовых предметов Вайолет и Саши");
 
         var cursedItems = productionCatalog.items.Where(item => item != null && item.tier == ItemTier.Cursed).ToArray();
         Check(cursedItems.Length == 8 && cursedItems.All(item => item.slot == EquipmentSlot.Weapon && item.cursedEffect != CursedEffectId.None) &&
@@ -1380,6 +1383,48 @@ public static class PlayModeSmokeTest
         RequireElement(root, "GachaReelViewport");
         RequireElement(root, "GachaReelStrip");
         RequireElement(root, "GachaSkipButton");
+
+        // Доработка Codex: Таверна/Кузница теперь функциональные экраны, не только текстовые
+        // BuildingsScreen-панели уровня. Проверяем wiring (services), UXML-элементы и что открытие/
+        // закрытие экранов реально работает через клик по village-домику.
+        var tavernServiceField = typeof(HubManager).GetField("tavernService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var forgeServiceField = typeof(HubManager).GetField("forgeService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Check(tavernServiceField != null && tavernServiceField.GetValue(hub) != null, "HubManager.tavernService создан в Start() через saveManager.CreateTavernService()");
+        Check(forgeServiceField != null && forgeServiceField.GetValue(hub) != null, "HubManager.forgeService создан в Start() через saveManager.CreateForgeService()");
+
+        var tavernScreen = RequireElement(root, "TavernScreen");
+        RequireElement(root, "TavernScreenLevelLabel");
+        RequireElement(root, "TavernScreenUpgradeButton");
+        RequireElement(root, "TavernIngredientBar");
+        var tavernRecipeScrollView = RequireElement(root, "TavernRecipeScrollView");
+        RequireElement(root, "TavernDetailsPanel");
+        RequireElement(root, "TavernCookButton");
+
+        var forgeScreen = RequireElement(root, "ForgeScreen");
+        RequireElement(root, "ForgeScreenLevelLabel");
+        RequireElement(root, "ForgeScreenUpgradeButton");
+        RequireElement(root, "ForgeMaterialBar");
+        var forgeCategoryRow = RequireElement(root, "ForgeCategoryRow");
+        var forgeWeaponGrid = RequireElement(root, "ForgeWeaponGrid");
+        RequireElement(root, "ForgeDetailsPanel");
+        RequireElement(root, "ForgeResearchButton");
+        RequireElement(root, "ForgeConfirmPopup");
+        RequireElement(root, "ForgeUnlockPopup");
+
+        hub.OpenTavern();
+        Check(tavernScreen != null && tavernScreen.style.display == DisplayStyle.Flex, "OpenTavern() показывает TavernScreen");
+        Check(mainMenuScreen != null && mainMenuScreen.style.display == DisplayStyle.None, "OpenTavern() скрывает MainMenuScreen");
+        Check(tavernRecipeScrollView != null && tavernRecipeScrollView.childCount == 15, $"TavernScreen показывает все 15 рецептов: {tavernRecipeScrollView?.childCount} (ожидалось 15)");
+        hub.OpenVillage();
+        Check(tavernScreen != null && tavernScreen.style.display == DisplayStyle.None, "OpenVillage() скрывает TavernScreen обратно");
+
+        hub.OpenForge();
+        Check(forgeScreen != null && forgeScreen.style.display == DisplayStyle.Flex, "OpenForge() показывает ForgeScreen");
+        Check(forgeCategoryRow != null && forgeCategoryRow.childCount == 6, $"ForgeScreen показывает 6 вкладок категорий оружия: {forgeCategoryRow?.childCount} (ожидалось 6)");
+        Check(forgeWeaponGrid != null && forgeWeaponGrid.childCount == 1, $"ForgeScreen по умолчанию открыт на категории 'Мечи' с 1 чертежом (Скимитар Резонанса): {forgeWeaponGrid?.childCount} (ожидалось 1)");
+        hub.OpenVillage();
+        Check(forgeScreen != null && forgeScreen.style.display == DisplayStyle.None, "OpenVillage() скрывает ForgeScreen обратно");
+
         var veteranDeckScreen = RequireElement(root, "VeteranDeckScreen");
         var charactersScreen = RequireElement(root, "CharactersScreen");
         RequireElement(root, "VeteranDeckButton");

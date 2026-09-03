@@ -224,6 +224,10 @@ public partial class RunFlowController : MonoBehaviour
     Button campAcceptButton;
     Button campDeclineButton;
     Button campContinueButton;
+    Label preparedDishesTitle;
+    VisualElement preparedDishesContainer;
+    FoodRecipeData selectedPreparedDish;
+    TavernService tavernService;
 
     // --- Торговец ---
     Button merchantContinueButton;
@@ -487,6 +491,8 @@ public partial class RunFlowController : MonoBehaviour
         campAcceptButton = root.Q<Button>("CampAcceptButton");
         campDeclineButton = root.Q<Button>("CampDeclineButton");
         campContinueButton = root.Q<Button>("CampContinueButton");
+        preparedDishesTitle = root.Q<Label>("PreparedDishesTitle");
+        preparedDishesContainer = root.Q<VisualElement>("PreparedDishesContainer");
         SetCampOfferButtonsVisible(false);
 
         merchantContinueButton = root.Q<Button>("MerchantContinueButton");
@@ -530,6 +536,8 @@ public partial class RunFlowController : MonoBehaviour
 
         characterManager.BeginRun(selectedCharacter, equipmentManager, saveManager);
         rewardManager.SetPrototypeProgression(saveManager.Data.researchedItemPrototypes);
+        tavernService = saveManager.CreateTavernService();
+        selectedPreparedDish = null;
 
         // 1, п.3: применяем уже выбранный и разыгранный снимок наследования ветерана.
         ApplySelectedMentorInheritance();

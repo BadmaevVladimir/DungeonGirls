@@ -8,6 +8,17 @@ public interface IDishEffect
     void Apply(CampManager campManager, CharacterManager characterManager);
 }
 
+// UI-facing state for one recipe card (Tavern screen). Backend remains source of truth: the UI
+// only reads this to decide which visual state/label to show and whether the cook button is
+// interactable — TryCook() below is still the only thing that actually spends resources.
+public enum TavernRecipeState
+{
+    AvailableToCook,
+    LockedByTavernLevel,
+    LockedRecipe,
+    NotEnoughIngredients
+}
+
 public sealed class CatalogUnlockPolicy
 {
     public bool UnlockAllForTesting { get; set; }
@@ -38,6 +49,17 @@ public sealed class TavernService
         this.persist = persist;
         this.access = access ?? new CatalogUnlockPolicy();
     }
+
+    public TavernRecipeState GetRecipeState(FoodRecipeData recipe, int tavernLevel)
+    {
+        if (recipe == null || string.IsNullOrWhiteSpace(recipe.recipeId)) return TavernRecipeState.LockedRecipe;
+        if (tavernLevel < recipe.requiredTavernLevel) return TavernRecipeState.LockedByTavernLevel;
+        if (!access.IsUnlocked(recipe.recipeId, data.unlockedTavernRecipes)) return TavernRecipeState.LockedRecipe;
+        if (!new ResourceInventory(data.resources).CanAfford(recipe.ingredientCosts)) return TavernRecipeState.NotEnoughIngredients;
+        return TavernRecipeState.AvailableToCook;
+    }
+
+    public int GetIngredientAmount(string resourceId) => new ResourceInventory(data.resources).GetAmount(resourceId);
 
     public bool CanCook(FoodRecipeData recipe, int tavernLevel = int.MaxValue)
     {
@@ -71,7 +93,7 @@ public sealed class TavernService
     }
 
     public bool TryConsumeDishAtCamp(FoodRecipeData recipe, CampManager campManager,
-        CharacterManager characterManager, out CampManager.CampResult result)
+        CharacterManager characterManager, out CampManager.CampResult result, float healMultiplier = 1f)
     {
         result = default;
         if (recipe == null || campManager == null || characterManager == null) return false;
@@ -79,9 +101,16 @@ public sealed class TavernService
         if (dish == null || dish.count <= 0) return false;
         dish.count--;
         persist?.Invoke();
-        result = campManager.RestWithPreparedDish(characterManager);
+        result = campManager.RestWithPreparedDish(characterManager, healMultiplier);
         characterManager.ActivateFood(recipe);
         return true;
+    }
+
+    public int GetPreparedCount(string resultFoodId)
+    {
+        if (string.IsNullOrWhiteSpace(resultFoodId)) return 0;
+        var dish = data.preparedDishes.Find(entry => entry != null && entry.key == resultFoodId);
+        return dish != null ? Mathf.Max(0, dish.count) : 0;
     }
 
     static KeyCountEntry FindOrCreate(List<KeyCountEntry> entries, string id)
