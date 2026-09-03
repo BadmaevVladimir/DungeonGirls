@@ -43,4 +43,15 @@ public static class PlayableCharacterAnimations
         "Вайолет" => 4,  // выпад кинжалом
         _ => 0
     };
+
+    // Компенсация "зависания" боевых спрайтов (2026-09-03) — ключ ровно совпадает с именем папки
+    // под Assets/Resources/CharacterAnimations/, которую уже используют Jennifer/Sasha/Violet
+    // AnimationFrames-классы через Resources.Load — см. CombatSpriteFloorOffset.
+    public static string FolderKey(string displayName) => displayName switch
+    {
+        "Дженифер" => "Jennifer",
+        "Саша" => "Sasha",
+        "Вайолет" => "Violet",
+        _ => null
+    };
 }

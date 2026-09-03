@@ -565,11 +565,13 @@ public partial class RunFlowController
         // обновление состояния кадр к кадру, без Clear()/пересоздания (иначе анимации на
         // дочерних элементах, вроде всплывающих цифр урона, уничтожались бы каждый тик).
         float stageFloorGap = GetStageFloorGapFromBottom();
-        playerStageWrapper.style.marginBottom = stageFloorGap;
+        float playerFloorOffset = CombatSpriteFloorOffset.GetOffsetFraction(player) * playerStageSprite.resolvedStyle.height;
+        playerStageWrapper.style.marginBottom = stageFloorGap + playerFloorOffset;
 
         foreach (var entry in enemyStageEntries)
         {
-            entry.Wrapper.style.marginBottom = stageFloorGap;
+            float enemyFloorOffset = CombatSpriteFloorOffset.GetOffsetFraction(entry.Combatant) * entry.Sprite.resolvedStyle.height;
+            entry.Wrapper.style.marginBottom = stageFloorGap + enemyFloorOffset;
             entry.Sprite.EnableInClassList("enemy-stage-sprite-dead", !entry.Combatant.IsAlive);
             UpdateStatusLabel(entry.StatusLabel, entry.Combatant);
 

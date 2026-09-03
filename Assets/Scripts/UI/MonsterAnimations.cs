@@ -59,4 +59,11 @@ public static class MonsterAnimations
         var entry = Lookup(monsterAnimationKey);
         return entry?.AttackFps ?? 10f;
     }
+
+    // Компенсация "зависания" боевых спрайтов (2026-09-03) — публичная обёртка над уже
+    // существующим Lookup(...).FolderKey, используемая CombatSpriteFloorOffset. Без префикса
+    // "Monster_" — вызывающая сторона сама собирает итоговый ключ таблицы (см.
+    // CombatSpriteFloorOffset), т.к. этот же FolderKey используется и MonsterAnimationFrames.Load
+    // без префикса для построения пути Resources.Load.
+    public static string FolderKey(string monsterAnimationKey) => Lookup(monsterAnimationKey)?.FolderKey;
 }

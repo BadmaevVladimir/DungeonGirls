@@ -67,6 +67,12 @@ public class BossPhaseData
     [Tooltip("Спрайт босса на время этой фазы. null = спрайт не меняется при входе в фазу.")]
     public Sprite phaseSprite;
 
+    [Tooltip("Компенсация 'зависания' в воздухе (2026-09-03) — доля высоты канваса phaseSprite, " +
+        "занятая прозрачным отступом снизу. 0 = спрайт вплотную к низу холста (безопасный дефолт " +
+        "для фаз, для которых анализатор ещё не запускался). Заполняется Assets/Editor/" +
+        "SpriteFloorAnalyzer.cs, вручную не редактировать.")]
+    public float floorPaddingFraction;
+
     public List<BossAbilityConfig> abilities = new List<BossAbilityConfig>();
 }
 
