@@ -7,6 +7,8 @@ public enum FloorState
     TrapResolve,
     MerchantResolve,
     VNTriggerResolve,
+    RoomRewardResolve,
+    LootSummary,
     RewardChest,
     LevelUpChoice,
     CampPhase,

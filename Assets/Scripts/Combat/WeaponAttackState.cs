@@ -4,6 +4,14 @@
 // собственной скорости атаки, бьют независимо друг от друга).
 public class WeaponAttackState
 {
+    public string PrototypeId;
+    public WeaponPrototypeEffectId PrototypeEffect;
+    public float PrototypePrimaryValue;
+    public float PrototypeSecondaryValue;
+    public int PrototypeMaxStacks;
+    public int PrototypeCounter;
+    public float PrototypeAccumulatedDamage;
+    public float SecondsSinceLastAttack;
     public CursedEffectId CursedEffect;
     public int ItemRank;
     public int CursedStacks;

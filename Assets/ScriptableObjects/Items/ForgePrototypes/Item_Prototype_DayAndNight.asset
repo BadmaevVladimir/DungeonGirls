@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c350a74c997f174b95013c19748ea00, type: 3}
+  m_Name: Item_Prototype_DayAndNight
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  prototypeId: prototype_day_and_night
+  prototypeEffect: 5
+  prototypePrimaryValue: 50
+  prototypeSecondaryValue: 50
+  prototypeMaxStacks: 0
+  itemName: День и Ночь
+  icon: {fileID: 21300000, guid: 8acfc4e140b304740a6844ba19c67878, type: 3}
+  slot: 3
+  weaponSubtype: 6
+  isTwoHanded: 0
+  tier: 2
+  itemLevel: 1
+  itemRank: 0
+  allowedClasses:
+  - 2
+  cursedEffect: 0
+  positiveEffectDescription: Парные клинки. Половина их урона наносится как физический, половина — как магический.
+  curseDescription:
+  handUsageDescription:
+  isPairedWeapon: 1
+  baseDamage: 8.8
+  damageType: 0
+  attackSpeed: 2.2
+  physicalDefense: 0
+  maxPhysicalDefenseBonus: 0
+  magicShieldBonus: 0
+  hpBonus: 0
+  rageBonusFlatPercent: 0
+  bonusStat: {type: 0, baseValue: 0}
+  passiveSkill: {fileID: 0}

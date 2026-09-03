@@ -271,6 +271,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RewardManager
   itemCatalog: {fileID: 11400000, guid: 583fe7b74f97c9a48882eecf87cfd6c8, type: 2}
+  roomRewardConfig: {fileID: 11400000, guid: b2000000000000000000000000000001, type: 2}
+  unlockAllItemPrototypesForTesting: 0
 --- !u!114 &6340605
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -730,6 +732,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 90e63274e361460d9c909197555449f8, type: 2}
   - {fileID: 11400000, guid: 85ff6a2292584db9a4a26c5b7c3e2e8f, type: 2}
   bossData: {fileID: 11400000, guid: 5e45ae67fea08194381c1bc1e639783e, type: 2}
+  rareRoomConfig: {fileID: 11400000, guid: b2000000000000000000000000000002, type: 2}
   combatBackgroundSprite: {fileID: 21300000, guid: 0f340ba3eb52ee046b097e82847c0c5b, type: 3}
   dungeonManager: {fileID: 6340608}
   floorManager: {fileID: 6340607}

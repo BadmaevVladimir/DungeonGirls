@@ -40,7 +40,8 @@ public class CombatManager : MonoBehaviour
         LogMessage?.Invoke(message);
     }
 
-    static bool IgnoresDebuffs(CombatantRuntime target) => CursedItemRules.IgnoresNewDebuffs(target);
+    static bool IgnoresDebuffs(CombatantRuntime target) =>
+        CursedItemRules.IgnoresNewDebuffs(target) || target.TryBlockNegativeStatus();
 
     // Codex P1 (ФИКС, 2026-08-27): раньше CombatRoomFlow всегда передавал hitCount=3 и конфиг из
     // jenniferCharacter.uniqueActiveSkill — Плут получал бы конфигурацию Дженифер (неверный
@@ -230,6 +231,8 @@ public class CombatManager : MonoBehaviour
         // 3.3: магический щит восстанавливается до максимума после каждого боя; физ. защита — нет.
         Player.RestoreMagicShield();
         ResetTemporaryStatuses(Player);
+        ResetPrototypeCombatState(Player);
+        foreach (var enemy in Enemies) ResetPrototypeCombatState(enemy);
 
         Log(Player.IsAlive
             ? $"[Combat] Бой окончен. {Player.DisplayName} побеждает."
@@ -277,6 +280,17 @@ public class CombatManager : MonoBehaviour
         foreach (var weapon in combatant.Weapons) weapon.CursedStacks = 0;
     }
 
+    static void ResetPrototypeCombatState(CombatantRuntime combatant)
+    {
+        if (combatant == null) return;
+        foreach (var weapon in combatant.Weapons)
+        {
+            weapon.PrototypeCounter = 0;
+            weapon.PrototypeAccumulatedDamage = 0f;
+            weapon.SecondsSinceLastAttack = 0f;
+        }
+    }
+
     void Update()
     {
         if (IsCombatActive)
@@ -322,6 +336,7 @@ public class CombatManager : MonoBehaviour
                 // сам помечает точную базу как неподтверждённую.
                 float tickDamage = Mathf.Max(1f, Player.CurrentHP * 0.01f);
                 Player.CurrentHP = Mathf.Max(0f, Player.CurrentHP - tickDamage);
+                Player.NotifyHpDamageResolved();
                 Log($"[Combat] «Берсерк» наносит {tickDamage:F1} урона {Player.DisplayName} (HP {Player.CurrentHP:F1}/{Player.MaxHP:F1}).");
             }
         }
@@ -373,6 +388,9 @@ public class CombatManager : MonoBehaviour
         foreach (var weapon in combatant.Weapons)
         {
             weapon.AttackTimer = 0f;
+            weapon.PrototypeCounter = 0;
+            weapon.PrototypeAccumulatedDamage = 0f;
+            weapon.SecondsSinceLastAttack = 0f;
         }
     }
 
@@ -488,6 +506,9 @@ public class CombatManager : MonoBehaviour
     // собственной скорости — обрабатываются в отдельных циклах, а не слитно одним таймером.
     void TickCombatant(CombatantRuntime attacker, float deltaTime)
     {
+        foreach (var weapon in attacker.Weapons)
+            weapon.SecondsSinceLastAttack += Mathf.Max(0f, deltaTime);
+
         // 3.9 "Заморозка": замороженный участник не может атаковать; таймеры атаки не копятся.
         // AttackLocked — тот же эффект "не копится/не бьёт", но временно и по воле UI (см.
         // CombatantRuntime.AttackLocked) — обычная атака не должна прерывать анимацию скилла.
@@ -621,11 +642,12 @@ public class CombatManager : MonoBehaviour
             {
                 float detonationDamage = BleedRules.DetonationDamage(target.BleedDamagePerSecond, target.BleedTimer);
                 tickDamage += detonationDamage;
-                target.BleedTimer = BleedRules.DurationForLevel(target.BleedLevel);
+                target.BleedTimer = target.AdjustNegativeStatusDuration(BleedRules.DurationForLevel(target.BleedLevel));
                 Log($"[Combat] Критический тик кровотечения детонирует ещё {detonationDamage:F1} урона и обновляет длительность.");
             }
 
             target.CurrentHP -= tickDamage;
+            target.NotifyHpDamageResolved();
             HitResolved?.Invoke(target, tickDamage, isCriticalTick, false);
             Log($"[Combat] {target.DisplayName} получает {tickDamage:F1} урона от кровотечения{(isCriticalTick ? " (крит!)" : string.Empty)} (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
@@ -659,6 +681,12 @@ public class CombatManager : MonoBehaviour
 
         bool wasStealthedAtAttackStart = attacker.IsStealthed;
         AttackPerformed?.Invoke(attacker, isRegularAttack);
+
+        float pendulumBonusPercent = weapon.PrototypeEffect == WeaponPrototypeEffectId.Pendulum
+            ? PrototypeWeaponRules.PendulumBonusPercent(weapon.SecondsSinceLastAttack,
+                weapon.PrototypePrimaryValue, weapon.PrototypeSecondaryValue)
+            : 0f;
+        weapon.SecondsSinceLastAttack = 0f;
 
         if (weapon.CursedEffect == CursedEffectId.RecklessCharge && CursedItemRules.IsCurseActive(attacker, CursedEffectId.RecklessCharge))
         {
@@ -735,7 +763,16 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        float damage = Random.Range(weapon.DamageMin, weapon.DamageMax) * damageMultiplier;
+        float baseAttackDamage = Random.Range(weapon.DamageMin, weapon.DamageMax) * damageMultiplier;
+        float damage = baseAttackDamage;
+        if (pendulumBonusPercent > 0f)
+            damage *= 1f + pendulumBonusPercent / 100f;
+        if (weapon.PrototypeEffect == WeaponPrototypeEffectId.SpellEater)
+            damage += weapon.PrototypeAccumulatedDamage;
+        if (weapon.PrototypeEffect == WeaponPrototypeEffectId.ResonanceScimitar)
+            damage *= PrototypeWeaponRules.ResonanceDamageMultiplier(attacker, weapon);
+        if (weapon.PrototypeEffect == WeaponPrototypeEffectId.LastArgumentConversion)
+            damage *= PrototypeWeaponRules.LastArgumentDamageMultiplier(attacker, weapon);
 
         if (weapon.CursedEffect == CursedEffectId.Executioner)
         {
@@ -769,6 +806,12 @@ public class CombatManager : MonoBehaviour
         {
             damage *= 1f + attacker.ItemDamageBonusPercent / 100f;
         }
+
+        damage *= 1f + attacker.FoodDamagePercent / 100f;
+        if (weapon.DamageType == DamageType.Physical)
+            damage *= 1f + attacker.FoodPhysicalDamagePercent / 100f;
+        if (target.IsBoss)
+            damage *= 1f + attacker.FoodBossDamagePercent / 100f;
 
         // 3.11 (Task 6b, Моменто Мори): "Казнь" — доп. физ. урон = 1% недостающего HP ЦЕЛИ за
         // уровень оружия. Только физический урон, только если оружие реально несёт эту пассивку.
@@ -843,12 +886,12 @@ public class CombatManager : MonoBehaviour
                 var existingIntimidation = target.ActiveDebuffs.Find(d => d.Id == "intimidation");
                 if (existingIntimidation != null)
                 {
-                    existingIntimidation.RemainingTime = 3f;
+                    existingIntimidation.RemainingTime = target.AdjustNegativeStatusDuration(3f);
                     existingIntimidation.AttackSpeedMultiplier = intimidationMultiplier;
                 }
                 else
                 {
-                    target.ActiveDebuffs.Add(new ActiveDebuff { Id = "intimidation", RemainingTime = 3f, AttackSpeedMultiplier = intimidationMultiplier });
+                    target.ActiveDebuffs.Add(new ActiveDebuff { Id = "intimidation", RemainingTime = target.AdjustNegativeStatusDuration(3f), AttackSpeedMultiplier = intimidationMultiplier });
                 }
                 Log($"[Combat] «Запугивание» снижает скорость атаки {target.DisplayName} на {(1f - intimidationMultiplier) * 100f:F0}% (3 сек).");
             }
@@ -861,7 +904,36 @@ public class CombatManager : MonoBehaviour
         float armorBeforeAttack = target.PhysicalDefenseCurrent;
         bool paranoiaCrash = target.CursedParanoiaStacks > 0 && CursedItemRules.IsCurseActive(target, CursedEffectId.ParanoiaBlades);
         float paranoiaMultiplier = paranoiaCrash ? CursedItemRules.ParanoiaIncomingMultiplier(target.CursedParanoiaStacks) : 1f;
-        var result = DamageCalculator.ApplyDamage(target, (damage + armorPenetrationDamage) * paranoiaMultiplier, weapon.DamageType, weapon.ArmorIgnorePercent);
+        float magicShieldBeforeAttack = target.MagicShieldCurrent;
+        DamageCalculator.DamageResult result;
+        if (weapon.PrototypeEffect == WeaponPrototypeEffectId.SpellEater)
+        {
+            result = DamageCalculator.ApplySpellEaterPhysicalDamage(target,
+                (damage + armorPenetrationDamage) * paranoiaMultiplier,
+                weapon.ArmorIgnorePercent, out float shieldRemoved);
+            if (magicShieldBeforeAttack > 0f && target.MagicShieldCurrent <= 0f)
+                weapon.PrototypeAccumulatedDamage += shieldRemoved;
+        }
+        else if (weapon.PrototypeEffect == WeaponPrototypeEffectId.DayAndNight)
+        {
+            float physicalShare = Mathf.Clamp01(weapon.PrototypePrimaryValue / 100f);
+            float magicalShare = Mathf.Clamp01(weapon.PrototypeSecondaryValue / 100f);
+            float shareTotal = physicalShare + magicalShare;
+            if (shareTotal <= 0f) { physicalShare = 0.5f; magicalShare = 0.5f; shareTotal = 1f; }
+            physicalShare /= shareTotal;
+            magicalShare /= shareTotal;
+            var physical = DamageCalculator.ApplyDamage(target,
+                (damage * physicalShare + armorPenetrationDamage) * paranoiaMultiplier,
+                DamageType.Physical, weapon.ArmorIgnorePercent);
+            var magical = DamageCalculator.ApplyDamage(target,
+                damage * magicalShare * paranoiaMultiplier, DamageType.Magical);
+            result = PrototypeWeaponRules.Combine(physical, magical);
+        }
+        else
+        {
+            result = DamageCalculator.ApplyDamage(target, (damage + armorPenetrationDamage) * paranoiaMultiplier,
+                weapon.DamageType, weapon.ArmorIgnorePercent);
+        }
         if (paranoiaCrash) target.CursedParanoiaStacks = 0;
         float normalArmorLost = armorBeforeAttack - target.PhysicalDefenseCurrent;
 
@@ -892,6 +964,15 @@ public class CombatManager : MonoBehaviour
         // атаки оружием и каждый отдельный удар активного навыка (цикл в TryActivateUniqueActiveSkill
         // вызывает ResolveAttack по разу на удар, так что события уже приходят по одному, не суммарно).
         HitResolved?.Invoke(target, result.DamageToHP, isCrit, result.WasBlocked);
+
+        if (isRegularAttack && weapon.PrototypeEffect == WeaponPrototypeEffectId.LightningSpear &&
+            PrototypeWeaponRules.AdvanceLightningCounter(weapon) && target.IsAlive)
+        {
+            float lightningDamage = baseAttackDamage * Mathf.Max(0f, weapon.PrototypePrimaryValue) / 100f;
+            var lightning = DamageCalculator.ApplyDamage(target, lightningDamage, DamageType.Magical);
+            HitResolved?.Invoke(target, lightning.DamageToHP, false, lightning.WasBlocked);
+            Log($"[Combat] Копьё молний наносит {lightning.DamageToHP:F1} дополнительного магического урона.");
+        }
 
         if (weapon.CursedEffect == CursedEffectId.BerserkerAxe)
             weapon.CursedStacks = Mathf.Min(CursedItemRules.MaxStacks, weapon.CursedStacks + 1);
@@ -978,6 +1059,7 @@ public class CombatManager : MonoBehaviour
             if (reflectedDamage > 0f)
             {
                 attacker.CurrentHP -= reflectedDamage;
+                attacker.NotifyHpDamageResolved();
                 HitResolved?.Invoke(attacker, reflectedDamage, false, false);
                 Log($"[Combat] Шипы {target.DisplayName} отражают {reflectedDamage:F1} урона по {attacker.DisplayName}.");
                 if (!attacker.IsAlive)
@@ -1083,14 +1165,14 @@ public class CombatManager : MonoBehaviour
 
         int maxStacks = FreezeMaxStacksByLevel(attacker.SkillFreezeLevel);
         target.FreezeStacks = Mathf.Min(target.FreezeStacks + 1, maxStacks);
-        target.FreezeStackTimer = 3f;
+        target.FreezeStackTimer = target.AdjustNegativeStatusDuration(3f);
 
         Log($"[Combat] {target.DisplayName} получает стак заморозки ({target.FreezeStacks}/{maxStacks}).");
 
         if (target.FreezeStacks >= 10)
         {
             target.IsFrozen = true;
-            target.FreezeTimer = 5f;
+            target.FreezeTimer = target.AdjustNegativeStatusDuration(5f);
             Log($"[Combat] {target.DisplayName} замораживается на 5 секунд!");
         }
     }
@@ -1099,7 +1181,8 @@ public class CombatManager : MonoBehaviour
     {
         float detonationDamage = BleedRules.DetonationDamage(target.BleedDamagePerSecond, target.BleedTimer);
         target.CurrentHP -= detonationDamage;
-        target.BleedTimer = BleedRules.DurationForLevel(target.BleedLevel);
+        target.NotifyHpDamageResolved();
+        target.BleedTimer = target.AdjustNegativeStatusDuration(BleedRules.DurationForLevel(target.BleedLevel));
         HitResolved?.Invoke(target, detonationDamage, true, false);
         Log($"[Combat] Критический удар детонирует кровотечение на {target.DisplayName}: {detonationDamage:F1} урона; длительность обновлена.");
     }
@@ -1117,7 +1200,7 @@ public class CombatManager : MonoBehaviour
 
         target.HasBleed = true;
         target.BleedDamagePerSecond = BleedRules.DamagePerSecond(bleedLevel);
-        target.BleedTimer = BleedRules.DurationForLevel(bleedLevel); // не стакается, обновляет длительность
+        target.BleedTimer = target.AdjustNegativeStatusDuration(BleedRules.DurationForLevel(bleedLevel)); // не стакается, обновляет длительность
         target.BleedLevel = bleedLevel;
         target.BleedSource = source;
 
@@ -1160,7 +1243,7 @@ public class CombatManager : MonoBehaviour
         }
 
         target.RoguePoisonStacksOnTarget = Mathf.Min(target.RoguePoisonStacksOnTarget + stacksToAdd, maxStacks);
-        target.RoguePoisonTimer = 3f;
+        target.RoguePoisonTimer = target.AdjustNegativeStatusDuration(3f);
         Log($"[Combat] «Отравленный клинок» накладывает яд на {target.DisplayName} ({target.RoguePoisonStacksOnTarget}/{maxStacks} стаков).");
     }
 
@@ -1182,6 +1265,7 @@ public class CombatManager : MonoBehaviour
         {
             target.RoguePoisonTickAccumulator -= 1f;
             target.CurrentHP -= damagePerSecond;
+            target.NotifyHpDamageResolved();
             HitResolved?.Invoke(target, damagePerSecond, false, false);
             Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от «Отравленного клинка» (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
@@ -1231,7 +1315,7 @@ public class CombatManager : MonoBehaviour
                 if (!result.WasBlocked && !IgnoresDebuffs(target))
                 {
                     target.PoisonStacks = Mathf.Min(target.PoisonStacks + 1, 3);
-                    target.PoisonTimer = 3f;
+                    target.PoisonTimer = target.AdjustNegativeStatusDuration(3f);
                     Log($"[Combat] {target.DisplayName} получает яд ({target.PoisonStacks}/3 стаков).");
                 }
                 break;
@@ -1242,7 +1326,7 @@ public class CombatManager : MonoBehaviour
                 if (Random.value < 0.15f && !IgnoresDebuffs(target))
                 {
                     target.CritChanceDebuffPercent = 20f;
-                    target.CritChanceDebuffTimer = 4f;
+                    target.CritChanceDebuffTimer = target.AdjustNegativeStatusDuration(4f);
                     Log($"[Combat] Оглушающий крик {attacker.DisplayName} снижает шанс крита {target.DisplayName}.");
                 }
                 break;
@@ -1256,11 +1340,11 @@ public class CombatManager : MonoBehaviour
                     var existing = target.ActiveDebuffs.Find(d => d.Id == "warlock_slow");
                     if (existing != null)
                     {
-                        existing.RemainingTime = 3f;
+                        existing.RemainingTime = target.AdjustNegativeStatusDuration(3f);
                     }
                     else
                     {
-                        target.ActiveDebuffs.Add(new ActiveDebuff { Id = "warlock_slow", RemainingTime = 3f, AttackSpeedMultiplier = 0.7f });
+                        target.ActiveDebuffs.Add(new ActiveDebuff { Id = "warlock_slow", RemainingTime = target.AdjustNegativeStatusDuration(3f), AttackSpeedMultiplier = 0.7f });
                     }
                     Log($"[Combat] Проклятие замедления {attacker.DisplayName} снижает скорость атаки {target.DisplayName} на 30% (3 сек).");
                 }
@@ -1349,6 +1433,7 @@ public class CombatManager : MonoBehaviour
         {
             target.PoisonTickAccumulator -= 1f;
             target.CurrentHP -= damagePerSecond;
+            target.NotifyHpDamageResolved();
             HitResolved?.Invoke(target, damagePerSecond, false, false);
             Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от яда (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 

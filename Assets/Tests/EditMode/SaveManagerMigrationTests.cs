@@ -66,4 +66,36 @@ public class SaveManagerMigrationTests
 
         Assert.AreEqual(SaveData.CurrentSaveVersion, data.saveVersion);
     }
+
+    [Test]
+    public void NewSaveData_RoundTripsPersistentProgression()
+    {
+        var data = new SaveData();
+        data.resources.Add(new KeyCountEntry { key = PersistentResourceIds.Grain, count = 4 });
+        data.unlockedTavernRecipes.Add("recipe_stew");
+        data.unlockedForgeBlueprints.Add("blueprint_sword");
+        data.researchedItemPrototypes.Add("prototype_sword");
+        data.preparedDishes.Add(new KeyCountEntry { key = "dish_stew", count = 2 });
+        var loaded = UnityEngine.JsonUtility.FromJson<SaveData>(UnityEngine.JsonUtility.ToJson(data));
+        Assert.AreEqual(4, loaded.resources[0].count);
+        Assert.AreEqual("recipe_stew", loaded.unlockedTavernRecipes[0]);
+        Assert.AreEqual("prototype_sword", loaded.researchedItemPrototypes[0]);
+        Assert.AreEqual(2, loaded.preparedDishes[0].count);
+    }
+
+    [Test]
+    public void Migration_NormalizesNullDuplicatesAndNegativeCountsWithoutLosingLegacyFields()
+    {
+        const string oldJson = "{\"saveVersion\":6,\"metaCurrency\":123,\"forgeLevel\":4," +
+            "\"resources\":[{\"key\":\"grain\",\"count\":-3},{\"key\":\"grain\",\"count\":5}]," +
+            "\"preparedDishes\":null,\"unlockedTavernRecipes\":[\"stew\",\"stew\",\"\"]}";
+        var data = UnityEngine.JsonUtility.FromJson<SaveData>(oldJson);
+        SaveManager.MigrateIfNeeded(data);
+        Assert.AreEqual(123, data.metaCurrency);
+        Assert.AreEqual(4, data.forgeLevel);
+        Assert.AreEqual(1, data.resources.Count);
+        Assert.AreEqual(5, data.resources[0].count);
+        Assert.IsNotNull(data.preparedDishes);
+        CollectionAssert.AreEqual(new[] { "stew" }, data.unlockedTavernRecipes);
+    }
 }

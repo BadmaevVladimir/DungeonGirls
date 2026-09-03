@@ -29,7 +29,8 @@ public static class DamageCalculator
         incomingDamage = Mathf.Max(0f, incomingDamage);
         float cursedDefenseMultiplier = CursedItemRules.IsCurseActive(target, CursedEffectId.RecklessCharge)
             ? CursedItemRules.RecklessDefenseMultiplier(target.CursedRecklessStacks) : 1f;
-        float effectiveDefense = target.PhysicalDefenseCurrent * cursedDefenseMultiplier * (1f - Mathf.Clamp01(armorIgnorePercent / 100f));
+        float foodArmorMultiplier = 1f + target.FoodArmorEffectivenessPercent / 100f;
+        float effectiveDefense = target.PhysicalDefenseCurrent * foodArmorMultiplier * cursedDefenseMultiplier * (1f - Mathf.Clamp01(armorIgnorePercent / 100f));
         float armorLoss = incomingDamage > 0f ? Mathf.Max(1f, Mathf.Floor(incomingDamage / 20f)) : 0f;
 
         if (incomingDamage < effectiveDefense)
@@ -47,6 +48,7 @@ public static class DamageCalculator
         }
         target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - armorLoss);
         target.CurrentHP -= remainder;
+        target.NotifyHpDamageResolved();
 
         return new DamageResult { DamageToHP = remainder, WasBlocked = false };
     }
@@ -63,6 +65,7 @@ public static class DamageCalculator
         float remainder = incomingDamage - target.MagicShieldCurrent;
         target.MagicShieldCurrent = 0f;
         target.CurrentHP -= remainder;
+        target.NotifyHpDamageResolved();
 
         return new DamageResult { DamageToHP = remainder, WasBlocked = false };
     }
@@ -106,6 +109,38 @@ public static class DamageCalculator
             ? ApplyPhysicalDamage(target, damageAfterResistance, armorIgnorePercent)
             : ApplyMagicalDamage(target, damageAfterResistance);
         result.ShieldPoolDamageAbsorbed = shieldAbsorbed;
+        return result;
+    }
+
+    // Forge prototype exception: the attack remains physical, but after generic barriers it can
+    // strip Magic Shield; only overflow then returns to the ordinary physical armour pipeline.
+    public static DamageResult ApplySpellEaterPhysicalDamage(CombatantRuntime target, float incomingDamage,
+        float armorIgnorePercent, out float magicShieldRemoved)
+    {
+        float receivedMultiplier = 1f;
+        var berserkerWeapon = target.FindCursedWeapon(CursedEffectId.BerserkerAxe);
+        if (berserkerWeapon != null && CursedItemRules.IsCurseActive(target, CursedEffectId.BerserkerAxe))
+            receivedMultiplier *= 1f + CursedItemRules.StackBonusPercent(
+                berserkerWeapon.ItemRank, berserkerWeapon.CursedStacks) / 100f;
+        float remaining = Mathf.Max(0f, incomingDamage) * receivedMultiplier *
+            (1f - Mathf.Clamp01(target.PhysicalResistancePercent / 100f));
+
+        float barrierRemoved = 0f;
+        if (target.ShieldPoolCurrent > 0f && remaining > 0f)
+        {
+            barrierRemoved = Mathf.Min(target.ShieldPoolCurrent, remaining);
+            target.ShieldPoolCurrent -= barrierRemoved;
+            remaining -= barrierRemoved;
+        }
+
+        magicShieldRemoved = Mathf.Min(Mathf.Max(0f, target.MagicShieldCurrent), remaining);
+        target.MagicShieldCurrent -= magicShieldRemoved;
+        remaining -= magicShieldRemoved;
+        if (remaining <= 0f)
+            return new DamageResult { WasBlocked = true, ShieldPoolDamageAbsorbed = barrierRemoved };
+
+        var result = ApplyPhysicalDamage(target, remaining, armorIgnorePercent);
+        result.ShieldPoolDamageAbsorbed = barrierRemoved;
         return result;
     }
 }

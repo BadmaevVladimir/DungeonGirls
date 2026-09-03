@@ -25,6 +25,7 @@ public partial class RunFlowController : MonoBehaviour
     [SerializeField] List<PassiveSkillData> barbarianSkillPool;
     [SerializeField] List<MonsterData> regularMonsterPool;
     [SerializeField] MonsterData bossData;
+    [SerializeField] RareRoomConfig rareRoomConfig;
     // UXML ui:Image's src="project://database/..." does not resolve at runtime (confirmed via
     // PlayModeSmokeTest: Image.image/.sprite stayed null in Play Mode) — wired here in code instead,
     // same pattern as mentorData above.
@@ -232,6 +233,9 @@ public partial class RunFlowController : MonoBehaviour
     // --- Награда (7.2/8.2: модальное окно поверх текущей сцены, не отдельная ShowOnly-панель) ---
     VisualElement rewardScrim;
     VisualElement rewardModalCard;
+    VisualElement lootSummaryContainer;
+    VisualElement lootSummaryRows;
+    Button lootSummaryContinueButton;
     Label rewardText;
     Button rewardContinueButton;
 
@@ -277,6 +281,8 @@ public partial class RunFlowController : MonoBehaviour
     bool pendingCombatReward;
     bool pendingCombatWasBoss;
     bool pendingStandaloneChestReward;
+    RoomRewardGrant pendingRoomRewardGrant;
+    System.Action lootSummaryConfirmHandler;
 
     CharacterData selectedCharacter;
     VeteranCharacter selectedMentor;
@@ -287,6 +293,19 @@ public partial class RunFlowController : MonoBehaviour
     // персистентен между боями ОДНОГО забега (как и раньше персистился через .value статичного
     // UXML-тумблера), но по умолчанию ВЫКЛЮЧЕН на старте нового забега.
     bool activeSkillAutoModePreference;
+
+    RareRoomConfig RareRoomConfig
+    {
+        get
+        {
+            if (rareRoomConfig == null)
+            {
+                rareRoomConfig = ScriptableObject.CreateInstance<RareRoomConfig>();
+                rareRoomConfig.hideFlags = HideFlags.HideAndDontSave;
+            }
+            return rareRoomConfig;
+        }
+    }
 
     void OnEnable()
     {
@@ -317,6 +336,9 @@ public partial class RunFlowController : MonoBehaviour
         if (vnManager != null) vnManager.SceneCompleted -= OnRunVNSceneCompleted;
         vnManager = null;
         pendingRunSceneId = null;
+        if (lootSummaryContinueButton != null && lootSummaryConfirmHandler != null)
+            lootSummaryContinueButton.clicked -= lootSummaryConfirmHandler;
+        lootSummaryConfirmHandler = null;
     }
 
     void Update()
@@ -473,6 +495,9 @@ public partial class RunFlowController : MonoBehaviour
 
         rewardScrim = root.Q<VisualElement>("RewardScrim");
         rewardModalCard = root.Q<VisualElement>("RewardModalCard");
+        lootSummaryContainer = root.Q<VisualElement>("LootSummaryContainer");
+        lootSummaryRows = root.Q<VisualElement>("LootSummaryRows");
+        lootSummaryContinueButton = root.Q<Button>("LootSummaryContinueButton");
         rewardText = root.Q<Label>("RewardText");
         rewardContinueButton = root.Q<Button>("RewardContinueButton");
 
@@ -504,6 +529,7 @@ public partial class RunFlowController : MonoBehaviour
         levelUpManager.BarbarianSkillPool = barbarianSkillPool;
 
         characterManager.BeginRun(selectedCharacter, equipmentManager, saveManager);
+        rewardManager.SetPrototypeProgression(saveManager.Data.researchedItemPrototypes);
 
         // 1, п.3: применяем уже выбранный и разыгранный снимок наследования ветерана.
         ApplySelectedMentorInheritance();
@@ -540,6 +566,7 @@ public partial class RunFlowController : MonoBehaviour
                 bool isBossRoom = currentNode.Kind == FloorMapNodeKind.Boss;
 
                 ResetPendingRoomRewards();
+                characterManager.BeginRoom();
                 yield return ResolveMapNode(currentNode);
 
                 floorManager.MarkCurrentRoomCompleted();
@@ -553,6 +580,10 @@ public partial class RunFlowController : MonoBehaviour
 
                 // 8.5: комната засчитывается в награду за поражение только если персонаж её пережил.
                 characterManager.MarkRoomCleared();
+
+                // Только post-combat flow переносится перед camp. Отдельные сундуки ловушек/
+                // событий сохраняют прежнее место после camp и не получают combat-summary.
+                if (pendingCombatReward) yield return ResolvePendingRoomRewards();
 
                 if (isBossRoom)
                 {
@@ -570,8 +601,6 @@ public partial class RunFlowController : MonoBehaviour
                             break;
                         }
                     }
-
-                    yield return ResolvePendingRoomRewards();
 
                     break; // этаж пройден (2.5: комната босса всегда последняя)
                 }

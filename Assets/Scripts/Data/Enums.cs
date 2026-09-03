@@ -43,6 +43,17 @@ public enum ItemTier
     Cursed
 }
 
+public enum WeaponPrototypeEffectId
+{
+    None,
+    ResonanceScimitar,
+    SpellEater,
+    LightningSpear,
+    Pendulum,
+    DayAndNight,
+    LastArgumentConversion
+}
+
 public enum CursedEffectId
 {
     None = 0,

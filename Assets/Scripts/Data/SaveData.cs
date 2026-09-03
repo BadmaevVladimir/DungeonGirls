@@ -64,7 +64,7 @@ public class VeteranCharacter
 [Serializable]
 public class SaveData
 {
-    public const int CurrentSaveVersion = 6; // 6 = очки отношений по стабильному characterId.
+    public const int CurrentSaveVersion = 7; // 7 = постоянные ресурсы, блюда и открытия Таверны/Кузницы.
 
     public int saveVersion = SaveData.CurrentSaveVersion;
 
@@ -87,4 +87,12 @@ public class SaveData
     public List<CharacterSceneList> seenVNScenes = new List<CharacterSceneList>();
     public List<KeyCountEntry> relationshipPoints = new List<KeyCountEntry>();
     public List<string> seenTutorialHints = new List<string>();
+
+    // JsonUtility не поддерживает Dictionary: все постоянные keyed-данные хранятся списками и
+    // нормализуются SaveManager.MigrateIfNeeded.
+    public List<KeyCountEntry> resources = new List<KeyCountEntry>();
+    public List<string> unlockedTavernRecipes = new List<string>();
+    public List<string> unlockedForgeBlueprints = new List<string>();
+    public List<string> researchedItemPrototypes = new List<string>();
+    public List<KeyCountEntry> preparedDishes = new List<KeyCountEntry>();
 }

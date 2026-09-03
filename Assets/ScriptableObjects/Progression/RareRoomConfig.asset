@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c570894012f481f807cd4c917833e6a, type: 3}
+  m_Name: RareRoomConfig
+  m_EditorClassIdentifier: Assembly-CSharp::RareRoomConfig
+  mushroomCaveChance: 0.1
+  mushroomCaveMinimumFloor: 2
+  mushroomCavePerFloorLimit: 1
+  harpyNestChance: 0.1
+  harpyNestMinimumFloor: 2
+  harpyNestPerFloorLimit: 1
+  abandonedForgeChance: 0.08
+  abandonedForgeMinimumFloor: 3
+  abandonedForgePerFloorLimit: 1
+  mushroomSafeAmount: 2
+  mushroomRiskAmount: 4
+  mushroomPoisonChance: 0.25
+  mushroomPoisonDurationRooms: 3
+  mushroomPoisonHealingPenaltyPercent: 10
+  harpySuccessMinEggs: 2
+  harpySuccessMaxEggs: 3
+  harpyFailureVictoryEggs: 1
+  abandonedForgeTwoMaterialsChance: 0.25

@@ -26,6 +26,9 @@ public class CharacterManager : MonoBehaviour
 
     public int CurrentHP => Mathf.CeilToInt(Combatant != null ? Combatant.CurrentHP : 0f);
     public int Level => Progress != null ? Progress.Level : 1;
+    public ActiveFoodBuff FoodBuff { get; private set; } = new ActiveFoodBuff();
+    public ActiveRunRoomDebuff RunRoomDebuff { get; private set; } = new ActiveRunRoomDebuff();
+    bool pendingExplorerIngredientRoll;
 
     // 8.1 (ФИКС): уровни зданий на момент старта забега — здания не меняются посреди забега,
     // поэтому достаточно прочитать их один раз в BeginRun и переиспользовать в RefreshCombatStats/
@@ -48,6 +51,9 @@ public class CharacterManager : MonoBehaviour
         Modifiers = new RunModifiers();
         RunCurrency = 0;
         RoomsClearedThisRun = 0;
+        FoodBuff = new ActiveFoodBuff();
+        RunRoomDebuff = new ActiveRunRoomDebuff();
+        pendingExplorerIngredientRoll = false;
         tavernLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Tavern) : 0;
         forgeLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Forge) : 0;
         templeLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Temple) : 0;
@@ -170,7 +176,23 @@ public class CharacterManager : MonoBehaviour
     {
         RoomsClearedThisRun++;
         RoomsClearedOnCurrentFloor++;
+        pendingExplorerIngredientRoll |= FoodBuff.CompleteRoom(Combatant, new UnityRewardRandom());
+        RunRoomDebuff.CompleteRoom();
     }
+
+    public void BeginRoom() => FoodBuff.BeginRoom();
+
+    public bool ConsumeExplorerIngredientRoll()
+    {
+        bool value = pendingExplorerIngredientRoll;
+        pendingExplorerIngredientRoll = false;
+        return value;
+    }
+
+    public void ActivateFood(FoodRecipeData recipe) => FoodBuff.Activate(recipe, Combatant);
+
+    public void ApplyMushroomPoison(RareRoomConfig config) =>
+        RunRoomDebuff.ApplyMushroomPoison(config, Combatant);
 
     // Пересобирает боевые статы персонажа (после левел-апа/нового навыка), сохраняя текущее
     // HP/физ. защиту относительно старого максимума, а не сбрасывая их к полному (3.1: левел-ап
@@ -190,6 +212,8 @@ public class CharacterManager : MonoBehaviour
 
         Combatant = rebuilt;
         BindRuntimeServicesAndCurses();
+        FoodBuff.Bind(Combatant);
+        RunRoomDebuff.Bind(Combatant);
     }
 
     void BindRuntimeServicesAndCurses()
@@ -204,6 +228,7 @@ public class CharacterManager : MonoBehaviour
     public void ApplyDirectDamage(float amount)
     {
         Combatant.CurrentHP = Mathf.Max(0f, Combatant.CurrentHP - amount);
+        Combatant.NotifyHpDamageResolved();
     }
 
     public void ApplyDirectArmorLoss(float amount)

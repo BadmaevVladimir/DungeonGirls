@@ -3,6 +3,13 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "NewItem", menuName = "DungeonGirls/Item")]
 public class ItemData : ScriptableObject
 {
+    // Пустой ID означает legacy/base-предмет, который всегда остаётся в loot pool.
+    public string prototypeId;
+    public WeaponPrototypeEffectId prototypeEffect;
+    // Generic data knobs used only by the selected prototypeEffect.
+    public float prototypePrimaryValue;
+    public float prototypeSecondaryValue;
+    public int prototypeMaxStacks;
     public string itemName;
     public Sprite icon; // 10.6: пиксель-арт иконка предмета (64x64), общая для всех тиров архетипа.
     public EquipmentSlot slot;

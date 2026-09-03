@@ -33,7 +33,7 @@ public class CampManager : MonoBehaviour
         var combatant = characterManager.Combatant;
         float basePercent = 0.5f + BuildingCatalog.TavernCampHealBonusPercent(characterManager.TavernLevelThisRun) / 100f;
         float hpBefore = combatant.CurrentHP;
-        combatant.CurrentHP = Mathf.Min(combatant.MaxHP, combatant.CurrentHP + combatant.MaxHP * basePercent * healMultiplier);
+        combatant.Heal(combatant.MaxHP * basePercent * healMultiplier);
         var result = new CampResult
         {
             HpRestored = combatant.CurrentHP - hpBefore,
@@ -44,6 +44,7 @@ public class CampManager : MonoBehaviour
         {
             result.BacklashDamage = CursedItemRules.CalculateNormalCritDamage(combatant, oathbreaker);
             combatant.CurrentHP = Mathf.Max(0f, combatant.CurrentHP - result.BacklashDamage);
+            combatant.NotifyHpDamageResolved();
         }
         return result;
     }
@@ -51,6 +52,10 @@ public class CampManager : MonoBehaviour
     // Совместимый метод для существующих вызовов: тратит рацион, затем лечит.
     public CampResult RestAtCamp(CharacterManager characterManager, float healMultiplier = 1f) =>
         TrySpendRation() ? RestoreAtCamp(characterManager, healMultiplier) : default;
+
+    // Приготовленная порция занимает тот же rest-flow, но не является вторым запасом рационов забега.
+    public CampResult RestWithPreparedDish(CharacterManager characterManager, float healMultiplier = 1f) =>
+        RestoreAtCamp(characterManager, healMultiplier);
 
     // «Горячие источники»: бесплатно восстанавливают HP полностью, но не броню.
     public float RestoreFullHealth(CharacterManager characterManager)

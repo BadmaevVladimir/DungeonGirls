@@ -7,16 +7,20 @@ using UnityEngine;
 public partial class RunFlowController
 {
     const string PersonalRestContentKey = "special:personal-rest";
+    const string MushroomCaveContentKey = "special:mushroom-cave";
+    const string AbandonedForgeContentKey = "special:abandoned-forge";
+    const string HarpyNestContentKey = "trap:harpy-nest";
 
     void ResolveGeneratedFloorMapContent()
     {
+        var rareState = new RareRoomFloorState();
         foreach (var node in floorManager.CurrentMap.Nodes)
         {
             var previousRandomState = UnityEngine.Random.state;
             UnityEngine.Random.InitState(node.ContentSeed);
             try
             {
-                ResolveNodeContent(node);
+                ResolveNodeContent(node, rareState);
                 node.ContentResolved = true;
             }
             finally
@@ -27,7 +31,7 @@ public partial class RunFlowController
         floorManager.FinalizeGeneratedContent();
     }
 
-    void ResolveNodeContent(FloorMapNode node)
+    void ResolveNodeContent(FloorMapNode node, RareRoomFloorState rareState)
     {
         node.ResolvedMonsterIds ??= new List<string>();
         node.ResolvedMerchantOffers ??= new List<FloorMerchantOfferState>();
@@ -43,11 +47,13 @@ public partial class RunFlowController
                 node.ContentKey = $"boss:{bossData.monsterName}";
                 break;
             case RoomType.Trap:
+                // Harpy Nest has a fully resolved backend/content ID, but live selection remains
+                // disabled until its missing success-check difficulty is approved.
                 var trap = TrapCatalog.All[UnityEngine.Random.Range(0, TrapCatalog.All.Length)];
                 node.ContentKey = $"trap:{trap.Name}";
                 break;
             case RoomType.Special:
-                ResolveSpecialContent(node);
+                ResolveSpecialContent(node, rareState);
                 break;
             case RoomType.Merchant:
                 ResolveMerchantContent(node);
@@ -76,8 +82,21 @@ public partial class RunFlowController
         node.ContentKey = $"combat:{string.Join("|", node.ResolvedMonsterIds)}";
     }
 
-    void ResolveSpecialContent(FloorMapNode node)
+    void ResolveSpecialContent(FloorMapNode node, RareRoomFloorState rareState)
     {
+        var rare = RareRoomContentResolver.Resolve(RoomType.Special, dungeonManager.CurrentFloorNumber,
+            RareRoomConfig, rareState, new UnityRewardRandom());
+        if (rare == RareRoomContentId.MushroomCave)
+        {
+            node.ContentKey = MushroomCaveContentKey;
+            return;
+        }
+        if (rare == RareRoomContentId.AbandonedForge)
+        {
+            node.ContentKey = AbandonedForgeContentKey;
+            return;
+        }
+
         bool personalRoomAvailable = IsPersonalRestRoomAvailable() &&
             (characterManager.RoomsClearedThisRun > 0 || node.Kind != FloorMapNodeKind.Start);
         if (personalRoomAvailable && UnityEngine.Random.value < 0.30f)
@@ -178,17 +197,40 @@ public partial class RunFlowController
         pendingCombatReward = false;
         pendingCombatWasBoss = false;
         pendingStandaloneChestReward = false;
+        pendingRoomRewardGrant = null;
     }
 
     IEnumerator ResolvePendingRoomRewards()
     {
         if (pendingCombatReward)
         {
+            floorManager.SetFloorState(FloorState.RoomRewardResolve);
+            int luckLevel = characterManager.Progress.GetSkillLevel(SkillId.Luck);
+            int currencyBonus = characterManager.Modifiers.ConsumeChestCurrencyBonus();
+            bool noCurrency = characterManager.Modifiers.ConsumeChestNoCurrency();
+            int goldenTouchLevel = characterManager.Combatant.ItemGoldenTouchLevel;
+            var foodIngredients = new List<ResourceAmount>();
+            if (characterManager.ConsumeExplorerIngredientRoll())
+            {
+                var bonus = rewardManager.RollCombatIngredient(new UnityRewardRandom());
+                if (bonus.HasValue) foodIngredients.Add(bonus.Value);
+            }
+            pendingRoomRewardGrant ??= new RoomRewardGrant(rewardManager.CalculateRoomReward(
+                dungeonManager.CurrentFloorNumber, pendingCombatWasBoss, characterManager.Level,
+                luckLevel, currencyBonus, noCurrency, goldenTouchLevel,
+                characterManager.Character.characterClass, extraIngredients: foodIngredients));
+
+            var ingredientStacks = new List<ResourceAmount>();
+            pendingRoomRewardGrant.TryApply(characterManager.AddCurrency, ingredientStacks.Add);
+            saveManager.AddResources(ingredientStacks);
+
             var levelsGained = characterManager.GrantExperience(
                 rewardManager,
                 pendingCombatWasBoss ? ExperienceSource.Boss : ExperienceSource.CombatRoom,
                 dungeonManager.CurrentFloorNumber);
-            yield return ShowRewardChestFlow(dungeonManager.CurrentFloorNumber, pendingCombatWasBoss);
+            yield return ShowLootSummaryFlow(pendingRoomRewardGrant.Result);
+            if (pendingRoomRewardGrant.Result.HasChest)
+                yield return ShowResolvedRewardChestFlow(pendingRoomRewardGrant.Result.Chest);
 
             // ГДД: повышение уровня открывается только после завершения выдачи награды.
             foreach (int reachedLevel in levelsGained)

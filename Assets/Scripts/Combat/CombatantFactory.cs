@@ -452,6 +452,11 @@ public static class CombatantFactory
                 : 0f;
             var weaponState = new WeaponAttackState
             {
+                PrototypeId = item.prototypeId,
+                PrototypeEffect = item.prototypeEffect,
+                PrototypePrimaryValue = item.prototypePrimaryValue,
+                PrototypeSecondaryValue = item.prototypeSecondaryValue,
+                PrototypeMaxStacks = item.prototypeMaxStacks,
                 CursedEffect = item.cursedEffect,
                 ItemRank = item.EffectRank,
                 DamageMin = damageMin,
@@ -473,6 +478,10 @@ public static class CombatantFactory
                 // вызывает on-hit/on-crit эффекты ровно один раз.
                 weapons.Add(new WeaponAttackState
                 {
+                    PrototypeId = weaponState.PrototypeId, PrototypeEffect = weaponState.PrototypeEffect,
+                    PrototypePrimaryValue = weaponState.PrototypePrimaryValue,
+                    PrototypeSecondaryValue = weaponState.PrototypeSecondaryValue,
+                    PrototypeMaxStacks = weaponState.PrototypeMaxStacks,
                     CursedEffect = weaponState.CursedEffect, ItemRank = weaponState.ItemRank,
                     DamageMin = weaponState.DamageMin, DamageMax = weaponState.DamageMax,
                     DamageType = weaponState.DamageType, AttackSpeed = weaponState.AttackSpeed,

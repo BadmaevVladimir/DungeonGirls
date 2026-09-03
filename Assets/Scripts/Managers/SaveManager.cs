@@ -16,6 +16,43 @@ public class SaveManager : MonoBehaviour
     const string SaveFileName = "dungeongirls_save.json";
 
     public SaveData Data { get; private set; } = new SaveData();
+    public event Action ResourcesChanged;
+
+    public ResourceInventory CreateResourceInventory() =>
+        new ResourceInventory(Data.resources, () =>
+        {
+            SaveGame();
+            ResourcesChanged?.Invoke();
+        });
+
+    public TavernService CreateTavernService(CatalogUnlockPolicy access = null) =>
+        new TavernService(Data, PersistResourceTransaction, access);
+
+    public ForgeService CreateForgeService(CatalogUnlockPolicy access = null) =>
+        new ForgeService(Data, PersistResourceTransaction, access);
+
+    void PersistResourceTransaction()
+    {
+        SaveGame();
+        ResourcesChanged?.Invoke();
+    }
+
+    public void AddResources(IReadOnlyList<ResourceAmount> amounts)
+    {
+        if (amounts == null) return;
+        var inventory = new ResourceInventory(Data.resources);
+        bool changed = false;
+        for (int i = 0; i < amounts.Count; i++)
+        {
+            var stack = amounts[i];
+            if (stack.amount <= 0 || string.IsNullOrWhiteSpace(stack.resourceId)) continue;
+            inventory.FindOrCreate(stack.resourceId).count += stack.amount;
+            changed = true;
+        }
+        if (!changed) return;
+        SaveGame();
+        ResourcesChanged?.Invoke();
+    }
 
     string SavePath => Path.Combine(Application.persistentDataPath, SaveFileName);
     string TempSavePath => SavePath + ".tmp";
@@ -62,6 +99,11 @@ public class SaveManager : MonoBehaviour
         if (data.seenVNScenes == null) data.seenVNScenes = new List<CharacterSceneList>();
         if (data.relationshipPoints == null) data.relationshipPoints = new List<KeyCountEntry>();
         if (data.seenTutorialHints == null) data.seenTutorialHints = new List<string>();
+        if (data.resources == null) data.resources = new List<KeyCountEntry>();
+        if (data.unlockedTavernRecipes == null) data.unlockedTavernRecipes = new List<string>();
+        if (data.unlockedForgeBlueprints == null) data.unlockedForgeBlueprints = new List<string>();
+        if (data.researchedItemPrototypes == null) data.researchedItemPrototypes = new List<string>();
+        if (data.preparedDishes == null) data.preparedDishes = new List<KeyCountEntry>();
 
         // v3: Claude первоначально записал названия классов как стабильные ID двух героев.
         // По решению дизайнера персонажи называются Саша/Вайолет, а Варвар/Плут — только классы.
@@ -77,6 +119,11 @@ public class SaveManager : MonoBehaviour
         MigrateCharacterKey(data.relationshipPoints, "sasha", "barbarian", "Варвар", "Саша");
         MigrateVeteranIds(data.veteranDeck);
         MigrateSeenSceneIds(data.seenVNScenes);
+        NormalizeCounts(data.resources);
+        NormalizeCounts(data.preparedDishes);
+        NormalizeIds(data.unlockedTavernRecipes);
+        NormalizeIds(data.unlockedForgeBlueprints);
+        NormalizeIds(data.researchedItemPrototypes);
 
         // Стартовая копия Дженифер нужна и в уже созданных сохранениях, чтобы она была видна
         // в статистике экрана персонажей. Существующие дополнительные копии не затрагиваются.
@@ -84,6 +131,37 @@ public class SaveManager : MonoBehaviour
         if (jennifer.count < 1) jennifer.count = 1;
 
         data.saveVersion = SaveData.CurrentSaveVersion;
+    }
+
+    static void NormalizeCounts(List<KeyCountEntry> entries)
+    {
+        for (int i = entries.Count - 1; i >= 0; i--)
+        {
+            var entry = entries[i];
+            if (entry == null || string.IsNullOrWhiteSpace(entry.key))
+            {
+                entries.RemoveAt(i);
+                continue;
+            }
+
+            entry.count = Mathf.Max(0, entry.count);
+            var destination = entries.Find(other => other != entry && other != null &&
+                string.Equals(other.key, entry.key, StringComparison.Ordinal));
+            if (destination == null) continue;
+            destination.count = Mathf.Max(0, destination.count) + entry.count;
+            entries.RemoveAt(i);
+        }
+    }
+
+    static void NormalizeIds(List<string> ids)
+    {
+        for (int i = ids.Count - 1; i >= 0; i--)
+        {
+            string id = ids[i];
+            if (string.IsNullOrWhiteSpace(id) || ids.FindIndex(other =>
+                    string.Equals(other, id, StringComparison.Ordinal)) < i)
+                ids.RemoveAt(i);
+        }
     }
 
     static void MigrateCharacterKey(List<KeyCountEntry> entries, string stableId, params string[] legacyKeys)

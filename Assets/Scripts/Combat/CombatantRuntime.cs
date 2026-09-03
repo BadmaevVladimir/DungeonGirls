@@ -49,6 +49,19 @@ public class CombatantRuntime
     public float MagicShieldMax;
     public float MagicShieldCurrent;
 
+    // Run-level food modifiers are rebound by CharacterManager when combat stats are rebuilt.
+    public ActiveFoodBuff ActiveFoodBuff;
+    public float FoodReceivedHealingPercent;
+    public float RunReceivedHealingPercent;
+    public float FoodDamagePercent;
+    public float FoodPhysicalDamagePercent;
+    public float FoodBossDamagePercent;
+    public float FoodArmorEffectivenessPercent;
+    public float FoodAttackSpeedPercent;
+    public float FoodCritChancePoints;
+    public float FoodNegativeStatusDurationReductionPercent;
+    public bool FoodBarrierActive;
+
     // Одно оружие — у монстров и большинства снаряжения персонажа; два — при дуал-вилде
     // (3.9 "Амбидекстрия"), каждое со своим независимым таймером атаки.
     public List<WeaponAttackState> Weapons = new List<WeaponAttackState>();
@@ -262,11 +275,20 @@ public class CombatantRuntime
         float multiplier = 1f;
         foreach (var debuff in ActiveDebuffs)
         {
-            multiplier *= debuff.AttackSpeedMultiplier;
+            if (weapon.PrototypeEffect != WeaponPrototypeEffectId.LastArgumentConversion || debuff.AttackSpeedMultiplier <= 1f)
+                multiplier *= debuff.AttackSpeedMultiplier;
         }
 
         multiplier *= Mathf.Max(0.01f, 1f - FreezeStacks * 0.05f);
-        multiplier *= 1f + ItemAttackSpeedBonusPercent / 100f; // 3.10 (ФИКС): AttackSpeedPercent от снаряжения
+        if (weapon.PrototypeEffect != WeaponPrototypeEffectId.LastArgumentConversion)
+        {
+            multiplier *= 1f + ItemAttackSpeedBonusPercent / 100f;
+            multiplier *= 1f + FoodAttackSpeedPercent / 100f;
+        }
+        else if (ItemAttackSpeedBonusPercent < 0f) multiplier *= 1f + ItemAttackSpeedBonusPercent / 100f;
+
+        if (weapon.PrototypeEffect == WeaponPrototypeEffectId.ResonanceScimitar)
+            multiplier *= 1f + PrototypeWeaponRules.ResonanceAttackSpeedPercent(this, weapon) / 100f;
 
         if (weapon.CursedEffect == CursedEffectId.BerserkerAxe)
             multiplier *= 1f + CursedItemRules.StackBonusPercent(weapon.ItemRank, weapon.CursedStacks) / 100f;
@@ -278,7 +300,7 @@ public class CombatantRuntime
             multiplier *= 1f + CursedItemRules.ThornAttackSpeedBonusPercent(weapon.ItemRank) / 100f;
 
         // 3.11 (Варвар) — "Остервенелость": скорость атаки растёт с текущей Яростью.
-        if (SkillFrenzyLevel > 0)
+        if (SkillFrenzyLevel > 0 && weapon.PrototypeEffect != WeaponPrototypeEffectId.LastArgumentConversion)
         {
             // ФИКС (код-ревью): один division /100 переводит Rage×X (число-проценты) в дробь для
             // множителя — этого достаточно. Двойное деление (было /100/100) давало ~1% от нужной
@@ -287,6 +309,17 @@ public class CombatantRuntime
         }
 
         return Mathf.Max(0.01f, weapon.AttackSpeed * multiplier);
+    }
+
+    public float GetPositiveAttackSpeedBonusPercent()
+    {
+        float multiplier = (1f + Mathf.Max(0f, ItemAttackSpeedBonusPercent) / 100f) *
+            (1f + Mathf.Max(0f, FoodAttackSpeedPercent) / 100f);
+        foreach (var modifier in ActiveDebuffs)
+            if (modifier.AttackSpeedMultiplier > 1f) multiplier *= modifier.AttackSpeedMultiplier;
+        if (SkillFrenzyLevel > 0)
+            multiplier *= 1f + Rage * RageRules.SkillMultiplier(SkillFrenzyLevel) / 100f;
+        return Mathf.Max(0f, (multiplier - 1f) * 100f);
     }
 
     public float GetEffectiveAttackInterval(WeaponAttackState weapon)
@@ -298,4 +331,20 @@ public class CombatantRuntime
     {
         MagicShieldCurrent = MagicShieldMax;
     }
+
+    public float Heal(float amount)
+    {
+        float before = CurrentHP;
+        float receivedMultiplier = Mathf.Max(0f, 1f +
+            (FoodReceivedHealingPercent + RunReceivedHealingPercent) / 100f);
+        CurrentHP = Mathf.Min(MaxHP, CurrentHP + Mathf.Max(0f, amount) * receivedMultiplier);
+        return CurrentHP - before;
+    }
+
+    public float AdjustNegativeStatusDuration(float duration) =>
+        duration * (1f - Mathf.Clamp01(FoodNegativeStatusDurationReductionPercent / 100f));
+
+    public bool TryBlockNegativeStatus() => ActiveFoodBuff?.TryBlockNegativeStatus() ?? false;
+
+    public void NotifyHpDamageResolved() => ActiveFoodBuff?.TryLowHealthHeal(this);
 }

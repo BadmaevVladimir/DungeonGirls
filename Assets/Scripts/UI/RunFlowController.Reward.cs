@@ -23,6 +23,51 @@ public partial class RunFlowController
         });
     }
 
+    IEnumerator ShowLootSummaryFlow(RoomRewardResult reward)
+    {
+        floorManager.SetFloorState(FloorState.LootSummary);
+        LootSummaryPresenter.Populate(lootSummaryRows, reward);
+        lootSummaryContainer.style.display = DisplayStyle.Flex;
+        chestRevealContainer.style.display = DisplayStyle.None;
+        rewardText.style.display = DisplayStyle.None;
+        rewardContinueButton.style.display = DisplayStyle.None;
+        lootSummaryContinueButton.SetEnabled(true);
+
+        yield return ShowRewardOverlay();
+        bool confirmed = false;
+        void Confirm()
+        {
+            if (confirmed) return;
+            confirmed = true;
+            lootSummaryContinueButton.SetEnabled(false);
+        }
+        lootSummaryConfirmHandler = Confirm;
+        lootSummaryContinueButton.clicked += lootSummaryConfirmHandler;
+        yield return new WaitUntil(() => confirmed);
+        lootSummaryContinueButton.clicked -= lootSummaryConfirmHandler;
+        lootSummaryConfirmHandler = null;
+        yield return HideRewardOverlay();
+        lootSummaryContainer.style.display = DisplayStyle.None;
+    }
+
+    IEnumerator ShowResolvedRewardChestFlow(ChestReward reward)
+    {
+        floorManager.SetFloorState(FloorState.RewardChest);
+        lootSummaryContainer.style.display = DisplayStyle.None;
+        rewardText.style.display = DisplayStyle.Flex;
+        rewardContinueButton.style.display = DisplayStyle.Flex;
+        yield return ShowRewardOverlay();
+        tutorialManager?.QueueOnce(TutorialContent.Reward);
+        rewardText.text = string.Empty;
+        yield return ChestRevealFlow(reward);
+        rewardText.text = $"Получено: {DisplayFormat.RarityLabel(reward.ItemRarity)} предмет" +
+            (reward.BonusReward ? "\n+ дополнительная награда (Удача)" : string.Empty);
+        SetRarityClass(rewardText, reward.ItemRarity);
+        yield return WaitForClick(rewardContinueButton);
+        yield return HideRewardOverlay();
+        if (reward.Item != null) yield return ItemCompareFlow(reward.Item);
+    }
+
     IEnumerator ShowRewardChestFlow(int floorNumber, bool isBoss)
     {
         floorManager.SetFloorState(FloorState.RewardChest);
@@ -33,6 +78,10 @@ public partial class RunFlowController
 
         int goldenTouchLevel = characterManager.Combatant.ItemGoldenTouchLevel;
         var reward = rewardManager.CalculateRewards(floorNumber, isBoss, characterManager.Level, luckLevel, currencyBonus, noCurrency, goldenTouchLevel, characterManager.Character.characterClass);
+
+        lootSummaryContainer.style.display = DisplayStyle.None;
+        rewardText.style.display = DisplayStyle.Flex;
+        rewardContinueButton.style.display = DisplayStyle.Flex;
 
         // 7.2/8.2 (НОВОЕ): модальное окно поверх текущей сцены — не ShowOnly, сцена позади (обычно
         // бой) остаётся видна затемнённой, а не скрывается целиком.
@@ -124,9 +173,7 @@ public partial class RunFlowController
 
         // 8.2: лента из ~20 иконок предметов, взятых из пула каталога (те же иконки, что уже
         // назначены в Task 2) — случайный подбор с повторами, если в каталоге меньше 20 предметов.
-        var pool = rewardManager.itemCatalog != null
-            ? rewardManager.itemCatalog.GetCompatibleItems(characterManager.Character.characterClass)
-            : null;
+        var pool = rewardManager.GetCompatibleLootItems(characterManager.Character.characterClass);
         if (pool == null || pool.Count == 0)
         {
             // Пустой каталог — деградируем на мгновенный переход к итогу без ленты, не зависаем.

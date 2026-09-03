@@ -677,6 +677,32 @@ Button {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
 }
 
+.loot-summary-container {
+    min-width: 320px;
+    align-items: stretch;
+}
+
+.loot-summary-title {
+    -unity-text-align: middle-center;
+    margin-bottom: 10px;
+}
+
+.loot-summary-rows {
+    margin-bottom: 14px;
+}
+
+.loot-summary-row {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    padding: 7px 10px;
+    margin-bottom: 5px;
+    color: rgb(224, 218, 203);
+}
+
+.loot-summary-currency { color: rgb(230, 190, 82); }
+.loot-summary-chest { color: rgb(160, 190, 245); }
+.loot-summary-material { color: rgb(185, 205, 220); }
+
 .chest-reveal-container {
     align-items: center;
     margin-bottom: 12px;

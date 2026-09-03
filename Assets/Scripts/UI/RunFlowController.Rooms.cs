@@ -20,6 +20,18 @@ public partial class RunFlowController
 
         if (chanceSucceeded)
         {
+            var trapResources = new List<ResourceAmount>();
+            var ingredient = rewardManager.RollIngredientReward(RewardRoomContext.Trap, new UnityRewardRandom());
+            var material = rewardManager.RollForgeMaterial(RewardRoomContext.Trap, new UnityRewardRandom());
+            if (ingredient.HasValue) trapResources.Add(ingredient.Value);
+            if (material.HasValue) trapResources.Add(material.Value);
+            if (trapResources.Count > 0)
+            {
+                saveManager.AddResources(trapResources);
+                LogEvent("[Ловушка] Дополнительные ресурсы: " + string.Join(", ",
+                    trapResources.ConvertAll(value => $"{PersistentResourceDisplay.Name(value.resourceId)} +{value.amount}")));
+            }
+
             if (trap == TrapCatalog.Idol)
             {
                 characterManager.AddCurrency(500);
@@ -103,6 +115,17 @@ public partial class RunFlowController
 
     IEnumerator EventRoomFlow(FloorMapNode roomNode)
     {
+        if (string.Equals(roomNode.ContentKey, MushroomCaveContentKey, System.StringComparison.Ordinal))
+        {
+            yield return MushroomCaveRoomFlow();
+            yield break;
+        }
+        if (string.Equals(roomNode.ContentKey, AbandonedForgeContentKey, System.StringComparison.Ordinal))
+        {
+            yield return AbandonedForgeRoomFlow();
+            yield break;
+        }
+
         if (string.Equals(roomNode.ContentKey, PersonalRestContentKey, System.StringComparison.Ordinal))
         {
             if (!TryReservePersonalRestRoom())
@@ -221,6 +244,53 @@ public partial class RunFlowController
                 }
             }
         }
+    }
+
+    IEnumerator MushroomCaveRoomFlow()
+    {
+        ShowOnly(eventPopup);
+        tutorialManager?.QueueOnce(TutorialContent.EventRoom);
+        eventDescriptionLabel.text = "В пещере растут редкие съедобные грибы. Можно собрать немного безопасно или рискнуть ради большей добычи.";
+        eventChoicesContainer.Clear();
+        var safe = new Button { text = "Безопасно собрать 2 гриба" };
+        var risky = new Button { text = "Рискнуть и собрать 4 гриба" };
+        safe.AddToClassList("choice-card");
+        risky.AddToClassList("choice-card");
+        eventChoicesContainer.Add(safe);
+        eventChoicesContainer.Add(risky);
+        yield return WaitForAnyClick(safe, risky);
+
+        bool riskChosen = clickedIndex == 1;
+        var outcome = RareRoomRewardHooks.ResolveMushroomCave(riskChosen, RareRoomConfig,
+            new UnityRewardRandom());
+        saveManager.AddResources(new[] { outcome.Mushrooms });
+        if (outcome.ApplyNegativeConsequence) characterManager.ApplyMushroomPoison(RareRoomConfig);
+
+        eventChoicesContainer.Clear();
+        eventDescriptionLabel.text = $"Получено: {outcome.Mushrooms.amount} пещерных грибов." +
+            (outcome.ApplyNegativeConsequence
+                ? $"\nОтравление: −{RareRoomConfig.mushroomPoisonHealingPenaltyPercent:F0}% получаемого лечения на следующие {RareRoomConfig.mushroomPoisonDurationRooms} комнаты."
+                : string.Empty);
+        var continueButton = new Button { text = "Продолжить" };
+        continueButton.AddToClassList("button-primary");
+        eventChoicesContainer.Add(continueButton);
+        yield return WaitForClick(continueButton);
+    }
+
+    IEnumerator AbandonedForgeRoomFlow()
+    {
+        var materials = rewardManager.RollAbandonedForgeMaterials(RareRoomConfig, new UnityRewardRandom());
+        saveManager.AddResources(materials);
+        ShowOnly(eventPopup);
+        tutorialManager?.QueueOnce(TutorialContent.EventRoom);
+        eventChoicesContainer.Clear();
+        eventDescriptionLabel.text = "В заброшенной кузнице ещё осталось немного пригодных материалов.\n" +
+            string.Join("\n", materials.ConvertAll(value =>
+                $"{PersistentResourceDisplay.Name(value.resourceId)}: +{value.amount}"));
+        var continueButton = new Button { text = "Забрать материалы" };
+        continueButton.AddToClassList("button-primary");
+        eventChoicesContainer.Add(continueButton);
+        yield return WaitForClick(continueButton);
     }
 
     bool TryReservePersonalRestRoom()

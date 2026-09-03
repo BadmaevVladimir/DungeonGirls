@@ -11,10 +11,19 @@ public enum ExperienceSource
 // Итог открытия сундука (8.2). Сама рулетка/анимация — задача фазы с UI, здесь только результат.
 public class ChestReward
 {
-    public int Currency;
-    public ItemTier ItemRarity;
-    public ItemData Item; // 3.4: конкретный предмет для сравнения/эквипа; null, если каталог пуст
-    public bool BonusReward; // 3.9 "Удача" ур.5: доп. шанс на дополнительную награду
+    public int Currency { get; }
+    public ItemTier ItemRarity { get; }
+    public ItemData Item { get; } // 3.4: конкретный предмет для сравнения/эквипа; null, если каталог пуст
+    public bool BonusReward { get; } // 3.9 "Удача" ур.5: доп. шанс на дополнительную награду
+
+    public ChestReward(int currency = 0, ItemTier itemRarity = ItemTier.Common,
+        ItemData item = null, bool bonusReward = false)
+    {
+        Currency = currency;
+        ItemRarity = itemRarity;
+        Item = item;
+        BonusReward = bonusReward;
+    }
 }
 
 // 8.5: награды за завершённый забег (победа/поражение), отдельно от валюты забега из сундуков.
@@ -39,12 +48,56 @@ public class MerchantOffer
 public class RewardManager : MonoBehaviour
 {
     [SerializeField] internal ItemCatalogData itemCatalog;
+    [SerializeField] RoomRewardConfig roomRewardConfig;
+    [SerializeField] bool unlockAllItemPrototypesForTesting;
+    IReadOnlyList<string> researchedItemPrototypes;
+
+    public const float RegularCombatChestChance = 0.50f;
+    RoomRewardConfig Config
+    {
+        get
+        {
+            if (roomRewardConfig == null)
+            {
+                roomRewardConfig = ScriptableObject.CreateInstance<RoomRewardConfig>();
+                roomRewardConfig.hideFlags = HideFlags.HideAndDontSave;
+            }
+            return roomRewardConfig;
+        }
+    }
+    public float CombatChestDropChance => Mathf.Clamp01(Config.combatChestDropChance);
+    public RoomRewardConfig RewardConfig => Config;
+
+    public void SetRoomRewardConfig(RoomRewardConfig config) => roomRewardConfig = config;
+    public void SetItemCatalog(ItemCatalogData catalog) => itemCatalog = catalog;
+
+    public void SetPrototypeProgression(IReadOnlyList<string> researchedIds, bool? testOverride = null)
+    {
+        researchedItemPrototypes = researchedIds;
+        if (testOverride.HasValue) unlockAllItemPrototypesForTesting = testOverride.Value;
+    }
+
+    public bool IsItemInLootPool(ItemData item)
+    {
+        if (item == null) return false;
+        if (string.IsNullOrWhiteSpace(item.prototypeId) || unlockAllItemPrototypesForTesting) return true;
+        if (researchedItemPrototypes == null) return false;
+        for (int i = 0; i < researchedItemPrototypes.Count; i++)
+            if (string.Equals(researchedItemPrototypes[i], item.prototypeId, System.StringComparison.Ordinal)) return true;
+        return false;
+    }
+
+    public List<ItemData> GetCompatibleLootItems(CharacterClass? characterClass) =>
+        itemCatalog != null ? itemCatalog.GetCompatibleItems(characterClass, IsItemInLootPool) : new List<ItemData>();
 
     // 8.2: валюта забега = 10 x номер этажа, ±20% разброс; сундук босса = x5 от базовой суммы.
     public int CalculateCurrencyReward(int floorNumber, bool isBoss)
+        => CalculateCurrencyReward(floorNumber, isBoss, new UnityRewardRandom());
+
+    int CalculateCurrencyReward(int floorNumber, bool isBoss, IRewardRandom random)
     {
         int baseCurrency = 10 * Mathf.Max(floorNumber, 1);
-        float spread = Random.Range(-0.2f, 0.2f);
+        float spread = Mathf.Lerp(-0.2f, 0.2f, random.Value());
         int currency = Mathf.RoundToInt(baseCurrency * (1f + spread));
 
         if (isBoss)
@@ -133,7 +186,7 @@ public class RewardManager : MonoBehaviour
         {
             ItemTier tier = RollItemRarity(false);
             ItemData item = null;
-            if (itemCatalog != null && itemCatalog.TryGetRandomItem(tier, characterClass, out var baseItem))
+            if (itemCatalog != null && itemCatalog.TryGetRandomItem(tier, characterClass, IsItemInLootPool, out var baseItem))
             {
                 item = RollItemLevel(baseItem, characterLevel);
             }
@@ -173,22 +226,151 @@ public class RewardManager : MonoBehaviour
         int currency = noCurrency ? 0 : Mathf.RoundToInt((CalculateCurrencyReward(floorNumber, isBoss) + currencyBonus) * goldenTouchMultiplier);
         ItemTier itemRarity = RollItemRarity(isBoss);
         ItemData rolledItem = null;
-        if (itemCatalog != null && itemCatalog.TryGetRandomItem(itemRarity, characterClass, out var baseItem))
+        if (itemCatalog != null && itemCatalog.TryGetRandomItem(itemRarity, characterClass, IsItemInLootPool, out var baseItem))
         {
             rolledItem = RollItemLevel(baseItem, characterLevel);
         }
 
-        var reward = new ChestReward
-        {
-            Currency = currency,
-            ItemRarity = itemRarity,
-            Item = rolledItem,
-            BonusReward = RollBonusReward(luckSkillLevel)
-        };
+        var reward = new ChestReward(currency, itemRarity, rolledItem, RollBonusReward(luckSkillLevel));
 
         Debug.Log($"[Reward] Сундук: {reward.Currency} валюты забега, редкость предмета — {reward.ItemRarity}{(reward.BonusReward ? ", + доп. награда (Удача)" : string.Empty)}.");
 
         return reward;
+    }
+
+    public RoomRewardResult CalculateRoomReward(int floorNumber, bool isBoss, int characterLevel,
+        int luckSkillLevel = 0, int currencyBonus = 0, bool noCurrency = false,
+        int goldenTouchLevel = 0, CharacterClass? characterClass = null, IRewardRandom random = null,
+        IEnumerable<ResourceAmount> extraIngredients = null)
+    {
+        random ??= new UnityRewardRandom();
+        bool hasChest = isBoss || random.Value() < CombatChestDropChance;
+        float goldenTouchMultiplier = 1f + ItemEffectBalance.GoldenTouchCurrencyBonusPercent(goldenTouchLevel) / 100f;
+        int currency = noCurrency ? 0 : Mathf.RoundToInt(
+            (CalculateCurrencyReward(floorNumber, isBoss, random) + currencyBonus) * goldenTouchMultiplier);
+
+        var ingredients = new List<ResourceAmount>();
+        if (extraIngredients != null) ingredients.AddRange(extraIngredients);
+        var ingredientDrop = RollIngredientReward(isBoss ? RewardRoomContext.Boss : RewardRoomContext.Combat, random);
+        if (ingredientDrop.HasValue) ingredients.Add(ingredientDrop.Value);
+
+        var materials = new List<ResourceAmount>();
+        var materialDrop = RollForgeMaterial(isBoss ? RewardRoomContext.Boss : RewardRoomContext.Combat, random);
+        if (materialDrop.HasValue) materials.Add(materialDrop.Value);
+
+        ChestReward chest = hasChest
+            ? CalculateChestReward(isBoss, characterLevel, luckSkillLevel, characterClass)
+            : null;
+        return new RoomRewardResult(currency, ingredients, hasChest,
+            isBoss ? RewardRoomContext.Boss : RewardRoomContext.Combat, chest, materials);
+    }
+
+    public ResourceAmount? RollCombatIngredient(IRewardRandom random)
+    {
+        return RollIngredient(RewardRoomContext.Combat, random);
+    }
+
+    public ResourceAmount? RollIngredientReward(RewardRoomContext context, IRewardRandom random = null)
+    {
+        var config = Config;
+        random ??= new UnityRewardRandom();
+        if (context == RewardRoomContext.Boss) return RollIngredient(context, random);
+        float chance = context switch
+        {
+            RewardRoomContext.Trap => config.successfulTrapIngredientDropChance,
+            RewardRoomContext.Special => config.supportedSpecialIngredientDropChance,
+            _ => config.combatIngredientDropChance
+        };
+        return random.Value() < chance ? RollIngredient(context, random) : null;
+    }
+
+    // Trap/Special content decides whether its approved reward exists; this only selects by the
+    // approved contextual weights and deliberately does not invent an overall drop chance.
+    public ResourceAmount? RollIngredient(RewardRoomContext context, IRewardRandom random = null)
+    {
+        var config = Config;
+        IReadOnlyList<IngredientDropRule> table = context switch
+        {
+            RewardRoomContext.Trap => config.trapIngredientDrops,
+            RewardRoomContext.Special => config.specialIngredientDrops,
+            RewardRoomContext.Boss => config.bossIngredientDrops,
+            _ => config.combatIngredientDrops
+        };
+        return RollWeighted(table, random ?? new UnityRewardRandom());
+    }
+
+    public ResourceAmount? RollForgeMaterial(RewardRoomContext context, IRewardRandom random = null)
+    {
+        if (context == RewardRoomContext.Special) return null;
+        var config = Config;
+        random ??= new UnityRewardRandom();
+        if (context == RewardRoomContext.Boss)
+            return RollWeighted(config.bossForgeMaterialDrops, random);
+        float chance = context switch
+        {
+            RewardRoomContext.Trap => config.successfulTrapForgeMaterialChance,
+            _ => config.normalCombatForgeMaterialChance
+        };
+        IReadOnlyList<IngredientDropRule> table = context switch
+        {
+            RewardRoomContext.Boss => config.bossForgeMaterialDrops,
+            RewardRoomContext.Trap => config.trapForgeMaterialDrops,
+            _ => config.combatForgeMaterialDrops
+        };
+        return random.Value() < chance ? RollWeighted(table, random) : null;
+    }
+
+    public List<ResourceAmount> RollAbandonedForgeMaterials(RareRoomConfig rareConfig, IRewardRandom random = null)
+    {
+        random ??= new UnityRewardRandom();
+        int count = RareRoomRewardHooks.RollAbandonedForgeMaterialCount(rareConfig, random);
+        var result = new List<ResourceAmount>(count);
+        for (int i = 0; i < count; i++)
+        {
+            var drop = RollWeighted(Config.abandonedForgeMaterialDrops, random);
+            if (drop.HasValue) result.Add(drop.Value);
+        }
+        return result;
+    }
+
+    public static float TotalWeight(IReadOnlyList<IngredientDropRule> rules)
+    {
+        float total = 0f;
+        if (rules == null) return total;
+        for (int i = 0; i < rules.Count; i++)
+            if (rules[i] != null && !string.IsNullOrWhiteSpace(rules[i].resourceId))
+                total += Mathf.Max(0f, rules[i].weight);
+        return total;
+    }
+
+    static ResourceAmount? RollWeighted(IReadOnlyList<IngredientDropRule> rules, IRewardRandom random)
+    {
+        if (rules == null) return null;
+        float total = TotalWeight(rules);
+        if (total <= 0f) return null;
+        float roll = random.Value() * total;
+        for (int i = 0; i < rules.Count; i++)
+        {
+            var rule = rules[i];
+            if (rule == null || string.IsNullOrWhiteSpace(rule.resourceId)) continue;
+            roll -= Mathf.Max(0f, rule.weight);
+            if (roll > 0f) continue;
+            int min = Mathf.Max(1, rule.minAmount);
+            int max = Mathf.Max(min, rule.maxAmount);
+            return new ResourceAmount(rule.resourceId, random.Range(min, max + 1));
+        }
+        return null;
+    }
+
+    // Формулы редкости/уровня предмета и boss-minimum остаются прежними; валюта теперь room reward.
+    ChestReward CalculateChestReward(bool isBoss, int characterLevel, int luckSkillLevel,
+        CharacterClass? characterClass)
+    {
+        ItemTier itemRarity = RollItemRarity(isBoss);
+        ItemData rolledItem = null;
+        if (itemCatalog != null && itemCatalog.TryGetRandomItem(itemRarity, characterClass, IsItemInLootPool, out var baseItem))
+            rolledItem = RollItemLevel(baseItem, characterLevel);
+        return new ChestReward(0, itemRarity, rolledItem, RollBonusReward(luckSkillLevel));
     }
 
     // 8.5: Поражение даёт базовую награду: мета-валюта переработана —

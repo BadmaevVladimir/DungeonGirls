@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 // 8.2/3.4: пул предметов, из которого сундук/квест/торговец могут выдать конкретный ItemData
@@ -22,6 +23,9 @@ public class ItemCatalogData : ScriptableObject
     // Единый совместимый пул используется не только при выборе настоящей награды, но и UI-рулеткой.
     // Так визуальная лента не обещает предметы, которые выбранный персонаж не сможет получить.
     public List<ItemData> GetCompatibleItems(CharacterClass? characterClass)
+        => GetCompatibleItems(characterClass, null);
+
+    public List<ItemData> GetCompatibleItems(CharacterClass? characterClass, Func<ItemData, bool> progressionFilter)
     {
         var compatible = new List<ItemData>();
         if (items == null)
@@ -31,7 +35,7 @@ public class ItemCatalogData : ScriptableObject
 
         foreach (var item in items)
         {
-            if (IsAllowedForClass(item, characterClass))
+            if (IsAllowedForClass(item, characterClass) && (progressionFilter == null || progressionFilter(item)))
             {
                 compatible.Add(item);
             }
@@ -70,6 +74,10 @@ public class ItemCatalogData : ScriptableObject
     // Пустой allowedClasses означает универсальный предмет. nullable нужен только для старых
     // вызовов/инструментов редактора, где персонажа ещё нет в контексте.
     public bool TryGetRandomItem(ItemTier tier, CharacterClass? characterClass, out ItemData result)
+        => TryGetRandomItem(tier, characterClass, null, out result);
+
+    public bool TryGetRandomItem(ItemTier tier, CharacterClass? characterClass,
+        Func<ItemData, bool> progressionFilter, out ItemData result)
     {
         var candidates = new List<ItemData>();
         if (items != null)
@@ -81,7 +89,8 @@ public class ItemCatalogData : ScriptableObject
                     continue;
                 }
 
-                if (item.tier == tier && IsAllowedForClass(item, characterClass))
+                if (item.tier == tier && IsAllowedForClass(item, characterClass) &&
+                    (progressionFilter == null || progressionFilter(item)))
                 {
                     candidates.Add(item);
                 }
@@ -94,7 +103,7 @@ public class ItemCatalogData : ScriptableObject
             return false;
         }
 
-        result = candidates[Random.Range(0, candidates.Count)];
+        result = candidates[UnityEngine.Random.Range(0, candidates.Count)];
         return true;
     }
 
