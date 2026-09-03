@@ -238,11 +238,7 @@
                     <ui:VisualElement name="EnemyListContainer" class="enemy-list" />
                 </ui:VisualElement>
 
-                <ui:VisualElement class="combat-controls-row">
-                    <ui:Toggle name="AutoModeToggle" label="Авто-режим навыка" value="true" />
-                    <ui:Button name="ActiveSkillButton" text="Активный навык" class="button-secondary" />
-                    <ui:Toggle name="BerserkToggle" label="Берсерк" value="false" class="hidden" />
-                </ui:VisualElement>
+                <ui:VisualElement name="SkillPanelContainer" class="skill-panel-container" />
             </ui:VisualElement>
 
             <ui:VisualElement name="EventPopup" class="panel hidden">

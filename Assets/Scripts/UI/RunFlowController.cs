@@ -179,9 +179,20 @@ public partial class RunFlowController : MonoBehaviour
     Label stealthText;
     VisualElement playerStatusContainer;
     VisualElement enemyListContainer;
-    Toggle autoModeToggle;
-    Button activeSkillButton;
-    Toggle berserkToggle;
+    VisualElement skillPanelContainer;
+    readonly List<SkillSlotEntry> skillSlotEntries = new List<SkillSlotEntry>();
+
+    // Активные-скилы-панель (2026-09-03): один хоткей на слот по индексу, Q для первого. 4 клавиш
+    // с большим запасом сверх сегодняшнего максимума в 1 скилл на класс.
+    static readonly KeyCode[] SkillHotkeys = { KeyCode.Q, KeyCode.W, KeyCode.E, KeyCode.R };
+
+    class SkillSlotEntry
+    {
+        public VisualElement IconFrame;
+        public VisualElement CooldownOverlay;
+        public Label CooldownText;
+        public VisualElement AutoToggle;
+    }
 
     // --- Журнал забега (7.2: персистентный лог, не только боевой — виден и вне боя) ---
     ScrollView runLogScroll;
@@ -272,6 +283,11 @@ public partial class RunFlowController : MonoBehaviour
     List<string> selectedTransferredSkills = new List<string>();
     public CharacterData SelectedCharacter => selectedCharacter;
 
+    // Активные-скилы-панель (2026-09-03): единственный сегодня Cooldown-слот на класс — авто-режим
+    // персистентен между боями ОДНОГО забега (как и раньше персистился через .value статичного
+    // UXML-тумблера), но по умолчанию ВЫКЛЮЧЕН на старте нового забега.
+    bool activeSkillAutoModePreference;
+
     void OnEnable()
     {
         var root = uiDocument.rootVisualElement;
@@ -291,12 +307,6 @@ public partial class RunFlowController : MonoBehaviour
         pauseResumeButton.clicked += ResumeRun;
         pauseAbandonRunButton.clicked += AbandonRunFromPause;
         pauseQuitGameButton.clicked += QuitGame;
-        autoModeToggle.RegisterValueChangedCallback(evt => combatManager.SetSkillAutoMode(0, evt.newValue));
-        activeSkillButton.clicked += () => combatManager.TryActivateSkill(0);
-        // Временная заглушка (Task 3 удаляет этот Toggle целиком): TryActivateSkill только
-        // переключает, а не устанавливает конкретное значение — берсерк-чекбокс временно ведёт
-        // себя как кнопка-тумблер вместо чекбокса с явным состоянием.
-        berserkToggle.RegisterValueChangedCallback(evt => combatManager.TryActivateSkill(0));
     }
 
     void OnDisable()
@@ -433,9 +443,7 @@ public partial class RunFlowController : MonoBehaviour
         enemyListContainer = root.Q<VisualElement>("EnemyListContainer");
         runLogScroll = root.Q<ScrollView>("RunLogScroll");
         runLogText = root.Q<Label>("RunLogText");
-        autoModeToggle = root.Q<Toggle>("AutoModeToggle");
-        activeSkillButton = root.Q<Button>("ActiveSkillButton");
-        berserkToggle = root.Q<Toggle>("BerserkToggle");
+        skillPanelContainer = root.Q<VisualElement>("SkillPanelContainer");
 
         eventDescriptionLabel = root.Q<Label>("EventDescriptionLabel");
         eventChoicesContainer = root.Q<VisualElement>("EventChoicesContainer");
@@ -670,13 +678,6 @@ public partial class RunFlowController : MonoBehaviour
                 ? TutorialContent.StealthTooltip(0f, 0)
                 : TutorialContent.StealthTooltip(player.StealthTimer, player.SmokeBombGuaranteedCritsRemaining);
         });
-        tutorialManager.BindTooltip(autoModeToggle, "Авто-режим", TutorialContent.TooltipAuto);
-        tutorialManager.BindTooltip(activeSkillButton, "Активный навык",
-            () => TutorialContent.ActiveSkillTooltip(characterManager?.Character?.characterId));
-        tutorialManager.BindTooltip(berserkToggle, "Берсерк",
-            () => TutorialContent.BerserkTooltip(combatManager != null && combatManager.Player != null && combatManager.Player.IsBerserkActive
-                ? combatManager.Player.PhysicalResistancePercent
-                : 0f));
         tutorialManager.BindTooltip(levelUpRerollButton, "Перебросы", TutorialContent.TooltipReroll);
         tutorialManager.BindTooltip(merchantCurrencyLabel, "Валюта забега", TutorialContent.TooltipRunCurrency);
         tutorialManager.BindTooltip(trapChanceLabel, "Шанс успеха", TutorialContent.TooltipTrapChance);

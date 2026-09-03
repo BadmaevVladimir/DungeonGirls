@@ -325,10 +325,10 @@ public partial class RunFlowController
         var activeCharacter = characterManager.Progress.Character;
         bool isBarbarian = activeCharacter.characterClass == CharacterClass.Barbarian;
 
-        // Активные-скилы-панель (2026-09-03): Берсерк теперь проходит через ЭТОТ ЖЕ путь как
-        // Toggle-скилл (диспатч по ActiveSkillData.skillType в CombatManager.TryActivateSkill) —
-        // никакого класс-специфичного if/else в CombatManager больше нет. hitCount/multiplier не
-        // имеют смысла для Toggle-скиллов, но передаются нулями для единообразия сигнатуры.
+        // Активные-скилы-панель (2026-09-03): Берсерк проходит через ЭТОТ ЖЕ путь как Toggle-скилл
+        // (диспатч по ActiveSkillData.skillType в CombatManager.TryActivateSkill) — никакого
+        // класс-специфичного if/else в CombatManager нет. hitCount/multiplier не имеют смысла для
+        // Toggle-скиллов, но передаются нулями для единообразия сигнатуры.
         if (isBarbarian)
         {
             combatManager.ConfigureActiveSkills(new[]
@@ -343,9 +343,11 @@ public partial class RunFlowController
             int hitCount = CombatManager.ResolveActiveSkillHitCount(activeCharacter.characterClass);
             combatManager.ConfigureActiveSkills(new[]
             {
-                new ActiveSkillConfigEntry(activeCharacter.uniqueActiveSkill, hitCount, activeMultiplier, autoMode: autoModeToggle.value)
+                new ActiveSkillConfigEntry(activeCharacter.uniqueActiveSkill, hitCount, activeMultiplier, activeSkillAutoModePreference)
             });
         }
+
+        BuildSkillPanel();
 
         combatManager.LogMessage += OnCombatLog;
         combatManager.HitResolved += OnHitResolved;
@@ -381,6 +383,7 @@ public partial class RunFlowController
 
         while (combatManager.IsCombatActive)
         {
+            HandleSkillHotkeys();
             UpdateCombatUI();
             yield return null;
         }
@@ -597,19 +600,139 @@ public partial class RunFlowController
             UpdateBossTelegraph(entry);
         }
 
-        activeSkillButton.EnableInClassList("hidden", isBarbarianCombat);
-        autoModeToggle.EnableInClassList("hidden", isBarbarianCombat);
-        berserkToggle.EnableInClassList("hidden", !isBarbarianCombat);
+        UpdateSkillPanel();
+    }
 
-        if (!isBarbarianCombat)
+    // Активные-скилы-панель (2026-09-03): строится ОДИН раз при старте боя, как и
+    // BuildEnemyStageEntries — состав слотов не меняется в процессе одного боя.
+    void BuildSkillPanel()
+    {
+        skillPanelContainer.Clear();
+        skillSlotEntries.Clear();
+
+        for (int i = 0; i < combatManager.ActiveSkills.Count; i++)
         {
-            bool ready = combatManager.IsSkillReady(0);
-            activeSkillButton.SetEnabled(!autoModeToggle.value && ready);
-            activeSkillButton.text = ready ? "Активный навык (готов)" : $"Активный навык ({combatManager.SkillCooldownRemaining(0):F1}с)";
+            var data = combatManager.ActiveSkills[i].Data;
+            int slotIndex = i;
+
+            var slotRoot = new VisualElement();
+            slotRoot.AddToClassList("skill-slot");
+
+            var iconFrame = new VisualElement();
+            iconFrame.AddToClassList("skill-icon-frame");
+            iconFrame.RegisterCallback<ClickEvent>(_ => TryActivateSkillFromUI(slotIndex));
+
+            var icon = new Image { sprite = data.icon };
+            icon.AddToClassList("skill-icon");
+            iconFrame.Add(icon);
+
+            var cooldownOverlay = new VisualElement();
+            cooldownOverlay.AddToClassList("skill-cooldown-overlay");
+            iconFrame.Add(cooldownOverlay);
+
+            var cooldownText = new Label();
+            cooldownText.AddToClassList("skill-cooldown-text");
+            iconFrame.Add(cooldownText);
+
+            var hotkeyLabel = new Label(slotIndex < SkillHotkeys.Length ? SkillHotkeys[slotIndex].ToString() : string.Empty);
+            hotkeyLabel.AddToClassList("skill-hotkey-label");
+            iconFrame.Add(hotkeyLabel);
+
+            slotRoot.Add(iconFrame);
+
+            // Пульсация готовности — лёгкий переключатель класса по таймеру, т.к. UI Toolkit USS
+            // не поддерживает keyframe-анимации; сам класс skill-icon-ready включается/выключается
+            // каждый кадр в UpdateSkillPanel ниже.
+            iconFrame.schedule.Execute(() =>
+            {
+                if (iconFrame.ClassListContains("skill-icon-ready"))
+                {
+                    iconFrame.ToggleInClassList("skill-icon-ready-pulse");
+                }
+                else
+                {
+                    iconFrame.RemoveFromClassList("skill-icon-ready-pulse");
+                }
+            }).Every(500);
+
+            VisualElement autoToggle = null;
+            if (data.skillType == ActiveSkillType.Cooldown)
+            {
+                autoToggle = new VisualElement();
+                autoToggle.AddToClassList("skill-auto-toggle");
+                autoToggle.RegisterCallback<ClickEvent>(_ =>
+                {
+                    activeSkillAutoModePreference = !combatManager.ActiveSkills[slotIndex].AutoMode;
+                    combatManager.SetSkillAutoMode(slotIndex, activeSkillAutoModePreference);
+                });
+                slotRoot.Add(autoToggle);
+            }
+
+            tutorialManager?.BindTooltip(iconFrame, data.skillName, () => data.effectDescription);
+
+            skillPanelContainer.Add(slotRoot);
+            skillSlotEntries.Add(new SkillSlotEntry
+            {
+                IconFrame = iconFrame,
+                CooldownOverlay = cooldownOverlay,
+                CooldownText = cooldownText,
+                AutoToggle = autoToggle,
+            });
         }
-        else
+    }
+
+    void TryActivateSkillFromUI(int slotIndex)
+    {
+        if (slotIndex < 0 || slotIndex >= combatManager.ActiveSkills.Count)
         {
-            berserkToggle.SetValueWithoutNotify(player.IsBerserkActive);
+            return;
+        }
+
+        var slot = combatManager.ActiveSkills[slotIndex];
+        if (slot.Data.skillType == ActiveSkillType.Cooldown && slot.AutoMode)
+        {
+            return; // авто-режим сам решает, когда бить — ручной клик/хоткей здесь не имеет смысла
+        }
+
+        combatManager.TryActivateSkill(slotIndex);
+    }
+
+    void HandleSkillHotkeys()
+    {
+        for (int i = 0; i < combatManager.ActiveSkills.Count && i < SkillHotkeys.Length; i++)
+        {
+            if (Input.GetKeyDown(SkillHotkeys[i]))
+            {
+                TryActivateSkillFromUI(i);
+            }
+        }
+    }
+
+    void UpdateSkillPanel()
+    {
+        for (int i = 0; i < skillSlotEntries.Count && i < combatManager.ActiveSkills.Count; i++)
+        {
+            var slot = combatManager.ActiveSkills[i];
+            var entry = skillSlotEntries[i];
+
+            if (slot.Data.skillType == ActiveSkillType.Toggle)
+            {
+                entry.IconFrame.EnableInClassList("skill-icon-toggle-active", slot.IsToggleActive);
+                entry.IconFrame.EnableInClassList("skill-icon-toggle-inactive", !slot.IsToggleActive);
+                continue;
+            }
+
+            bool ready = combatManager.IsSkillReady(i);
+            float remaining = combatManager.SkillCooldownRemaining(i);
+            float fraction = slot.Data.cooldownSeconds > 0f ? Mathf.Clamp01(remaining / slot.Data.cooldownSeconds) : 0f;
+            entry.CooldownOverlay.style.height = new Length(fraction * 100f, LengthUnit.Percent);
+            entry.CooldownText.text = ready ? string.Empty : $"{remaining:F1}";
+            entry.IconFrame.EnableInClassList("skill-icon-ready", ready);
+
+            if (entry.AutoToggle != null)
+            {
+                entry.AutoToggle.EnableInClassList("skill-auto-toggle-on", slot.AutoMode);
+            }
         }
     }
 
