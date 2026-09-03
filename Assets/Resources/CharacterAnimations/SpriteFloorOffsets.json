@@ -1,0 +1,56 @@
+{
+    "entries": [
+        {
+            "key": "Jennifer",
+            "value": 0.0
+        },
+        {
+            "key": "Monster_Bat",
+            "value": 0.032258063554763797
+        },
+        {
+            "key": "Monster_DarkKnight",
+            "value": 0.017543859779834749
+        },
+        {
+            "key": "Monster_DarkPriest",
+            "value": 0.018518518656492235
+        },
+        {
+            "key": "Monster_GoblinThief",
+            "value": 0.02380952425301075
+        },
+        {
+            "key": "Monster_Harpy",
+            "value": 0.01886792480945587
+        },
+        {
+            "key": "Monster_PoisonSpiderling",
+            "value": 0.03125
+        },
+        {
+            "key": "Monster_Skeleton",
+            "value": 0.02222222276031971
+        },
+        {
+            "key": "Monster_Slime",
+            "value": 0.029411764815449716
+        },
+        {
+            "key": "Monster_StoneGuardian",
+            "value": 0.016949152573943139
+        },
+        {
+            "key": "Monster_Warlock",
+            "value": 0.019999999552965165
+        },
+        {
+            "key": "Sasha",
+            "value": 0.0
+        },
+        {
+            "key": "Violet",
+            "value": 0.02083333395421505
+        }
+    ]
+}
