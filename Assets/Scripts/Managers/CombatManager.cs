@@ -54,79 +54,123 @@ public class CombatManager : MonoBehaviour
         _ => 3 // "3 быстрые атаки" (Дженифер/Воин) — единственный hit-loop навык прототипа кроме Дымовой гранаты
     };
 
-    // 4.3: уникальный активный навык персонажа (3.1 "3 быстрые атаки" — единственный активный
-    // навык прототипа, общего пула активных навыков в 3.9 нет). Настраивается при входе в бой,
-    // т.к. зависит от текущего уровня навыка игрока.
-    int activeSkillHitCount;
-    float activeSkillDamageMultiplierPerHit;
-    float activeSkillCooldownSeconds;
-    string activeSkillName;
-    SkillId activeSkillId;
-    bool activeSkillAutoMode = true;
+    // Активные-скилы-панель (2026-09-03): список сконфигурированных на текущий бой слотов —
+    // сегодня всегда 1 элемент на класс (инфраструктура готова к N, контент не меняется).
+    // Заменяет прежние плоские activeSkill*-поля/ConfigureUniqueActiveSkill.
+    public List<ActiveSkillRuntimeState> ActiveSkills { get; } = new List<ActiveSkillRuntimeState>();
 
-    public bool IsActiveSkillConfigured { get; private set; }
-    public float ActiveSkillCooldownRemaining => Player != null ? Mathf.Max(0f, Player.ActiveSkillCooldownTimer) : 0f;
-    public bool IsActiveSkillReady => Player != null && Player.IsAlive && Player.ActiveSkillCooldownTimer <= 0f;
-
-    // Финальный ревью-фикс #4: эта конфигурация/hit-loop машинерия (TryActivateUniqueActiveSkill)
-    // была построена под Дженнифер ("3 быстрые атаки", см. RunFlowController). Берсерк (Варвар)
-    // НИКОГДА не должен проходить через неё — он не кулдаун-навык, а ручной тумблер, включаемый
-    // ТОЛЬКО через SetBerserkActive; TryActivateUniqueActiveSkill жёстко бейлит на нём (см. ниже).
-    // Дымовая граната (Плут) должна проходить через неё, но с hitCount: 0 — она сама не бьёт,
-    // только даёт Скрытность + гарантированные криты на СЛЕДУЮЩИЕ обычные атаки; ниже она тоже
-    // жёстко возвращается до hit-loop, так что фактический hitCount с будущего character-select
-    // UI для неё не важен, но 0 — по-прежнему корректное намерение при конфигурации.
-    public void ConfigureUniqueActiveSkill(int hitCount, float damageMultiplierPerHit, float cooldownSeconds, bool autoMode, string skillName, SkillId skillId)
+    public void ConfigureActiveSkills(IEnumerable<ActiveSkillConfigEntry> skills)
     {
-        activeSkillHitCount = hitCount;
-        activeSkillDamageMultiplierPerHit = damageMultiplierPerHit;
-        activeSkillCooldownSeconds = cooldownSeconds;
-        activeSkillName = skillName;
-        activeSkillId = skillId;
-        activeSkillAutoMode = autoMode;
-        IsActiveSkillConfigured = true;
+        ActiveSkills.Clear();
+        foreach (var entry in skills)
+        {
+            ActiveSkills.Add(new ActiveSkillRuntimeState
+            {
+                Data = entry.Data,
+                HitCount = entry.HitCount,
+                DamageMultiplierPerHit = entry.DamageMultiplierPerHit,
+                // Активные-скилы-панель (2026-09-03): скилл готов СРАЗУ, не в полном кулдауне —
+                // теперь активация ручная (клик/хоткей), а не автоматическая каждый кадр, так что
+                // прежний риск "мгновенно снёс до того как игрок увидел" больше не применим.
+                CooldownTimer = 0f,
+                IsToggleActive = false,
+                AutoMode = entry.AutoMode,
+            });
+        }
     }
 
-    public void SetActiveSkillAutoMode(bool autoMode)
+    public bool IsSkillReady(int slotIndex) =>
+        Player != null && Player.IsAlive && slotIndex >= 0 && slotIndex < ActiveSkills.Count &&
+        ActiveSkills[slotIndex].Data.skillType == ActiveSkillType.Cooldown &&
+        ActiveSkills[slotIndex].CooldownTimer <= 0f;
+
+    public float SkillCooldownRemaining(int slotIndex) =>
+        slotIndex >= 0 && slotIndex < ActiveSkills.Count ? Mathf.Max(0f, ActiveSkills[slotIndex].CooldownTimer) : 0f;
+
+    public bool TryActivateSkill(int slotIndex)
     {
-        activeSkillAutoMode = autoMode;
+        if (!IsCombatActive || slotIndex < 0 || slotIndex >= ActiveSkills.Count)
+        {
+            return false;
+        }
+
+        var slot = ActiveSkills[slotIndex];
+        return slot.Data.skillType == ActiveSkillType.Toggle ? TryToggleSkill(slot) : TryActivateCooldownSkill(slot);
     }
 
-    // БАГФИКС: Варвар вообще не вызывает ConfigureUniqueActiveSkill (Берсерк — ручной тумблер, см.
-    // SetBerserkActive выше), поэтому без явного сброса IsActiveSkillConfigured/activeSkillId
-    // остаются от ПРЕДЫДУЩЕГО боя (например, "Дымовая граната" Плута) — CombatManager переиспользуется
-    // между забегами/боями. В авто-режиме Tick() затем вызывал TryActivateUniqueActiveSkill() по
-    // старому activeSkillId и давал Варвару чужой навык (замечено: Саша получала Скрытность от
-    // "Дымовой гранаты", хотя у неё нет этого навыка и активка вообще не конфигурировалась).
-    public void ClearUniqueActiveSkillConfiguration()
+    public void SetSkillAutoMode(int slotIndex, bool autoMode)
     {
-        IsActiveSkillConfigured = false;
-        activeSkillId = SkillId.None;
-        activeSkillName = null;
-        activeSkillHitCount = 0;
-        activeSkillDamageMultiplierPerHit = 0f;
-        activeSkillCooldownSeconds = 0f;
-    }
-
-    // 3.11 (Варвар) — "Берсерк": ручной тумблер, а не кулдаун-навык, только у игрока (ГДД явно
-    // говорит, что монстры этот навык никогда не получают). Хук для будущей UI-кнопки (out of
-    // scope этого плана, см. RunFlowController) — мирроит форму SetActiveSkillAutoMode выше.
-    public void SetBerserkActive(bool active)
-    {
-        if (Player == null)
+        if (slotIndex < 0 || slotIndex >= ActiveSkills.Count)
         {
             return;
         }
 
-        // ФИКС (код-ревью): деактивация всегда разрешена (безопасно и защитно), но нельзя ВКЛЮЧИТЬ
-        // Берсерк персонажу, который его не изучил — без этой проверки он получал бы самоурон тика
-        // при 0% сопротивления (UniqueBerserkLevel switch ниже даёт 0 для уровня 0).
-        if (active && Player.UniqueBerserkLevel <= 0)
+        ActiveSkills[slotIndex].AutoMode = autoMode;
+    }
+
+    // 3.11 (Варвар) "Берсерк" — ручной тумблер: нельзя ВКЛЮЧИТЬ без изученного уровня (безопасно
+    // ВЫКЛЮЧАТЬ всегда — защитная логика перенесена без изменений из прежнего SetBerserkActive).
+    // Диспатч по skillId — как и раньше, единственный toggle-скилл прототипа — Берсерк; если
+    // появится другой Toggle-скилл, эффект добавляется сюда отдельной веткой.
+    bool TryToggleSkill(ActiveSkillRuntimeState slot)
+    {
+        if (!IsCombatActive)
         {
-            return;
+            return false;
         }
 
-        Player.IsBerserkActive = active;
+        bool activate = !slot.IsToggleActive;
+
+        if (slot.Data.skillId == SkillId.Berserk)
+        {
+            if (activate && Player.UniqueBerserkLevel <= 0)
+            {
+                return false;
+            }
+
+            Player.IsBerserkActive = activate;
+        }
+
+        slot.IsToggleActive = activate;
+        return true;
+    }
+
+    // 4.3: тело перенесено из прежнего TryActivateUniqueActiveSkill без изменений в поведении —
+    // Берсерк сюда больше не заходит вовсе (диспатчится в TryToggleSkill по skillType), поэтому
+    // прежний защитный бейл-аут на SkillId.Berserk убран как недостижимый.
+    bool TryActivateCooldownSkill(ActiveSkillRuntimeState slot)
+    {
+        if (!IsCombatActive || !IsSkillReady(ActiveSkills.IndexOf(slot)) || Player.Weapons.Count == 0)
+        {
+            return false;
+        }
+
+        ActiveSkillActivated?.Invoke(Player, slot.Data.skillName);
+
+        // 3.11 "Дымовая граната" (уникальная активка Плута): при активации даёт Скрытность и
+        // заряжает гарантированные криты на N последующих ОБЫЧНЫХ атак — не бьёт сама.
+        if (slot.Data.skillId == SkillId.SmokeBomb)
+        {
+            GrantOrRefreshStealth(Player);
+            Player.SmokeBombGuaranteedCritsRemaining = Player.UniqueSmokeBombLevel;
+            Log($"[Combat] «Дымовая граната»: {Player.DisplayName} получает Скрытность и {Player.UniqueSmokeBombLevel} гарантированных крита(ов).");
+            slot.CooldownTimer = slot.Data.cooldownSeconds;
+            return true;
+        }
+
+        var weapon = Player.Weapons[0];
+        for (int i = 0; i < slot.HitCount; i++)
+        {
+            if (!IsCombatActive || !Player.IsAlive)
+            {
+                break;
+            }
+
+            ResolveAttack(Player, weapon, slot.DamageMultiplierPerHit, isRegularAttack: false);
+        }
+
+        slot.CooldownTimer = slot.Data.cooldownSeconds;
+        return true;
     }
 
     // 3.11 (Варвар) — "Суеверность"/"Берсерк": сопротивления зависят от ЖИВОЙ Ярости, поэтому
@@ -146,61 +190,6 @@ public class CombatManager : MonoBehaviour
             : 0f;
     }
 
-    // 4.3: ручной режим — доступна только по готовности кулдауна; автоматический — срабатывает
-    // сама, без участия игрока (тикается в Tick()).
-    public bool TryActivateUniqueActiveSkill()
-    {
-        if (!IsCombatActive || !IsActiveSkillConfigured || !IsActiveSkillReady || Player.Weapons.Count == 0)
-        {
-            return false;
-        }
-
-        // Финальный ревью-фикс #4: Берсерк — ручной тумблер (SetBerserkActive), а не hit-loop
-        // активка. Его кулдаун конфигурируется как 0 (нет кулдауна по ГДД), из-за чего
-        // IsActiveSkillReady был бы ПОСТОЯННО true — если бы этот метод не бейлил здесь, авто-режим
-        // (Tick -> TryActivateUniqueActiveSkill) переигрывал бы полный комбо атак оружием КАЖДЫЙ
-        // кадр. Недостижимо сегодня (у Варвара нет character-select UI за пределами этого плана),
-        // но защищаемся заранее — см. комментарий на ConfigureUniqueActiveSkill выше.
-        if (activeSkillId == SkillId.Berserk)
-        {
-            return false;
-        }
-
-        ActiveSkillActivated?.Invoke(Player, activeSkillName);
-
-        // 3.11 "Дымовая граната" (уникальная активка Плута): при активации даёт Скрытность и
-        // заряжает гарантированные криты на N последующих ОБЫЧНЫХ атак — распознаётся по имени
-        // навыка, т.к. ConfigureUniqueActiveSkill уже получает его текстом (для баннера выше).
-        if (activeSkillId == SkillId.SmokeBomb)
-        {
-            GrantOrRefreshStealth(Player);
-            Player.SmokeBombGuaranteedCritsRemaining = Player.UniqueSmokeBombLevel;
-            Log($"[Combat] «Дымовая граната»: {Player.DisplayName} получает Скрытность и {Player.UniqueSmokeBombLevel} гарантированных крита(ов).");
-            Player.ActiveSkillCooldownTimer = activeSkillCooldownSeconds;
-
-            // Финальный ревью-фикс #4: Дымовая граната НИКОГДА не бьёт сама — hit-loop ниже
-            // (построенный под "3 быстрые атаки" Дженнифер) для неё пропускается безусловно, даже
-            // если будущее character-select-подключение по ошибке передаст ненулевой hitCount.
-            return true;
-        }
-
-        var weapon = Player.Weapons[0];
-        for (int i = 0; i < activeSkillHitCount; i++)
-        {
-            if (!IsCombatActive || !Player.IsAlive)
-            {
-                break;
-            }
-
-            // isRegularAttack: false — удары самой активки не должны расходовать/получать
-            // гарантированные криты "Дымовой гранаты" (см. ResolveAttack).
-            ResolveAttack(Player, weapon, activeSkillDamageMultiplierPerHit, isRegularAttack: false);
-        }
-
-        Player.ActiveSkillCooldownTimer = activeSkillCooldownSeconds;
-        return true;
-    }
-
     public void StartCombat(CombatantRuntime player, List<CombatantRuntime> enemies)
     {
         Player = player;
@@ -217,11 +206,6 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // 4.3 (НОВОЕ): активный навык уходит в полный кулдаун сразу при старте боя, а не в 0 —
-        // без этого навык (например "3 быстрые атаки") часто срабатывал мгновенно и сносил
-        // противника до того, как игрок успевал его увидеть. Обычные атаки оружием (ResetAttackTimers
-        // выше) это правило не затрагивает — они по-прежнему начинаются сразу по своей скорости атаки.
-        Player.ActiveSkillCooldownTimer = activeSkillCooldownSeconds;
         Player.Target = GetDefaultTarget();
 
         // 3.11 (Task 6b, Эпический трофей): "Просто царапина" — разовое лечение РОВНО в начале боя,
@@ -361,14 +345,23 @@ public class CombatManager : MonoBehaviour
 
         if (IsCombatActive && Player.IsAlive)
         {
-            if (Player.ActiveSkillCooldownTimer > 0f)
+            for (int i = 0; i < ActiveSkills.Count; i++)
             {
-                Player.ActiveSkillCooldownTimer -= deltaTime;
-            }
+                var slot = ActiveSkills[i];
+                if (slot.Data.skillType != ActiveSkillType.Cooldown)
+                {
+                    continue;
+                }
 
-            if (IsActiveSkillConfigured && activeSkillAutoMode && IsActiveSkillReady)
-            {
-                TryActivateUniqueActiveSkill();
+                if (slot.CooldownTimer > 0f)
+                {
+                    slot.CooldownTimer -= deltaTime;
+                }
+
+                if (slot.AutoMode && slot.CooldownTimer <= 0f)
+                {
+                    TryActivateSkill(i);
+                }
             }
         }
 

@@ -325,22 +325,26 @@ public partial class RunFlowController
         var activeCharacter = characterManager.Progress.Character;
         bool isBarbarian = activeCharacter.characterClass == CharacterClass.Barbarian;
 
+        // Активные-скилы-панель (2026-09-03): Берсерк теперь проходит через ЭТОТ ЖЕ путь как
+        // Toggle-скилл (диспатч по ActiveSkillData.skillType в CombatManager.TryActivateSkill) —
+        // никакого класс-специфичного if/else в CombatManager больше нет. hitCount/multiplier не
+        // имеют смысла для Toggle-скиллов, но передаются нулями для единообразия сигнатуры.
         if (isBarbarian)
         {
-            // 3.11 (Варвар) — Берсерк — ручной тумблер, не кулдаун-активка (см. ГДД 3.11, точная
-            // цитата: "НЕ работает как обычный активный навык (нет кулдауна, нет авто-режима, нет
-            // длительности)"). CombatManager.ConfigureUniqueActiveSkill/TryActivateUniqueActiveSkill
-            // не используются для него вовсе — UI использует berserkToggle (см. ниже), не
-            // activeSkillButton/autoModeToggle.
-            combatManager.SetBerserkActive(false); // сброс на начало боя — тумблер не переносится между боями
-            combatManager.ClearUniqueActiveSkillConfiguration(); // см. комментарий в CombatManager — иначе тянется активка предыдущего боя
+            combatManager.ConfigureActiveSkills(new[]
+            {
+                new ActiveSkillConfigEntry(activeCharacter.uniqueActiveSkill, hitCount: 0, damageMultiplierPerHit: 0f, autoMode: false)
+            });
         }
         else
         {
             int activeLevel = characterManager.Progress.UniqueActiveLevel;
             float activeMultiplier = activeLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f };
             int hitCount = CombatManager.ResolveActiveSkillHitCount(activeCharacter.characterClass);
-            combatManager.ConfigureUniqueActiveSkill(hitCount, activeMultiplier, activeCharacter.uniqueActiveSkill.cooldownSeconds, autoModeToggle.value, activeCharacter.uniqueActiveSkill.skillName, activeCharacter.uniqueActiveSkill.skillId);
+            combatManager.ConfigureActiveSkills(new[]
+            {
+                new ActiveSkillConfigEntry(activeCharacter.uniqueActiveSkill, hitCount, activeMultiplier, autoMode: autoModeToggle.value)
+            });
         }
 
         combatManager.LogMessage += OnCombatLog;
@@ -599,9 +603,9 @@ public partial class RunFlowController
 
         if (!isBarbarianCombat)
         {
-            bool ready = combatManager.IsActiveSkillReady;
+            bool ready = combatManager.IsSkillReady(0);
             activeSkillButton.SetEnabled(!autoModeToggle.value && ready);
-            activeSkillButton.text = ready ? "Активный навык (готов)" : $"Активный навык ({combatManager.ActiveSkillCooldownRemaining:F1}с)";
+            activeSkillButton.text = ready ? "Активный навык (готов)" : $"Активный навык ({combatManager.SkillCooldownRemaining(0):F1}с)";
         }
         else
         {

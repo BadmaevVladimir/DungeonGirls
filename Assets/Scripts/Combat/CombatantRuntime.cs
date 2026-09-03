@@ -55,9 +55,6 @@ public class CombatantRuntime
 
     public CombatantRuntime Target;
 
-    // 4.3: кулдаун уникального активного навыка (только у игрока в прототипе).
-    public float ActiveSkillCooldownTimer;
-
     // Боссы независимо от обычных атак готовят «Тяжёлую атаку» 5 секунд. Легаси-путь для боссов БЕЗ
     // BossKitData (см. BossEncounter ниже) — CombatManager.TickBossHeavyAttacks пропускает боссов,
     // у которых BossEncounter != null, чтобы не бить дважды.

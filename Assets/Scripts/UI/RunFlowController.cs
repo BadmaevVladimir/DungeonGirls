@@ -291,9 +291,12 @@ public partial class RunFlowController : MonoBehaviour
         pauseResumeButton.clicked += ResumeRun;
         pauseAbandonRunButton.clicked += AbandonRunFromPause;
         pauseQuitGameButton.clicked += QuitGame;
-        autoModeToggle.RegisterValueChangedCallback(evt => combatManager.SetActiveSkillAutoMode(evt.newValue));
-        activeSkillButton.clicked += () => combatManager.TryActivateUniqueActiveSkill();
-        berserkToggle.RegisterValueChangedCallback(evt => combatManager.SetBerserkActive(evt.newValue));
+        autoModeToggle.RegisterValueChangedCallback(evt => combatManager.SetSkillAutoMode(0, evt.newValue));
+        activeSkillButton.clicked += () => combatManager.TryActivateSkill(0);
+        // Временная заглушка (Task 3 удаляет этот Toggle целиком): TryActivateSkill только
+        // переключает, а не устанавливает конкретное значение — берсерк-чекбокс временно ведёт
+        // себя как кнопка-тумблер вместо чекбокса с явным состоянием.
+        berserkToggle.RegisterValueChangedCallback(evt => combatManager.TryActivateSkill(0));
     }
 
     void OnDisable()

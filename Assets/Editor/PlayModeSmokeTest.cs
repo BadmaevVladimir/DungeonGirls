@@ -1039,10 +1039,10 @@ public static class PlayModeSmokeTest
         Check(newStatusEffects.Exists(e => e.label == "Берсерк" && e.isBuff),
             $"Финальный фикс #3: Берсерк (IsBerserkActive) отображается как бафф: [{string.Join(", ", newStatusEffects.ConvertAll(e => e.label))}]");
 
-        // Финальный фикс #4: Берсерк никогда не должен проходить через hit-loop машинерию
-        // TryActivateUniqueActiveSkill (построенную под "3 быстрые атаки" Дженнифер) — метод должен
-        // вернуть false и не нанести никакого урона, даже если кулдаун готов (как всегда для Берсерка,
-        // у которого cooldownSeconds=0).
+        // Активные-скилы-панель (2026-09-03, ФИКС компиляции): Берсерк теперь диспатчится как
+        // Toggle-скилл через CombatManager.TryActivateSkill (см. TryToggleSkill) — никогда не
+        // проходит через hit-loop машинерию TryActivateCooldownSkill (построенную под "3 быстрые
+        // атаки" Дженнифер). Активация должна включить тумблер и НЕ нанести никакого урона.
         var berserkGuardGO = new GameObject("SmokeTest_BerserkGuard");
         var berserkCombatManager = berserkGuardGO.AddComponent<CombatManager>();
 
@@ -1052,19 +1052,25 @@ public static class PlayModeSmokeTest
 
         var berserkDummy = new CombatantRuntime { DisplayName = "TestDummyBerserkGuard", MaxHP = 1000f, CurrentHP = 1000f };
 
+        var berserkGuardSkillData = ScriptableObject.CreateInstance<ActiveSkillData>();
+        berserkGuardSkillData.skillName = SkillEffectMap.Berserk;
+        berserkGuardSkillData.skillId = SkillId.Berserk;
+        berserkGuardSkillData.cooldownSeconds = 0f; // cooldownSeconds=0, как задумано для тумблера
+        berserkGuardSkillData.skillType = ActiveSkillType.Toggle;
+
         berserkCombatManager.StartCombat(berserkPlayer, new List<CombatantRuntime> { berserkDummy });
-        berserkCombatManager.ConfigureUniqueActiveSkill(3, 1f, 0f, false, SkillEffectMap.Berserk, SkillId.Berserk); // cooldownSeconds=0, как задумано для тумблера
-        berserkPlayer.ActiveSkillCooldownTimer = 0f; // готов немедленно (StartCombat выставляет полный кулдаун = 0 для Берсерка)
+        berserkCombatManager.ConfigureActiveSkills(new[] { new ActiveSkillConfigEntry(berserkGuardSkillData, hitCount: 3, damageMultiplierPerHit: 1f, autoMode: false) });
 
         float berserkDummyHpBefore = berserkDummy.CurrentHP;
-        bool berserkActivationResult = berserkCombatManager.TryActivateUniqueActiveSkill();
+        bool berserkActivationResult = berserkCombatManager.TryActivateSkill(0);
 
-        Check(!berserkActivationResult,
-            $"Финальный фикс #4: TryActivateUniqueActiveSkill возвращает false, когда настроен на Берсерк: {berserkActivationResult} (ожидалось false)");
+        Check(berserkActivationResult && berserkCombatManager.ActiveSkills[0].IsToggleActive,
+            $"Активные-скилы-панель: TryActivateSkill включает тумблер Берсерка: activated={berserkActivationResult}, toggled={berserkCombatManager.ActiveSkills[0].IsToggleActive} (ожидалось true/true)");
         Check(berserkDummy.CurrentHP == berserkDummyHpBefore,
-            $"Финальный фикс #4: Берсерк НЕ запускает hit-loop (HP цели не изменилось): было {berserkDummyHpBefore}, стало {berserkDummy.CurrentHP}");
+            $"Активные-скилы-панель: Берсерк НЕ запускает hit-loop (HP цели не изменилось): было {berserkDummyHpBefore}, стало {berserkDummy.CurrentHP}");
 
         UnityEngine.Object.DestroyImmediate(berserkGuardGO);
+        UnityEngine.Object.DestroyImmediate(berserkGuardSkillData);
 
         // 3.11 (ФИКС, Codex P1 2026-08-27): "Тень"/"Дымовая граната" — уникальные навыки Плута,
         // раньше копировались БЕЗ проверки класса (в отличие от уникальных навыков Варвара).
@@ -1750,12 +1756,20 @@ public static class PlayModeSmokeTest
 
         UnityEngine.Object.DestroyImmediate(combatManagerGO);
 
-        // 4.3 (НОВОЕ 2026-08-26): активный навык уходит в полный кулдаун сразу при старте боя,
-        // а не в 0 — иначе "3 быстрые атаки" срабатывали мгновенно и сносили противника до того,
-        // как игрок успевал его увидеть. Обычные атаки оружием это не затрагивает.
+        // Активные-скилы-панель (2026-09-03, ФИКС компиляции): прежнее поведение "активный навык
+        // уходит в полный кулдаун сразу при старте боя" было НАМЕРЕННО убрано в CombatManager.
+        // StartCombat (см. Step 5 плана) — активация теперь ручная (клик/хоткей), а не
+        // автоматическая каждый кадр, так что риск "мгновенно снёс до того как игрок увидел"
+        // больше не применим. Актуальная проверка обратного поведения — см.
+        // CombatManagerTests.StartCombat_DoesNotForceActiveSkillIntoCooldown (EditMode).
         var skillCooldownGO = new GameObject("SmokeTest_ActiveSkillCooldown");
         var skillCooldownCombatManager = skillCooldownGO.AddComponent<CombatManager>();
-        skillCooldownCombatManager.ConfigureUniqueActiveSkill(3, 1f, 12f, true, "TestSkill", SkillId.None);
+        var skillCooldownSkillData = ScriptableObject.CreateInstance<ActiveSkillData>();
+        skillCooldownSkillData.skillName = "TestSkill";
+        skillCooldownSkillData.skillId = SkillId.None;
+        skillCooldownSkillData.cooldownSeconds = 12f;
+        skillCooldownSkillData.skillType = ActiveSkillType.Cooldown;
+        skillCooldownCombatManager.ConfigureActiveSkills(new[] { new ActiveSkillConfigEntry(skillCooldownSkillData, hitCount: 3, damageMultiplierPerHit: 1f, autoMode: true) });
 
         var skillCooldownPlayer = new CombatantRuntime { IsPlayer = true, MaxHP = 100f, CurrentHP = 100f };
         skillCooldownPlayer.Weapons.Add(new WeaponAttackState { DamageMin = 5f, DamageMax = 5f, DamageType = DamageType.Physical, AttackSpeed = 1f });
@@ -1763,11 +1777,11 @@ public static class PlayModeSmokeTest
         skillCooldownEnemy.Weapons.Add(new WeaponAttackState { DamageMin = 0f, DamageMax = 0f, DamageType = DamageType.Physical, AttackSpeed = 1f });
 
         skillCooldownCombatManager.StartCombat(skillCooldownPlayer, new List<CombatantRuntime> { skillCooldownEnemy });
-        Check(!skillCooldownCombatManager.IsActiveSkillReady, "4.3 активный навык НЕ готов сразу при старте боя");
-        Check(skillCooldownCombatManager.ActiveSkillCooldownRemaining == 12f, $"4.3 активный навык уходит в полный кулдаун при старте боя: {skillCooldownCombatManager.ActiveSkillCooldownRemaining} (ожидалось 12)");
-        Check(!skillCooldownCombatManager.TryActivateUniqueActiveSkill(), "4.3 навык нельзя активировать вручную сразу при старте боя");
+        Check(skillCooldownCombatManager.IsSkillReady(0), "Активные-скилы-панель: активный навык готов сразу при старте боя (ручная активация, форс-кулдаун убран)");
+        Check(skillCooldownCombatManager.SkillCooldownRemaining(0) == 0f, $"Активные-скилы-панель: активный навык НЕ уходит в кулдаун при старте боя: {skillCooldownCombatManager.SkillCooldownRemaining(0)} (ожидалось 0)");
 
         UnityEngine.Object.DestroyImmediate(skillCooldownGO);
+        UnityEngine.Object.DestroyImmediate(skillCooldownSkillData);
 
         // 1, п.3: основной пассив наставника ("Магнум Опус") — постоянный бонус к маг. урону — через реальный CombatManager.
         var mentorTestGO = new GameObject("SmokeTest_MentorCombat");
@@ -2051,7 +2065,10 @@ public static class PlayModeSmokeTest
         berserkOnEnemy.Weapons.Add(new WeaponAttackState { DamageMin = 100f, DamageMax = 100f, DamageType = DamageType.Physical, AttackSpeed = 2f });
 
         berserkOnCombatManager.StartCombat(berserkOnPlayer, new List<CombatantRuntime> { berserkOnEnemy });
-        berserkOnCombatManager.SetBerserkActive(true);
+        // Активные-скилы-панель (2026-09-03, ФИКС компиляции): SetBerserkActive удалён —
+        // включение тумблера теперь идёт через CombatManager.TryActivateSkill (Toggle-скилл), но
+        // этот тест проверяет только эффект сопротивления, поэтому флаг ставится напрямую.
+        berserkOnPlayer.IsBerserkActive = true;
         berserkOnCombatManager.Tick(0.51f); // ровно один удар врага (интервал 0.5с, < 1с — самоурон Берсерка ещё не тикает)
         Check(Mathf.Approximately(berserkOnPlayer.CurrentHP, 930f), $"Баланс Саши: «Берсерк» ур.2 (30% физ. сопротивления) снижает урон 100 -> 70 (HP={berserkOnPlayer.CurrentHP}, ожидалось 930)");
 
