@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 public partial class RunFlowController
@@ -666,9 +667,20 @@ public partial class RunFlowController
                     combatManager.SetSkillAutoMode(slotIndex, activeSkillAutoModePreference);
                 });
                 slotRoot.Add(autoToggle);
+                tutorialManager?.BindTooltip(autoToggle, "Авто-режим", TutorialContent.TooltipAuto);
             }
 
-            tutorialManager?.BindTooltip(iconFrame, data.skillName, () => data.effectDescription);
+            if (data.skillId == SkillId.Berserk)
+            {
+                tutorialManager?.BindTooltip(iconFrame, data.skillName, () =>
+                    TutorialContent.BerserkTooltip(combatManager != null && combatManager.Player != null && combatManager.Player.IsBerserkActive
+                        ? combatManager.Player.PhysicalResistancePercent
+                        : 0f));
+            }
+            else
+            {
+                tutorialManager?.BindTooltip(iconFrame, data.skillName, () => data.effectDescription);
+            }
 
             skillPanelContainer.Add(slotRoot);
             skillSlotEntries.Add(new SkillSlotEntry
@@ -699,9 +711,14 @@ public partial class RunFlowController
 
     void HandleSkillHotkeys()
     {
+        if (Keyboard.current == null)
+        {
+            return;
+        }
+
         for (int i = 0; i < combatManager.ActiveSkills.Count && i < SkillHotkeys.Length; i++)
         {
-            if (Input.GetKeyDown(SkillHotkeys[i]))
+            if (Keyboard.current[SkillHotkeys[i]].wasPressedThisFrame)
             {
                 TryActivateSkillFromUI(i);
             }

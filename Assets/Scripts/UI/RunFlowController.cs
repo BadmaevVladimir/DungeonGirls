@@ -184,7 +184,7 @@ public partial class RunFlowController : MonoBehaviour
 
     // Активные-скилы-панель (2026-09-03): один хоткей на слот по индексу, Q для первого. 4 клавиш
     // с большим запасом сверх сегодняшнего максимума в 1 скилл на класс.
-    static readonly KeyCode[] SkillHotkeys = { KeyCode.Q, KeyCode.W, KeyCode.E, KeyCode.R };
+    static readonly Key[] SkillHotkeys = { Key.Q, Key.W, Key.E, Key.R };
 
     class SkillSlotEntry
     {
