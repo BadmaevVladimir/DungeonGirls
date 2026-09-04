@@ -301,7 +301,7 @@ public partial class RunFlowController
         }
         if (item.HpBonusEffective > 0f)
         {
-            mainStats.Add($"HP +{item.HpBonusEffective:F0}");
+            mainStats.Add($"Здоровье +{item.HpBonusEffective:F0}");
         }
         if (item.rageBonusFlatPercent > 0f)
         {
@@ -320,7 +320,7 @@ public partial class RunFlowController
 
         if (item.passiveSkill != null)
         {
-            lines.Add($"Пассивка: {item.passiveSkill.skillName}");
+            lines.Add($"Пассивный навык: {item.passiveSkill.skillName}");
         }
 
         if (!string.IsNullOrWhiteSpace(item.handUsageDescription)) lines.Add(item.handUsageDescription);
@@ -429,7 +429,7 @@ public partial class RunFlowController
         AddRow("Физ. защита", PhysicalDefenseValue(current), PhysicalDefenseValue(replacement));
         AddRow("Макс. физ. защита", MaxDefenseBonusValue(current), MaxDefenseBonusValue(replacement));
         AddRow("Маг. щит", MagicShieldValue(current), MagicShieldValue(replacement));
-        AddRow("HP", HpBonusValue(current), HpBonusValue(replacement));
+        AddRow("Здоровье", HpBonusValue(current), HpBonusValue(replacement));
         AddRow("Ярость", RageBonusValue(current), RageBonusValue(replacement));
 
         var currentBonus = BonusStatValue(current);
@@ -483,11 +483,11 @@ public partial class RunFlowController
 
     static string BonusStatLabel(BonusStatType type) => type switch
     {
-        BonusStatType.CritChancePercent => "Шанс крита",
+        BonusStatType.CritChancePercent => "Шанс критического удара",
         BonusStatType.ArmorPenetrationFlat => "Пробивание брони",
         BonusStatType.AttackSpeedPercent => "Скорость атаки",
         BonusStatType.DamagePercent => "Урон",
-        BonusStatType.FlatHP => "HP",
+        BonusStatType.FlatHP => "Здоровье",
         BonusStatType.MaxPhysicalDefenseFlat => "Макс. физ. защита",
         BonusStatType.MagicShieldFlat => "Маг. щит",
         BonusStatType.WeaponDamageFlat => "Урон оружия",
@@ -510,14 +510,14 @@ public partial class RunFlowController
         SetRarityBorderClass(newItemCard, newItem.tier);
         newItemName.text = newItem.itemName;
         newItemStats.text = ItemComparisonSummary(newItem);
-        newItemStats.tooltip = DisplayFormat.ItemStatsText(newItem);
+        newItemStats.tooltip = SkillDescriptionFormatter.Plain(DisplayFormat.ItemStatsText(newItem));
         tutorialManager?.QueueOnce(TutorialContent.Equipment);
 
         slotChoicesContainer.Clear();
         var buttons = new List<Button>();
         foreach (var candidate in candidates)
         {
-            var btn = new Button { tooltip = candidate != null ? DisplayFormat.ItemStatsText(candidate) : "Новый предмет займёт свободный слот." };
+            var btn = new Button { tooltip = candidate != null ? SkillDescriptionFormatter.Plain(DisplayFormat.ItemStatsText(candidate)) : "Новый предмет займёт свободный слот." };
             btn.AddToClassList("choice-card");
             btn.AddToClassList("item-slot-choice");
             btn.Add(BuildItemCompareCard(candidate, newItem));

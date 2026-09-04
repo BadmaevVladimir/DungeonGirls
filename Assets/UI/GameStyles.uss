@@ -1523,6 +1523,10 @@ Button {
     margin-top: 6px;
 }
 
+.craft-feedback-error {
+    color: rgb(232, 184, 92);
+}
+
 .forge-category-row {
     width: 100%;
     max-width: 1100px;

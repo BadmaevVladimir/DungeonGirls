@@ -67,6 +67,11 @@ public class BossPhaseData
     [Tooltip("Спрайт босса на время этой фазы. null = спрайт не меняется при входе в фазу.")]
     public Sprite phaseSprite;
 
+    [Tooltip("Ключ папки Resources/CharacterAnimations/Boss_<ключ>/{Idle,Attack,Heavy}/ с PixelLab-" +
+        "анимацией этой фазы (см. BossAnimationFrames). Пусто = анимации нет, используется статичный " +
+        "phaseSprite (старое поведение).")]
+    public string animationFolderKey;
+
     [Tooltip("Компенсация 'зависания' в воздухе (2026-09-03) — доля высоты канваса phaseSprite, " +
         "занятая прозрачным отступом снизу. 0 = спрайт вплотную к низу холста (безопасный дефолт " +
         "для фаз, для которых анализатор ещё не запускался). Заполняется Assets/Editor/" +

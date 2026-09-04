@@ -28,10 +28,10 @@ public class LevelUpOption
                 case LevelUpOptionType.NewPassiveSkill:
                 case LevelUpOptionType.UpgradePassiveSkill:
                 case LevelUpOptionType.UpgradeUniquePassive:
-                    return Skill != null ? Skill.effectDescription : string.Empty;
+                    return SkillDescriptionFormatter.Passive(Skill, ResultingLevel);
 
                 case LevelUpOptionType.UpgradeUniqueActive:
-                    return ActiveSkill != null ? ActiveSkill.effectDescription : string.Empty;
+                    return SkillDescriptionFormatter.Active(ActiveSkill, ResultingLevel);
 
                 default:
                     return string.Empty;

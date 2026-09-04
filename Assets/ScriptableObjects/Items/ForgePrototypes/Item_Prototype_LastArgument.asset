@@ -28,7 +28,7 @@ MonoBehaviour:
   allowedClasses:
   - 3
   cursedEffect: 0
-  positiveEffectDescription: Положительные бонусы скорости атаки не ускоряют оружие. Вместо этого каждый +1% скорости атаки даёт +1% урона.
+  positiveEffectDescription: Положительные бонусы скорости атаки не ускоряют оружие. Каждый 1% такого бонуса вместо этого повышает урон на 1%.
   curseDescription:
   handUsageDescription:
   isPairedWeapon: 0

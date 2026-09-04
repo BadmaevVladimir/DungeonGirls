@@ -90,7 +90,7 @@ public static class CombatantStatusEffects
 
         if (combatant.SmokeBombGuaranteedCritsRemaining > 0)
         {
-            effects.Add(($"Гарантированные криты ×{combatant.SmokeBombGuaranteedCritsRemaining}", true));
+            effects.Add(($"Гарантированные критические атаки ×{combatant.SmokeBombGuaranteedCritsRemaining}", true));
         }
 
         if (combatant.RiposteArmed)
@@ -118,7 +118,7 @@ public static class CombatantStatusEffects
 
         if (combatant.SkillStubbornnessLevel > 0 && combatant.Rage > StubbornnessThreshold(combatant.SkillStubbornnessLevel))
         {
-            effects.Add(("Упёртость: иммунитет к дебаффам", true));
+            effects.Add(("Упёртость: защита от отрицательных эффектов", true));
         }
 
         foreach (var debuff in combatant.ActiveDebuffs)

@@ -24,8 +24,8 @@ MonoBehaviour:
   - 0
   - 3
   cursedEffect: 2
-  positiveEffectDescription: "Казнь: по цели с HP ≤25% урон +100%."
-  curseDescription: "Нетерпение палача: по цели с HP ≥75% урон −25%."
+  positiveEffectDescription: "Казнь: атаки по цели с не более чем 25% здоровья наносят на 100% больше урона."
+  curseDescription: "Нетерпение палача: атаки по цели с не менее чем 75% здоровья наносят на 25% меньше урона."
   handUsageDescription: ""
   isPairedWeapon: 0
   baseDamage: 10
@@ -40,4 +40,3 @@ MonoBehaviour:
     type: 0
     baseValue: 0
   passiveSkill: {fileID: 0}
-

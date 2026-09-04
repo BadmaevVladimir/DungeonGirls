@@ -25,8 +25,8 @@ MonoBehaviour:
   - 2
   - 3
   cursedEffect: 1
-  positiveEffectDescription: "+30 валюты забега за каждый крит."
-  curseDescription: "Расплата: в конце привала прямой урон по HP, равный текущему обычному криту; броня не тратится."
+  positiveEffectDescription: "+30 единиц валюты забега за каждый критический удар."
+  curseDescription: "Расплата: в конце привала героиня получает прямой урон здоровью, равный урону её обычного критического удара; физическая защита не расходуется."
   handUsageDescription: ""
   isPairedWeapon: 0
   baseDamage: 6
@@ -41,4 +41,3 @@ MonoBehaviour:
     type: 0
     baseValue: 0
   passiveSkill: {fileID: 0}
-

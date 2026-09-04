@@ -174,6 +174,12 @@ public partial class RunFlowController : MonoBehaviour
         public Sprite[] IdleFrames;
         public Sprite[] AttackFrames;
         public Coroutine FlipbookCoroutine;
+
+        // (доп.): heavy-attack клип боссов (см. BossAnimationFrames) — обычные монстры его не имеют.
+        // LastBossPhaseIndex отслеживает смену фазы, чтобы UpdateCombatUI перегрузил кадры анимации
+        // текущей фазы ровно один раз при переходе (-1 = ещё не инициализировано).
+        public Sprite[] HeavyAttackFrames;
+        public int LastBossPhaseIndex = -1;
     }
     readonly List<EnemyStageEntry> enemyStageEntries = new List<EnemyStageEntry>();
 

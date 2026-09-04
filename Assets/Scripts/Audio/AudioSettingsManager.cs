@@ -14,7 +14,8 @@ public class AudioSettingsManager : MonoBehaviour
 
     const string MasterVolumeKey = "Audio.MasterVolume";
     const string CategoryVolumeKeyPrefix = "Audio.CategoryVolume.";
-    const float DefaultVolume = 1f;
+    const float DefaultMasterVolume = 0.5f;
+    const float DefaultCategoryVolume = 1f;
 
     VisualElement settingsScreen;
     Slider masterVolumeSlider;
@@ -72,10 +73,10 @@ public class AudioSettingsManager : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    public static float MasterVolume => PlayerPrefs.GetFloat(MasterVolumeKey, DefaultVolume);
+    public static float MasterVolume => PlayerPrefs.GetFloat(MasterVolumeKey, DefaultMasterVolume);
 
     public static float GetCategoryVolume(AudioCategory category) =>
-        PlayerPrefs.GetFloat(CategoryVolumeKeyPrefix + category, DefaultVolume);
+        PlayerPrefs.GetFloat(CategoryVolumeKeyPrefix + category, DefaultCategoryVolume);
 
     void OnMasterVolumeChanged(ChangeEvent<float> evt)
     {

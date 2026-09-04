@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -115,7 +116,22 @@ public partial class HubManager
     {
         tavernRecipeScrollView.Clear();
         tavernRecipeCards.Clear();
-        foreach (var recipe in FoodRecipeCatalog.All)
+        // Resources.LoadAll does not guarantee a useful order. Keep recipes a player can use now
+        // at the top, followed by recipes they can afford after finding ingredients, and only then
+        // higher-level recipes. Otherwise a level-1 dish can be buried below level-4/5 cards and
+        // make the whole feature look locked (especially on a fresh, level-0 tavern).
+        var recipes = new List<FoodRecipeData>(FoodRecipeCatalog.All);
+        recipes.Sort((left, right) =>
+        {
+            int stateOrder = RecipeStateSortOrder(tavernService.GetRecipeState(left, tavernLevel))
+                .CompareTo(RecipeStateSortOrder(tavernService.GetRecipeState(right, tavernLevel)));
+            if (stateOrder != 0) return stateOrder;
+            int levelOrder = left.requiredTavernLevel.CompareTo(right.requiredTavernLevel);
+            return levelOrder != 0 ? levelOrder : string.Compare(left.displayName, right.displayName,
+                StringComparison.CurrentCultureIgnoreCase);
+        });
+
+        foreach (var recipe in recipes)
         {
             var state = tavernService.GetRecipeState(recipe, tavernLevel);
             int prepared = tavernService.GetPreparedCount(recipe.resultFoodId);
@@ -152,6 +168,15 @@ public partial class HubManager
         _ => string.Empty
     };
 
+    static int RecipeStateSortOrder(TavernRecipeState state) => state switch
+    {
+        TavernRecipeState.AvailableToCook => 0,
+        TavernRecipeState.NotEnoughIngredients => 1,
+        TavernRecipeState.LockedRecipe => 2,
+        TavernRecipeState.LockedByTavernLevel => 3,
+        _ => 4
+    };
+
     void SelectRecipe(FoodRecipeData recipe, int tavernLevel)
     {
         selectedRecipe = recipe;
@@ -160,7 +185,7 @@ public partial class HubManager
         RefreshTavernDetails(tavernLevel);
     }
 
-    void RefreshTavernDetails(int tavernLevel)
+    void RefreshTavernDetails(int tavernLevel, string feedbackOverride = null)
     {
         tavernDetailsPanel.EnableInClassList("hidden", false);
         tavernDetailsIcon.sprite = selectedRecipe.icon;
@@ -184,19 +209,54 @@ public partial class HubManager
 
         var state = tavernService.GetRecipeState(selectedRecipe, tavernLevel);
         tavernCookButton.SetEnabled(state == TavernRecipeState.AvailableToCook);
-        tavernFeedbackLabel.AddToClassList("hidden");
+        tavernCookButton.text = state switch
+        {
+            TavernRecipeState.LockedByTavernLevel => $"НУЖЕН УРОВЕНЬ {selectedRecipe.requiredTavernLevel}",
+            TavernRecipeState.LockedRecipe => "РЕЦЕПТ НЕ ОТКРЫТ",
+            TavernRecipeState.NotEnoughIngredients => "НЕ ХВАТАЕТ ИНГРЕДИЕНТОВ",
+            _ => "ПРИГОТОВИТЬ"
+        };
+
+        if (!string.IsNullOrWhiteSpace(feedbackOverride))
+        {
+            SetTavernFeedback(feedbackOverride, false);
+            return;
+        }
+
+        string blockedReason = state switch
+        {
+            TavernRecipeState.LockedByTavernLevel =>
+                $"Сначала улучшите таверну до уровня {selectedRecipe.requiredTavernLevel} (сейчас {tavernLevel}).",
+            TavernRecipeState.LockedRecipe => "Этот рецепт ещё не открыт.",
+            TavernRecipeState.NotEnoughIngredients => "Соберите недостающие ингредиенты.",
+            _ => null
+        };
+        SetTavernFeedback(blockedReason, true);
+    }
+
+    void SetTavernFeedback(string message, bool isError)
+    {
+        bool visible = !string.IsNullOrWhiteSpace(message);
+        tavernFeedbackLabel.text = message ?? string.Empty;
+        tavernFeedbackLabel.EnableInClassList("craft-feedback-error", isError && visible);
+        tavernFeedbackLabel.EnableInClassList("hidden", !visible);
     }
 
     void OnCookClicked()
     {
         if (selectedRecipe == null) return;
         int level = saveManager.GetBuildingLevel(BuildingType.Tavern);
-        if (!tavernService.TryCook(selectedRecipe, level)) return;
+        if (!tavernService.TryCook(selectedRecipe, level))
+        {
+            RefreshTavernDetails(level);
+            return;
+        }
 
-        tavernFeedbackLabel.text = "Приготовлено!";
-        tavernFeedbackLabel.RemoveFromClassList("hidden");
         RefreshTavernIngredientBar();
         RefreshTavernRecipeList(level);
-        RefreshTavernDetails(level);
+        // RefreshTavernDetails used to hide the success label immediately after it was shown,
+        // making a successful click look like it did nothing. Pass the result through the final
+        // refresh so the confirmation remains visible with the updated counts.
+        RefreshTavernDetails(level, "Приготовлено!");
     }
 }

@@ -28,7 +28,7 @@ MonoBehaviour:
   allowedClasses:
   - 2
   cursedEffect: 0
-  positiveEffectDescription: Парные клинки. Половина их урона наносится как физический, половина — как магический.
+  positiveEffectDescription: Парные клинки: 50% урона наносится как физический, остальные 50% — как магический.
   curseDescription:
   handUsageDescription:
   isPairedWeapon: 1

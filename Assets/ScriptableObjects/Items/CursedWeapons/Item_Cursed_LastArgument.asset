@@ -24,7 +24,7 @@ MonoBehaviour:
   - 0
   - 3
   cursedEffect: 5
-  positiveEffectDescription: "Каждая атака получает +2/3/4/5/6% Max HP урона по рангу; бонус критует ровно один раз вместе с атакой."
+  positiveEffectDescription: "Каждая атака дополнительно наносит урон, зависящий от максимального здоровья владельца и ранга предмета. Дополнительный урон становится критическим вместе с атакой."
   curseDescription: "Обычное восстановление физической брони невозможно. Смена нагрудника заполняет новую броню."
   handUsageDescription: ""
   isPairedWeapon: 0
@@ -40,4 +40,3 @@ MonoBehaviour:
     type: 0
     baseValue: 0
   passiveSkill: {fileID: 0}
-

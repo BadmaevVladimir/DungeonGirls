@@ -239,6 +239,33 @@ public partial class RunFlowController
         }));
     }
 
+    // (доп.): heavy-attack клип босса — тот же приём, что OnEnemyAttackPerformed выше, но запускается
+    // не таймером обычной атаки, а BossEncounterState-способностью (см. OnActiveSkillActivated).
+    void PlayBossHeavyAttack(CombatantRuntime boss)
+    {
+        EnemyStageEntry entry = null;
+        foreach (var candidate in enemyStageEntries)
+        {
+            if (candidate.Combatant == boss)
+            {
+                entry = candidate;
+                break;
+            }
+        }
+
+        if (entry == null || !entry.Combatant.IsAlive || entry.HeavyAttackFrames == null || entry.HeavyAttackFrames.Length == 0)
+        {
+            return;
+        }
+
+        if (entry.FlipbookCoroutine != null) StopCoroutine(entry.FlipbookCoroutine);
+        entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(entry.Sprite, entry.HeavyAttackFrames, 10f, loop: false, onComplete: () =>
+        {
+            if (!entry.Combatant.IsAlive || entry.IdleFrames == null || entry.IdleFrames.Length == 0) return;
+            entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(entry.Sprite, entry.IdleFrames, 6f, loop: true));
+        }));
+    }
+
     int RollMonsterCount(int level) => MonsterEncounterBudget.RollMonsterCount(level);
 
     IEnumerator CombatRoomFlow(bool isBoss, FloorMapNode roomNode = null)
@@ -506,7 +533,7 @@ public partial class RunFlowController
         if (showStealth)
         {
             string crits = player.SmokeBombGuaranteedCritsRemaining > 0
-                ? $" • критов: {player.SmokeBombGuaranteedCritsRemaining}"
+                ? $" • гарантированных критических атак: {player.SmokeBombGuaranteedCritsRemaining}"
                 : string.Empty;
             stealthText.text = $"◆ СКРЫТНОСТЬ {Mathf.Max(0f, player.StealthTimer):F1}с{crits}";
         }
@@ -527,7 +554,8 @@ public partial class RunFlowController
             nameLabel.AddToClassList("combatant-name");
             // Модификатор («Бронебойный», «Свирепый»…) виден только как прилагательное в имени —
             // без расшифровки игрок не понимает, чем этот враг опаснее обычного.
-            tutorialManager?.BindTransientTooltip(nameLabel, enemy.DisplayName, TutorialContent.ModifierTooltip(enemy.DisplayName));
+            tutorialManager?.BindTransientTooltip(nameLabel, enemy.DisplayName,
+                TutorialContent.ModifierTooltip(enemy.DisplayName, enemy.MonsterGuaranteedArmorDamage));
             box.Add(nameLabel);
 
             var hpBg = new VisualElement();
@@ -587,13 +615,38 @@ public partial class RunFlowController
                 }
             }
 
+            // (доп.): смена фазы босса с PixelLab-анимацией — перегружаем кадры idle/attack/heavy на
+            // набор новой фазы и перезапускаем idle-петлю ровно один раз при переходе (см.
+            // BossAnimationFrames, BossPhaseData.animationFolderKey). Для боссов без анимации
+            // (animationFolderKey пуст) IdleFrames остаётся null, и ниже сработает старый статичный путь.
+            if (entry.Combatant.BossEncounter != null && entry.Combatant.BossEncounter.CurrentPhaseIndex != entry.LastBossPhaseIndex)
+            {
+                entry.LastBossPhaseIndex = entry.Combatant.BossEncounter.CurrentPhaseIndex;
+                var phase = entry.Combatant.BossEncounter.CurrentPhase;
+                var bossIdleFrames = BossAnimationFrames.Idle(phase.animationFolderKey);
+                if (bossIdleFrames != null && bossIdleFrames.Length > 0)
+                {
+                    entry.IdleFrames = bossIdleFrames;
+                    entry.AttackFrames = BossAnimationFrames.Attack(phase.animationFolderKey);
+                    entry.HeavyAttackFrames = BossAnimationFrames.Heavy(phase.animationFolderKey);
+                    if (entry.FlipbookCoroutine != null) StopCoroutine(entry.FlipbookCoroutine);
+                    entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(entry.Sprite, bossIdleFrames, 6f, loop: true));
+                }
+                else
+                {
+                    entry.IdleFrames = null;
+                    entry.AttackFrames = null;
+                    entry.HeavyAttackFrames = null;
+                }
+            }
+
             // Boss framework (минимальный слайс) — смена спрайта между фазами (CombatManager.
             // TickBossEncounters переписывает CombatantRuntime.Sprite при входе в новую фазу; сам
             // Image-элемент строится один раз в BuildEnemyStageEntries, поэтому src нужно перечитывать
             // каждый кадр здесь, как и остальное per-frame состояние). Для не-боссов Sprite не меняется
             // после старта боя — присваивание того же значения каждый кадр безвредно. Пропускается для
-            // монстров с PixelLab-анимацией (entry.IdleFrames != null) — там sprite-ом уже управляет
-            // флипбук-корутина (см. BuildEnemyStageEntries/OnEnemyAttackPerformed), эта строка
+            // монстров/боссов с PixelLab-анимацией (entry.IdleFrames != null) — там sprite-ом уже
+            // управляет флипбук-корутина (см. BuildEnemyStageEntries/OnEnemyAttackPerformed), эта строка
             // перетирала бы текущий кадр анимации обратно на статичный Sprite каждый тик.
             if (entry.IdleFrames == null && entry.Sprite.sprite != entry.Combatant.Sprite)
             {
@@ -669,7 +722,7 @@ public partial class RunFlowController
                     combatManager.SetSkillAutoMode(slotIndex, activeSkillAutoModePreference);
                 });
                 slotRoot.Add(autoToggle);
-                tutorialManager?.BindTooltip(autoToggle, "Авто-режим", TutorialContent.TooltipAuto);
+                tutorialManager?.BindTooltip(autoToggle, "Автоматический режим", TutorialContent.TooltipAuto);
             }
 
             if (data.skillId == SkillId.Berserk)
@@ -681,7 +734,8 @@ public partial class RunFlowController
             }
             else
             {
-                tutorialManager?.BindTooltip(iconFrame, data.skillName, () => data.effectDescription);
+                tutorialManager?.BindTooltip(iconFrame, data.skillName, () =>
+                    SkillDescriptionFormatter.Active(data, characterManager.Progress.UniqueActiveLevel));
             }
 
             skillPanelContainer.Add(slotRoot);
@@ -774,16 +828,24 @@ public partial class RunFlowController
         enemyStageRow.Clear();
         enemyStageEntries.Clear();
 
-        // Один фиксированный размер для всех боёв (было: 384/260/190 в зависимости от числа врагов —
-        // из-за этого один и тот же монстр менял видимый размер от боя к бою, выглядело комично.
+        // Один фиксированный размер для всех обычных боёв (было: 384/260/190 в зависимости от числа
+        // врагов — из-за этого один и тот же монстр менял видимый размер от боя к бою, выглядело
+        // комично). Игрок (.stage-sprite) занимает 384px — обычные враги немного меньше него.
+        //
+        // Боссы — исключение (2026-09-05): бой с боссом всегда 1 на 1 (см. CombatRoomFlow), поэтому
+        // им не нужна общая с обычными монстрами сетка размеров — босс крупнее игрока, чтобы читаться
+        // как главный противник комнаты, а не как рядовой моб.
         const float enemySpriteSize = 260f;
+        const float bossSpriteSize = 460f;
 
         foreach (var enemy in enemies)
         {
+            float spriteSize = enemy.BossEncounter != null ? bossSpriteSize : enemySpriteSize;
+
             var wrapper = new VisualElement();
             wrapper.AddToClassList("enemy-stage-sprite-wrapper");
-            wrapper.style.width = enemySpriteSize;
-            wrapper.style.height = enemySpriteSize;
+            wrapper.style.width = spriteSize;
+            wrapper.style.height = spriteSize;
 
             var sprite = new Image { sprite = enemy.Sprite };
             sprite.AddToClassList("stage-sprite");
@@ -824,10 +886,7 @@ public partial class RunFlowController
             };
             enemyStageEntries.Add(entry);
 
-            // (доп.): PixelLab idle/attack-анимации обычных монстров (см. MonsterAnimations) —
-            // боссы (enemy.BossEncounter != null) исключены нарочно, они держат Sprite сами через
-            // существующую систему статичного/фазового спрайта (BossEncounterState), которую эта
-            // задача не трогает.
+            // (доп.): PixelLab idle/attack-анимации обычных монстров (см. MonsterAnimations).
             if (enemy.BossEncounter == null)
             {
                 var idleFrames = MonsterAnimations.Idle(enemy.MonsterAnimationKey);
@@ -836,6 +895,21 @@ public partial class RunFlowController
                     entry.IdleFrames = idleFrames;
                     entry.AttackFrames = MonsterAnimations.Attack(enemy.MonsterAnimationKey);
                     entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(sprite, idleFrames, 6f, loop: true));
+                }
+            }
+            else
+            {
+                // (доп.): PixelLab idle/attack/heavy-attack анимации босса текущей фазы (см.
+                // BossAnimationFrames, BossPhaseData.animationFolderKey) — фаза 0 уже активна на
+                // момент сборки, дальнейшие смены фазы подхватываются в UpdateCombatUI ниже.
+                entry.LastBossPhaseIndex = enemy.BossEncounter.CurrentPhaseIndex;
+                var bossIdleFrames = BossAnimationFrames.Idle(enemy.BossEncounter.CurrentPhase.animationFolderKey);
+                if (bossIdleFrames != null && bossIdleFrames.Length > 0)
+                {
+                    entry.IdleFrames = bossIdleFrames;
+                    entry.AttackFrames = BossAnimationFrames.Attack(enemy.BossEncounter.CurrentPhase.animationFolderKey);
+                    entry.HeavyAttackFrames = BossAnimationFrames.Heavy(enemy.BossEncounter.CurrentPhase.animationFolderKey);
+                    entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(sprite, bossIdleFrames, 6f, loop: true));
                 }
             }
         }
@@ -1158,6 +1232,23 @@ public partial class RunFlowController
             StopCoroutine(skillBannerCoroutine);
         }
         skillBannerCoroutine = StartCoroutine(ShowSkillBanner(skillName));
+
+        // (доп.): heavy-attack анимация босса — сверяемся с abilities текущей фазы, а не с жёстко
+        // зашитым именем, т.к. displayName у Тяжёлого/Сокрушительного замаха разный по фазам (см.
+        // BossKit_Warden.asset). ShieldPool-способности того же босса используют тот же
+        // ActiveSkillActivated для баннера, но effectKind у них не HeavyAttack — не совпадут.
+        if (user.BossEncounter != null)
+        {
+            var abilities = user.BossEncounter.CurrentPhase.abilities;
+            for (int i = 0; i < abilities.Count; i++)
+            {
+                if (abilities[i].displayName == skillName && abilities[i].effectKind == BossAbilityEffectKind.HeavyAttack)
+                {
+                    PlayBossHeavyAttack(user);
+                    break;
+                }
+            }
+        }
 
         // Дженифер "3 быстрые атаки": вместо анимации трёх отдельных ударов на самой Дженифер
         // (не читалось — см. обсуждение), навык играет один яркий удар + VFX "3 линии" на цели.

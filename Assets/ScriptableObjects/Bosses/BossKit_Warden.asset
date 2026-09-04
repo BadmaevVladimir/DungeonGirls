@@ -16,6 +16,7 @@ MonoBehaviour:
   - phaseName: "\u0421\u0442\u0440\u0430\u0436"
     hpThresholdPercent: 100
     phaseSprite: {fileID: 21300000, guid: d5c0a98392c141309e9b29885ac1a95a, type: 3}
+    animationFolderKey: Warden_Phase1
     floorPaddingFraction: 0.020833334
     abilities:
     - displayName: "\u0421\u0442\u0440\u0430\u0436 \u043F\u043E\u0434\u043D\u0438\u043C\u0430\u0435\u0442
@@ -41,6 +42,7 @@ MonoBehaviour:
       \u0441\u0442\u0440\u0430\u0436"
     hpThresholdPercent: 50
     phaseSprite: {fileID: 21300000, guid: 8fd22e4346b5426aae8c4e22d39b6708, type: 3}
+    animationFolderKey: Warden_Phase2
     floorPaddingFraction: 0.020833334
     abilities:
     - displayName: "\u0421\u0442\u0440\u0430\u0436 \u043F\u043E\u0434\u043D\u0438\u043C\u0430\u0435\u0442

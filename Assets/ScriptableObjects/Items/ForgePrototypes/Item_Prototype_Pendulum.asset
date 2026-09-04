@@ -29,7 +29,7 @@ MonoBehaviour:
   - 0
   - 3
   cursedEffect: 0
-  positiveEffectDescription: Пока оружие не атакует, оно накапливает урон следующего удара. +20% урона за каждую полную секунду, максимум +100%.
+  positiveEffectDescription: За каждую полную секунду без атаки урон следующего удара повышается на 20%; максимум — 100%.
   curseDescription:
   handUsageDescription:
   isPairedWeapon: 0

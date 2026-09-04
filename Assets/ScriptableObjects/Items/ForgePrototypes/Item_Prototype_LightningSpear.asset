@@ -29,7 +29,7 @@ MonoBehaviour:
   - 0
   - 3
   cursedEffect: 0
-  positiveEffectDescription: Каждая третья успешная обычная атака вызывает удар молнии, наносящий дополнительный магический урон.
+  positiveEffectDescription: Каждая третья успешная обычная атака дополнительно наносит магический урон в размере 50% урона атаки.
   curseDescription:
   handUsageDescription:
   isPairedWeapon: 0

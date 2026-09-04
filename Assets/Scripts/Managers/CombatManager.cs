@@ -178,7 +178,7 @@ public class CombatManager : MonoBehaviour
         {
             GrantOrRefreshStealth(Player);
             Player.SmokeBombGuaranteedCritsRemaining = Player.UniqueSmokeBombLevel;
-            Log($"[Combat] «Дымовая граната»: {Player.DisplayName} получает Скрытность и {Player.UniqueSmokeBombLevel} гарантированных крита(ов).");
+            Log($"[Combat] «Дымовая граната»: {Player.DisplayName} получает Скрытность и {Player.UniqueSmokeBombLevel} гарантированных критических атак.");
             slot.CooldownTimer = slot.Data.cooldownSeconds;
             return true;
         }
@@ -240,7 +240,7 @@ public class CombatManager : MonoBehaviour
             Player.CurrentHP = Mathf.Min(Player.MaxHP, Player.CurrentHP + Player.MaxHP * ItemEffectBalance.JustAScratchHealPercent(Player.ItemJustAScratchLevel) / 100f);
         }
 
-        Log($"[Combat] Бой начался: {Player.DisplayName} (HP {Player.CurrentHP:F1}) против {Enemies.Count} противников.");
+        Log($"[Combat] Бой начался: {Player.DisplayName} (здоровье {Player.CurrentHP:F1}) против {Enemies.Count} противников.");
     }
 
     public void EndCombat()
@@ -361,7 +361,7 @@ public class CombatManager : MonoBehaviour
                 float tickDamage = Mathf.Max(1f, Player.CurrentHP * 0.01f);
                 Player.CurrentHP = Mathf.Max(0f, Player.CurrentHP - tickDamage);
                 Player.NotifyHpDamageResolved();
-                Log($"[Combat] «Берсерк» наносит {tickDamage:F1} урона {Player.DisplayName} (HP {Player.CurrentHP:F1}/{Player.MaxHP:F1}).");
+                Log($"[Combat] «Берсерк» наносит {tickDamage:F1} урона {Player.DisplayName} (здоровье {Player.CurrentHP:F1}/{Player.MaxHP:F1}).");
             }
         }
 
@@ -482,7 +482,7 @@ public class CombatManager : MonoBehaviour
                 }
 
                 ActiveSkillActivated?.Invoke(enemy, newPhase.phaseName);
-                Log($"[Boss] {enemy.DisplayName} переходит в фазу «{newPhase.phaseName}» (HP {hpPercent:F0}%).");
+                Log($"[Boss] {enemy.DisplayName} переходит в фазу «{newPhase.phaseName}» (здоровье {hpPercent:F0}%).");
                 continue; // новая фаза резолвит свои кулдауны/телеграфы со следующего Tick.
             }
 
@@ -673,7 +673,7 @@ public class CombatManager : MonoBehaviour
             target.CurrentHP -= tickDamage;
             target.NotifyHpDamageResolved();
             HitResolved?.Invoke(target, tickDamage, isCriticalTick, false);
-            Log($"[Combat] {target.DisplayName} получает {tickDamage:F1} урона от кровотечения{(isCriticalTick ? " (крит!)" : string.Empty)} (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+            Log($"[Combat] {target.DisplayName} получает {tickDamage:F1} урона от кровотечения{(isCriticalTick ? " (критический урон)" : string.Empty)} (здоровье {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
             if (!target.IsAlive)
             {
@@ -967,11 +967,11 @@ public class CombatManager : MonoBehaviour
         if (result.WasBlocked)
         {
             string blockSuffix = normalArmorLost > 0f ? $", броня истёрлась (-{normalArmorLost:F0})" : string.Empty;
-            Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: урон {damage:F1} полностью заблокирован{blockSuffix}.");
+            Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (критический удар)" : string.Empty)}: урон {damage:F1} полностью заблокирован{blockSuffix}.");
         }
         else
         {
-            Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (крит!)" : string.Empty)}: {result.DamageToHP:F1} урона по HP (осталось {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+            Log($"[Combat] {attacker.DisplayName} атакует {target.DisplayName}{(isCrit ? " (критический удар)" : string.Empty)}: {result.DamageToHP:F1} урона здоровью (осталось {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
         }
 
         // 4.7: единая точка для всплывающих цифр урона и тряски спрайта цели — покрывает обычные
@@ -1018,7 +1018,7 @@ public class CombatManager : MonoBehaviour
         {
             float healAmount = damage * ItemEffectBalance.VampirismHealPercentOfCritDamage(weapon.VampirismLevel) / 100f;
             attacker.CurrentHP = Mathf.Min(attacker.MaxHP, attacker.CurrentHP + healAmount);
-            Log($"[Combat] «Вампиризм» восстанавливает {attacker.DisplayName} {healAmount:F1} HP.");
+            Log($"[Combat] «Вампиризм» восстанавливает {attacker.DisplayName} {healAmount:F1} здоровья.");
         }
 
         // «Разрушение брони» (Рубило): после физического попадания есть 25/50/75/100/100% шанс
@@ -1049,7 +1049,7 @@ public class CombatManager : MonoBehaviour
 
                     var splashResult = DamageCalculator.ApplyDamage(other, splashDamage, weapon.DamageType);
                     HitResolved?.Invoke(other, splashResult.DamageToHP, false, splashResult.WasBlocked);
-                    Log($"[Combat] «Насквозь» задевает {other.DisplayName}: {splashResult.DamageToHP:F1} урона по HP.");
+                    Log($"[Combat] «Насквозь» задевает {other.DisplayName}: {splashResult.DamageToHP:F1} урона здоровью.");
                 }
             }
         }
@@ -1127,7 +1127,7 @@ public class CombatManager : MonoBehaviour
                 float regenAmount = target.MaxHP * (BalanceClamps.CombatRegenHealPercent / 100f);
                 target.CurrentHP = Mathf.Min(target.MaxHP, target.CurrentHP + regenAmount);
                 target.CombatRegenCooldownRemaining = BalanceClamps.CombatRegenCooldownSeconds;
-                Log($"[Combat] «Боевая регенерация» восстанавливает {target.DisplayName} {regenAmount:F1} HP (HP {target.CurrentHP:F1}/{target.MaxHP:F1}).");
+                Log($"[Combat] «Боевая регенерация» восстанавливает {target.DisplayName} {regenAmount:F1} здоровья (здоровье {target.CurrentHP:F1}/{target.MaxHP:F1}).");
             }
         }
     }
@@ -1181,7 +1181,7 @@ public class CombatManager : MonoBehaviour
         target.FreezeStacks = Mathf.Min(target.FreezeStacks + 1, maxStacks);
         target.FreezeStackTimer = target.AdjustNegativeStatusDuration(3f);
 
-        Log($"[Combat] {target.DisplayName} получает стак заморозки ({target.FreezeStacks}/{maxStacks}).");
+        Log($"[Combat] {target.DisplayName} получает заряд заморозки ({target.FreezeStacks}/{maxStacks}).");
 
         if (target.FreezeStacks >= 10)
         {
@@ -1258,7 +1258,7 @@ public class CombatManager : MonoBehaviour
 
         target.RoguePoisonStacksOnTarget = Mathf.Min(target.RoguePoisonStacksOnTarget + stacksToAdd, maxStacks);
         target.RoguePoisonTimer = target.AdjustNegativeStatusDuration(3f);
-        Log($"[Combat] «Отравленный клинок» накладывает яд на {target.DisplayName} ({target.RoguePoisonStacksOnTarget}/{maxStacks} стаков).");
+        Log($"[Combat] «Отравленный клинок» накладывает яд на {target.DisplayName} ({target.RoguePoisonStacksOnTarget}/{maxStacks} зарядов).");
     }
 
     // "Отравленный клинок": тикает раз в секунду, урон/сек = текущее число стаков (1:1, В ОТЛИЧИЕ
@@ -1281,7 +1281,7 @@ public class CombatManager : MonoBehaviour
             target.CurrentHP -= damagePerSecond;
             target.NotifyHpDamageResolved();
             HitResolved?.Invoke(target, damagePerSecond, false, false);
-            Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от «Отравленного клинка» (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+            Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от «Отравленного клинка» (здоровье {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
             if (!target.IsAlive)
             {
@@ -1330,7 +1330,7 @@ public class CombatManager : MonoBehaviour
                 {
                     target.PoisonStacks = Mathf.Min(target.PoisonStacks + 1, 3);
                     target.PoisonTimer = target.AdjustNegativeStatusDuration(3f);
-                    Log($"[Combat] {target.DisplayName} получает яд ({target.PoisonStacks}/3 стаков).");
+                    Log($"[Combat] {target.DisplayName} получает яд ({target.PoisonStacks}/3 зарядов).");
                 }
                 break;
 
@@ -1341,7 +1341,7 @@ public class CombatManager : MonoBehaviour
                 {
                     target.CritChanceDebuffPercent = 20f;
                     target.CritChanceDebuffTimer = target.AdjustNegativeStatusDuration(4f);
-                    Log($"[Combat] Оглушающий крик {attacker.DisplayName} снижает шанс крита {target.DisplayName}.");
+                    Log($"[Combat] Оглушающий крик {attacker.DisplayName} снижает шанс критического удара {target.DisplayName}.");
                 }
                 break;
 
@@ -1388,7 +1388,7 @@ public class CombatManager : MonoBehaviour
                     {
                         float healAmount = healTarget.MaxHP * 0.10f;
                         healTarget.CurrentHP = Mathf.Min(healTarget.MaxHP, healTarget.CurrentHP + healAmount);
-                        Log($"[Combat] Тёмное исцеление {enemy.DisplayName} восстанавливает {healTarget.DisplayName} {healAmount:F1} HP.");
+                        Log($"[Combat] Тёмное исцеление {enemy.DisplayName} восстанавливает {healTarget.DisplayName} {healAmount:F1} здоровья.");
                     }
                 }
             }
@@ -1449,7 +1449,7 @@ public class CombatManager : MonoBehaviour
             target.CurrentHP -= damagePerSecond;
             target.NotifyHpDamageResolved();
             HitResolved?.Invoke(target, damagePerSecond, false, false);
-            Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от яда (HP {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
+            Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от яда (здоровье {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
             if (!target.IsAlive)
             {

@@ -60,6 +60,20 @@ public class TavernForgeUIWiringTests
     }
 
     [Test]
+    public void RealLevelOneRecipe_CooksAtLevelOneButNotLevelZero()
+    {
+        var recipe = FoodRecipeCatalog.All.First(r => r.requiredTavernLevel == 1);
+        var data = new SaveData();
+        foreach (var cost in recipe.ingredientCosts)
+            data.resources.Add(new KeyCountEntry { key = cost.resourceId, count = cost.amount });
+        var service = new TavernService(data);
+
+        Assert.IsFalse(service.TryCook(recipe, 0), "На уровне 0 рецепты ещё не доступны");
+        Assert.IsTrue(service.TryCook(recipe, 1), "Реальный рецепт 1 уровня должен готовиться");
+        Assert.AreEqual(1, service.GetPreparedCount(recipe.resultFoodId));
+    }
+
+    [Test]
     public void ForgeBlueprintCatalog_LoadsSixAssetsEachWiredToRealPrototypeItem()
     {
         var blueprints = ForgeBlueprintCatalog.All;

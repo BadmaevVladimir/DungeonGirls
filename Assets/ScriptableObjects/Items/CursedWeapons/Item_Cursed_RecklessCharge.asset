@@ -25,7 +25,7 @@ MonoBehaviour:
   - 3
   cursedEffect: 4
   positiveEffectDescription: "Натиск: скорость атаки +15/20/25/30/35% по рангу."
-  curseDescription: "Открытая стойка: каждая атака −3% физической защиты, до 10 стаков; сброс после 3 секунд без атак."
+  curseDescription: "Открытая стойка: каждая атака снижает физическую защиту на 3%; максимум — 10 зарядов. Заряды исчезают после 3 секунд без атак."
   handUsageDescription: ""
   isPairedWeapon: 0
   baseDamage: 4
@@ -40,4 +40,3 @@ MonoBehaviour:
     type: 0
     baseValue: 0
   passiveSkill: {fileID: 0}
-

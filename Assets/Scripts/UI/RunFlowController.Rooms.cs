@@ -240,7 +240,7 @@ public partial class RunFlowController
                 {
                     characterManager.ApplyDirectDamage(20f);
                     characterManager.ApplyDirectArmorLoss(15f);
-                    LogEvent("[Событие] Добыча: −20 HP, −15 физической защиты.");
+                    LogEvent("[Событие] Добыча: −20 здоровья, −15 физической защиты.");
                 }
             }
         }
@@ -340,8 +340,8 @@ public partial class RunFlowController
             "sasha" => "Пивной погреб",
             _ => "Горячие источники"
         };
-        campText.text = $"{roomName} восстанавливает силы...\n+{hpRestored:F0} HP\nРационы не потрачены: {campManager.RationsRemaining}";
-        LogEvent($"[{roomName}] +{hpRestored:F0} HP, рацион не потрачен.");
+        campText.text = $"{roomName} восстанавливает силы...\n+{hpRestored:F0} здоровья\nРационы не потрачены: {campManager.RationsRemaining}";
+        LogEvent($"[{roomName}] +{hpRestored:F0} здоровья, рацион не потрачен.");
         yield return WaitForClick(campContinueButton);
     }
 

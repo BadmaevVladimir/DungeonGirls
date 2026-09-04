@@ -57,16 +57,21 @@ public partial class RunFlowController
             classLabel.AddToClassList("character-select-class");
             card.Add(classLabel);
 
-            var hpLabel = new Label($"HP: {character.baseHealth}");
+            var hpLabel = new Label($"Здоровье: {character.baseHealth}");
             hpLabel.AddToClassList("character-select-stat");
             card.Add(hpLabel);
 
-            var hpGrowthLabel = new Label($"Прирост HP: +{character.healthPerLevel} за уровень");
+            var hpGrowthLabel = new Label($"Прирост здоровья: +{character.healthPerLevel} за уровень");
             hpGrowthLabel.AddToClassList("character-select-stat");
             card.Add(hpGrowthLabel);
 
-            AddCharacterSkillLabel(card, character.characterId, "PassiveSkill", "Пассивный", character.uniquePassiveSkill != null ? character.uniquePassiveSkill.skillName : "—", character.uniquePassiveSkill != null ? character.uniquePassiveSkill.effectDescription : string.Empty);
-            AddCharacterSkillLabel(card, character.characterId, "ActiveSkill", "Активный", character.uniqueActiveSkill != null ? character.uniqueActiveSkill.skillName : "—", character.uniqueActiveSkill != null ? character.uniqueActiveSkill.effectDescription : string.Empty);
+            var startingBonus = GachaCopyBonusCalculator.CalculateBonus(saveManager != null ? saveManager.GetCharacterCopies(character.characterId) : 0);
+            int passiveLevel = character.uniquePassiveSkill != null ? Mathf.Min(character.uniquePassiveSkill.maxLevel, 1 + startingBonus.PassiveLevelBonus) : 1;
+            int activeLevel = character.uniqueActiveSkill != null ? Mathf.Min(character.uniqueActiveSkill.maxLevel, 1 + startingBonus.ActiveLevelBonus) : 1;
+            AddCharacterSkillLabel(card, character.characterId, "PassiveSkill", "Пассивный навык", character.uniquePassiveSkill != null ? character.uniquePassiveSkill.skillName : "—",
+                SkillDescriptionFormatter.Passive(character.uniquePassiveSkill, passiveLevel));
+            AddCharacterSkillLabel(card, character.characterId, "ActiveSkill", "Активный навык", character.uniqueActiveSkill != null ? character.uniqueActiveSkill.skillName : "—",
+                SkillDescriptionFormatter.Active(character.uniqueActiveSkill, activeLevel));
 
             var pickButton = new Button { name = $"CharacterSelectButton_{character.characterId}", text = "Выбрать" };
             pickButton.AddToClassList("button-primary");
@@ -109,7 +114,7 @@ public partial class RunFlowController
         var skillLabel = new Label($"{typeLabel}: {skillName}")
         {
             name = $"CharacterSelect{elementSuffix}_{characterId}",
-            tooltip = description ?? string.Empty
+            tooltip = SkillDescriptionFormatter.Plain(description)
         };
         skillLabel.AddToClassList("character-select-skill");
         skillLabel.RegisterCallback<PointerEnterEvent>(evt => ShowCharacterSkillTooltip(description, evt.position));
@@ -190,7 +195,7 @@ public partial class RunFlowController
             tutorialManager?.BindTooltip(title, "Оценка ветерана", TutorialContent.TooltipGrade);
             card.Add(title);
             card.Add(new Label($"Полностью зачищено этажей: {veteran.floorsCleared}"));
-            card.Add(new Label($"Гарантированный пассив: {veteran.uniquePassiveSkillName}"));
+            card.Add(new Label($"Гарантированный пассивный навык: {veteran.uniquePassiveSkillName}"));
             string candidates = veteran.finalSkills != null && veteran.finalSkills.Count > 0
                 ? string.Join(", ", veteran.finalSkills.Where(entry => entry != null && !string.IsNullOrWhiteSpace(entry.skillName)).Select(entry => entry.skillName).Distinct())
                 : "нет";

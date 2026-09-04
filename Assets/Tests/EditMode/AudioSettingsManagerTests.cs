@@ -35,9 +35,9 @@ public class AudioSettingsManagerTests
     }
 
     [Test]
-    public void MasterVolume_DefaultsToFull_WhenNoPrefSaved()
+    public void MasterVolume_DefaultsToHalf_WhenNoPrefSaved()
     {
-        Assert.AreEqual(1f, AudioSettingsManager.MasterVolume);
+        Assert.AreEqual(0.5f, AudioSettingsManager.MasterVolume);
     }
 
     [Test]

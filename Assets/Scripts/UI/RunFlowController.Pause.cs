@@ -51,16 +51,19 @@ public partial class RunFlowController
 
         pauseSkillsScrollView.Clear();
         var uniquePassive = characterManager.Character.uniquePassiveSkill;
-        AddPauseLine(pauseSkillsScrollView, $"Уникальный пассив: {uniquePassive.skillName} — ур. {progress.UniquePassiveLevel}", uniquePassive.skillName, uniquePassive.effectDescription);
+        AddPauseLine(pauseSkillsScrollView, $"Уникальный пассивный навык: {uniquePassive.skillName} — ур. {progress.UniquePassiveLevel}", uniquePassive.skillName,
+            SkillDescriptionFormatter.Passive(uniquePassive, progress.UniquePassiveLevel));
         var uniqueActive = characterManager.Character.uniqueActiveSkill;
-        AddPauseLine(pauseSkillsScrollView, $"Уникальный активный: {uniqueActive.skillName} — ур. {progress.UniqueActiveLevel}", uniqueActive.skillName, uniqueActive.effectDescription);
+        AddPauseLine(pauseSkillsScrollView, $"Уникальный активный навык: {uniqueActive.skillName} — ур. {progress.UniqueActiveLevel}", uniqueActive.skillName,
+            SkillDescriptionFormatter.Active(uniqueActive, progress.UniqueActiveLevel));
         if (!string.IsNullOrWhiteSpace(progress.MentorUniquePassiveSkillName))
         {
-            AddPauseLine(pauseSkillsScrollView, $"Пассив наставника: {progress.MentorUniquePassiveSkillName} — ур. {progress.MentorUniquePassiveLevel}");
+            AddPauseLine(pauseSkillsScrollView, $"Пассивный навык наставника: {progress.MentorUniquePassiveSkillName} — ур. {progress.MentorUniquePassiveLevel}");
         }
         foreach (var pair in progress.KnownSkillLevels.OrderBy(pair => pair.Key != null ? pair.Key.skillName : string.Empty))
         {
-            if (pair.Key != null) AddPauseLine(pauseSkillsScrollView, $"{pair.Key.skillName} — ур. {pair.Value}", pair.Key.skillName, pair.Key.effectDescription);
+            if (pair.Key != null) AddPauseLine(pauseSkillsScrollView, $"{pair.Key.skillName} — ур. {pair.Value}", pair.Key.skillName,
+                SkillDescriptionFormatter.Passive(pair.Key, pair.Value));
         }
 
         RefreshPauseEquipmentGrid();
@@ -69,11 +72,11 @@ public partial class RunFlowController
     void RefreshPauseStatsGrid(CombatantRuntime combatant)
     {
         pauseStatsGrid.Clear();
-        AddPauseStatRow(pauseStatsGrid, "HP", $"{combatant.CurrentHP:F0}/{combatant.MaxHP:F0}");
+        AddPauseStatRow(pauseStatsGrid, "Здоровье", $"{combatant.CurrentHP:F0}/{combatant.MaxHP:F0}");
         AddPauseStatRow(pauseStatsGrid, "Физ. защита", $"{combatant.PhysicalDefenseCurrent:F0}/{combatant.PhysicalDefenseMax:F0}");
         AddPauseStatRow(pauseStatsGrid, "Маг. щит", $"{combatant.MagicShieldCurrent:F0}/{combatant.MagicShieldMax:F0}");
         AddPauseStatRow(pauseStatsGrid, "Ярость", $"{combatant.Rage:F0}%");
-        AddPauseStatRow(pauseStatsGrid, "Крит. шанс", $"{CombatCriticalRules.CalculateChancePercent(combatant):F0}%");
+        AddPauseStatRow(pauseStatsGrid, "Шанс критического удара", $"{CombatCriticalRules.CalculateChancePercent(combatant):F0}%");
         AddPauseStatRow(pauseStatsGrid, "Уклонение", $"{CombatEvasionRules.CalculateChancePercent(combatant):F0}%");
         AddPauseStatRow(pauseStatsGrid, "Скорость атаки", $"+{combatant.GetPositiveAttackSpeedBonusPercent():F0}%");
         AddPauseStatRow(pauseStatsGrid, "Урон", $"+{Mathf.Max(0f, combatant.ItemDamageBonusPercent + combatant.FoodDamagePercent):F0}%");

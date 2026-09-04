@@ -104,7 +104,7 @@ public partial class HubManager
             int equipmentCount = veteran.finalEquipmentSnapshot != null && veteran.finalEquipmentSnapshot.Count > 0
                 ? veteran.finalEquipmentSnapshot.Count
                 : (veteran.finalEquipment != null ? veteran.finalEquipment.Count : 0);
-            string text = $"{displayName} — оценка {veteran.grade}, этажей пройдено: {veteran.floorsCleared}, HP {veteran.finalHP:F0}, навыков: {skillCount}, предметов: {equipmentCount}";
+            string text = $"{displayName} — оценка {veteran.grade}, этажей пройдено: {veteran.floorsCleared}, здоровье {veteran.finalHP:F0}, навыков: {skillCount}, предметов: {equipmentCount}";
             var portrait = FindCharacter(veteran.characterId)?.portrait;
             var row = AddIconRow(veteranDeckScrollView, portrait, text);
             tutorialManager?.BindTooltip(row, "Оценка ветерана", TutorialContent.TooltipGrade);

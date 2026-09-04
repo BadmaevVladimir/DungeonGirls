@@ -24,7 +24,7 @@ MonoBehaviour:
   - 3
   cursedEffect: 8
   positiveEffectDescription: "Запах крови: пока активно Кровотечение, скорость атаки +20/25/30/35/40% по рангу."
-  curseDescription: "Терновая рана: каждый крит накладывает на владельца Кровотечение уровня, равного рангу предмета."
+  curseDescription: "Терновая рана: каждый критический удар вызывает у владельца кровотечение уровня, равного рангу предмета."
   handUsageDescription: "Двуручный топор. Занимает оба слота рук."
   isPairedWeapon: 0
   baseDamage: 20
@@ -39,4 +39,3 @@ MonoBehaviour:
     type: 0
     baseValue: 0
   passiveSkill: {fileID: 0}
-
