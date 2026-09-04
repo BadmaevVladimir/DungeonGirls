@@ -26,6 +26,7 @@ public partial class RunFlowController : MonoBehaviour
     [SerializeField] List<MonsterData> regularMonsterPool;
     [SerializeField] MonsterData bossData;
     [SerializeField] RareRoomConfig rareRoomConfig;
+    [SerializeField] VeteranAttestationConfig veteranAttestationConfig;
     // UXML ui:Image's src="project://database/..." does not resolve at runtime (confirmed via
     // PlayModeSmokeTest: Image.image/.sprite stayed null in Play Mode) — wired here in code instead,
     // same pattern as mentorData above.
@@ -63,11 +64,18 @@ public partial class RunFlowController : MonoBehaviour
     VisualElement resultsScreen;
     Label resultsTitleLabel;
     Label resultsBodyLabel;
+    VisualElement resultsAttestationPanel;
+    Image resultsPortraitImage;
+    Label resultsAttestationStageLabel;
+    Label resultsRankTrackLabel;
+    Label resultsFinalRankLabel;
+    Button resultsSkipButton;
     Button resultsContinueButton;
     VisualElement pauseScreen;
     Label pauseCharacterStatsLabel;
+    VisualElement pauseStatsGrid;
     ScrollView pauseSkillsScrollView;
-    ScrollView pauseEquipmentScrollView;
+    VisualElement pauseEquipmentGrid;
     Button pauseResumeButton;
     Button pauseAbandonRunButton;
     Button pauseQuitGameButton;
@@ -82,6 +90,7 @@ public partial class RunFlowController : MonoBehaviour
     VisualElement combatPanel;
     VisualElement mapPanel;
     VisualElement mapGraphContainer;
+    ScrollView mapGraphScroll;
     Label mapStatusLabel;
     Button mapEnterCurrentButton;
     Image combatBackground;
@@ -199,6 +208,9 @@ public partial class RunFlowController : MonoBehaviour
     ScrollView runLogScroll;
     Label runLogText;
     readonly List<string> runLogLines = new List<string>();
+    VisualElement runLogPanel;
+    Button runLogToggleButton;
+    bool runLogCollapsed = true;
 
     // --- Событие (квест, MultipleChoice) ---
     Label eventDescriptionLabel;
@@ -265,6 +277,9 @@ public partial class RunFlowController : MonoBehaviour
 
     // --- Сравнение предмета (3.4, "Без инвентаря") ---
     VisualElement itemComparePanel;
+    Image newItemIcon;
+    VisualElement newItemCard;
+    Label newItemRarityLabel;
     Label newItemName;
     Label newItemStats;
     VisualElement slotChoicesContainer;
@@ -297,6 +312,19 @@ public partial class RunFlowController : MonoBehaviour
     // персистентен между боями ОДНОГО забега (как и раньше персистился через .value статичного
     // UXML-тумблера), но по умолчанию ВЫКЛЮЧЕН на старте нового забега.
     bool activeSkillAutoModePreference;
+    bool runCompletionCommitted;
+    bool resultsSkipRequested;
+    string currentRunCompletionId;
+
+    VeteranAttestationConfig VeteranAttestationConfig
+    {
+        get
+        {
+            if (veteranAttestationConfig == null)
+                veteranAttestationConfig = Resources.Load<VeteranAttestationConfig>("VeteranAttestationConfig");
+            return veteranAttestationConfig;
+        }
+    }
 
     RareRoomConfig RareRoomConfig
     {
@@ -316,6 +344,7 @@ public partial class RunFlowController : MonoBehaviour
         var root = uiDocument.rootVisualElement;
         CacheElements(root);
         tutorialManager = TutorialManager.GetOrCreate(uiDocument, saveManager);
+        AudioSettingsManager.GetOrCreate(uiDocument);
         BindStaticTutorialTooltips();
         startRunButton.clicked += OpenCharacterSelect;
         characterSelectBackButton.clicked += () =>
@@ -327,6 +356,7 @@ public partial class RunFlowController : MonoBehaviour
         mentorSelectNoneButton.clicked += () => BeginRunWithMentor(null);
         mentorSelectBackButton.clicked += ReturnFromMentorSelection;
         resultsContinueButton.clicked += ReturnToMainMenu;
+        resultsSkipButton.clicked += () => resultsSkipRequested = true;
         pauseResumeButton.clicked += ResumeRun;
         pauseAbandonRunButton.clicked += AbandonRunFromPause;
         pauseQuitGameButton.clicked += QuitGame;
@@ -420,11 +450,18 @@ public partial class RunFlowController : MonoBehaviour
         resultsScreen = root.Q<VisualElement>("ResultsScreen");
         resultsTitleLabel = root.Q<Label>("ResultsTitleLabel");
         resultsBodyLabel = root.Q<Label>("ResultsBodyLabel");
+        resultsAttestationPanel = root.Q<VisualElement>("ResultsAttestationPanel");
+        resultsPortraitImage = root.Q<Image>("ResultsPortraitImage");
+        resultsAttestationStageLabel = root.Q<Label>("ResultsAttestationStageLabel");
+        resultsRankTrackLabel = root.Q<Label>("ResultsRankTrackLabel");
+        resultsFinalRankLabel = root.Q<Label>("ResultsFinalRankLabel");
+        resultsSkipButton = root.Q<Button>("ResultsSkipButton");
         resultsContinueButton = root.Q<Button>("ResultsContinueButton");
         pauseScreen = root.Q<VisualElement>("PauseScreen");
         pauseCharacterStatsLabel = root.Q<Label>("PauseCharacterStatsLabel");
+        pauseStatsGrid = root.Q<VisualElement>("PauseStatsGrid");
         pauseSkillsScrollView = root.Q<ScrollView>("PauseSkillsScrollView");
-        pauseEquipmentScrollView = root.Q<ScrollView>("PauseEquipmentScrollView");
+        pauseEquipmentGrid = root.Q<VisualElement>("PauseEquipmentGrid");
         pauseResumeButton = root.Q<Button>("PauseResumeButton");
         pauseAbandonRunButton = root.Q<Button>("PauseAbandonRunButton");
         pauseQuitGameButton = root.Q<Button>("PauseQuitGameButton");
@@ -436,8 +473,10 @@ public partial class RunFlowController : MonoBehaviour
         combatPanel = root.Q<VisualElement>("CombatPanel");
         mapPanel = root.Q<VisualElement>("MapPanel");
         mapGraphContainer = root.Q<VisualElement>("MapGraphContainer");
+        mapGraphScroll = root.Q<ScrollView>("MapGraphScroll");
         mapStatusLabel = root.Q<Label>("MapStatusLabel");
         mapEnterCurrentButton = root.Q<Button>("MapEnterCurrentButton");
+        SetupMapGraphScrollInteractions();
         combatBackground = root.Q<Image>("CombatBackground");
         if (combatBackground != null && combatBackgroundSprite != null)
         {
@@ -469,6 +508,9 @@ public partial class RunFlowController : MonoBehaviour
         enemyListContainer = root.Q<VisualElement>("EnemyListContainer");
         runLogScroll = root.Q<ScrollView>("RunLogScroll");
         runLogText = root.Q<Label>("RunLogText");
+        runLogPanel = root.Q<VisualElement>("RunLogPanel");
+        runLogToggleButton = root.Q<Button>("RunLogToggleButton");
+        runLogToggleButton.clicked += ToggleRunLog;
         skillPanelContainer = root.Q<VisualElement>("SkillPanelContainer");
 
         eventDescriptionLabel = root.Q<Label>("EventDescriptionLabel");
@@ -513,6 +555,9 @@ public partial class RunFlowController : MonoBehaviour
         chestReelStrip = root.Q<VisualElement>("ChestReelStrip");
         chestSkipButton = root.Q<Button>("ChestSkipButton");
 
+        newItemIcon = root.Q<Image>("NewItemIcon");
+        newItemCard = root.Q<VisualElement>("NewItemCard");
+        newItemRarityLabel = root.Q<Label>("NewItemRarityLabel");
         newItemName = root.Q<Label>("NewItemName");
         newItemStats = root.Q<Label>("NewItemStats");
         slotChoicesContainer = root.Q<VisualElement>("SlotChoicesContainer");
@@ -748,6 +793,15 @@ public partial class RunFlowController : MonoBehaviour
 
             roomProgressContainer.Add(pip);
         }
+    }
+
+    // Журнал забега занимает 340px и нужен не всегда — сворачивается кнопкой в TopBar, освобождая
+    // место ContentArea (панель просто перестаёт участвовать в раскладке через display:none).
+    void ToggleRunLog()
+    {
+        runLogCollapsed = !runLogCollapsed;
+        runLogPanel.style.display = runLogCollapsed ? DisplayStyle.None : DisplayStyle.Flex;
+        runLogToggleButton.text = runLogCollapsed ? "Журнал ▸" : "Журнал ▾";
     }
 
     void ShowOnly(VisualElement panelToShow)

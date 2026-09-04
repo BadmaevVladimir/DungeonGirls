@@ -119,6 +119,7 @@ public partial class HubManager : MonoBehaviour
         tavernService = saveManager.CreateTavernService();
         forgeService = saveManager.CreateForgeService();
         tutorialManager = TutorialManager.GetOrCreate(uiDocument, saveManager);
+        AudioSettingsManager.GetOrCreate(uiDocument);
         vnManager = uiDocument.GetComponent<VNManager>();
         if (vnManager == null) vnManager = uiDocument.gameObject.AddComponent<VNManager>();
         vnManager.SceneCompleted += OnVNSceneCompleted;

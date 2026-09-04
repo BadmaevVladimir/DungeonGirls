@@ -39,6 +39,21 @@ public class LevelUpOption
         }
     }
 
+    // Комплексная переработка карточки левел-апа (вариант B): имя навыка отдельно от бейджа
+    // уровня, чтобы UI мог стилизовать их по-разному (жирный заголовок + цветной чип уровня).
+    public string TitleName => Type switch
+    {
+        LevelUpOptionType.NewPassiveSkill => Skill != null ? Skill.skillName : "?",
+        LevelUpOptionType.UpgradePassiveSkill => Skill != null ? Skill.skillName : "?",
+        LevelUpOptionType.UpgradeUniquePassive => Skill != null ? Skill.skillName : "Уникальный навык",
+        LevelUpOptionType.UpgradeUniqueActive => ActiveSkill != null ? ActiveSkill.skillName : "Уникальный приём",
+        _ => "?"
+    };
+
+    public string LevelBadgeText => Type == LevelUpOptionType.NewPassiveSkill
+        ? "новое"
+        : $"ур. {ResultingLevel - 1} → {ResultingLevel}";
+
     public override string ToString()
     {
         switch (Type)

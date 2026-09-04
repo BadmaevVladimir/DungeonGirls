@@ -50,15 +50,9 @@ public partial class HubManager
         Image winningPortrait = null;
         int winningIndex = ChestRevealAnimator.ReelPadding + ChestRevealAnimator.WinningLogicalIndex;
 
-        if (gachaOpenAudioSource != null)
-        {
-            ItemTier jingleTier = result.IsCharacter ? ItemTier.Epic : result.CurrencyTier;
-            AudioClip openClip = GachaOpenClipFor(jingleTier);
-            if (openClip != null)
-            {
-                gachaOpenAudioSource.PlayOneShot(openClip);
-            }
-        }
+        ItemTier jingleTier = result.IsCharacter ? ItemTier.Epic : result.CurrencyTier;
+        AudioClip openClip = GachaOpenClipFor(jingleTier);
+        TaggedAudio.Play(gachaOpenAudioSource, openClip, AudioCategory.SFX);
 
         void BuildSlot(int index, bool isWinning)
         {
@@ -108,7 +102,7 @@ public partial class HubManager
             gachaReelStrip.Add(slot);
         }
 
-        yield return ChestRevealAnimator.PlayReel(gachaReelStrip, gachaReelViewport, BuildSlot, gachaSkipButton, winningIndex);
+        yield return ChestRevealAnimator.PlayReel(gachaReelStrip, gachaReelViewport, BuildSlot, gachaSkipButton, winningIndex, JumpGachaAudioToEnding);
         if (winningSlot != null) ChestRevealAnimator.SpawnBurst(winningSlot, gachaRevealContainer);
 
         if (winningPortrait != null)
@@ -188,4 +182,14 @@ public partial class HubManager
         ItemTier.Rare => gachaOpenRareClip,
         _ => gachaOpenEpicClip
     };
+
+    // См. RunFlowController.Reward.JumpChestAudioToEnding — тот же джингл, тот же приём.
+    void JumpGachaAudioToEnding()
+    {
+        if (gachaOpenAudioSource == null) return;
+        if (ChestRevealAnimator.ShouldJumpToEnding(gachaOpenAudioSource.isPlaying, gachaOpenAudioSource.time))
+        {
+            gachaOpenAudioSource.time = ChestRevealAnimator.JingleBuildupDuration;
+        }
+    }
 }

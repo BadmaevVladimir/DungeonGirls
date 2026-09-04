@@ -15,6 +15,15 @@ public partial class RunFlowController
         runScreen.style.display = DisplayStyle.None;
         resultsScreen.style.display = DisplayStyle.Flex;
         tutorialManager?.QueueOnce(TutorialContent.Results);
+        resultsContinueButton.SetEnabled(false);
+        resultsSkipRequested = false;
+
+        if (runCompletionCommitted)
+        {
+            resultsContinueButton.SetEnabled(true);
+            yield return WaitForClick(resultsContinueButton);
+            yield break;
+        }
 
         var completion = rewardManager.CalculateRunCompletionReward(
             victory,
@@ -24,43 +33,117 @@ public partial class RunFlowController
         string clearBonus = victory
             ? $"Бонус зачистки: +{completion.ClearBonusMetaCurrency} мета-валюты, +{completion.ClearBonusGachaCurrency} гача-валюты\n"
             : string.Empty;
+        VeteranCharacter veteran = null;
+        VeteranAttestationResult attestation = null;
+        if (ShouldCreateVeteran(victory))
+        {
+            veteran = BuildVeteranSnapshot(DungeonManager.TotalFloors);
+            var service = new VeteranAttestationService(new CombatSimulationEngine());
+            attestation = service.Evaluate(veteran.buildSnapshot, VeteranAttestationConfig, AttestationRunMode.Release);
+            ApplyAttestation(veteran, attestation);
+            yield return ShowAttestationCeremony(attestation);
+        }
+        else
+        {
+            resultsAttestationPanel.style.display = DisplayStyle.None;
+        }
+
         if (saveManager != null)
         {
             int floorsCleared = victory ? DungeonManager.TotalFloors : Mathf.Max(0, dungeonManager.CurrentFloorNumber - 1);
-            VeteranCharacter veteran = floorsCleared > 0 ? BuildVeteranSnapshot(floorsCleared) : null;
             int relationshipPoints = floorsCleared * 10;
             int relationshipAdded = 0;
             int relationshipBefore = saveManager.GetRelationshipPoints(characterManager.Character.characterId);
-            if (saveManager.CompleteRun(completion.MetaCurrency, completion.GachaCurrency, characterManager.Character.characterId, veteran, relationshipPoints))
+            if (saveManager.CompleteRun(completion.MetaCurrency, completion.GachaCurrency, characterManager.Character.characterId,
+                veteran, relationshipPoints, currentRunCompletionId))
             {
+                runCompletionCommitted = true;
                 relationshipAdded = saveManager.GetRelationshipPoints(characterManager.Character.characterId) - relationshipBefore;
                 if (relationshipAdded > 0) tutorialManager?.QueueOnce(TutorialContent.Relationships);
             }
-            if (veteran != null) tutorialManager?.QueueOnce(TutorialContent.VeteranCreated);
+            if (veteran != null && runCompletionCommitted) tutorialManager?.QueueOnce(TutorialContent.VeteranCreated);
 
             string relationshipReward = relationshipAdded > 0
                 ? $"+{relationshipAdded} отношений с {characterManager.Character.characterName} ({saveManager.GetRelationshipPoints(characterManager.Character.characterId)}/{SaveManager.RelationshipLevelThreeThreshold})\n"
                 : string.Empty;
-            resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, relationshipReward);
+            string veteranReward = veteran != null && runCompletionCommitted
+                ? $"Ветеран добавлен в колоду. Ранг: {veteran.veteranRank}\n"
+                : string.Empty;
+            resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, relationshipReward, veteranReward);
         }
 
         resultsTitleLabel.text = victory ? "Победа" : "Поражение";
         resultsTitleLabel.RemoveFromClassList(victory ? "results-defeat" : "results-victory");
         resultsTitleLabel.AddToClassList(victory ? "results-victory" : "results-defeat");
 
-        if (saveManager == null) resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, string.Empty);
+        if (saveManager == null) resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, string.Empty,
+            veteran != null ? $"Ранг: {veteran.veteranRank}\n" : string.Empty);
 
+        resultsContinueButton.SetEnabled(true);
         yield return WaitForClick(resultsContinueButton);
     }
 
-    string BuildResultsText(bool victory, RunCompletionReward completion, string clearBonus, string relationshipReward)
+    public static bool ShouldCreateVeteran(bool victory) => victory;
+
+    string BuildResultsText(bool victory, RunCompletionReward completion, string clearBonus, string relationshipReward, string veteranReward)
     {
         return $"{characterManager.Character.characterName} достигла {characterManager.Level} уровня.\n" +
             $"Валюта забега (сгорает): {characterManager.RunCurrency}\n\n" +
             "Награды за забег:\n" +
             $"+{completion.MetaCurrency} мета-валюты\n" +
             $"+{completion.GachaCurrency} гача-валюты\n" +
-            clearBonus + relationshipReward;
+            clearBonus + relationshipReward + veteranReward;
+    }
+
+    void ApplyAttestation(VeteranCharacter veteran, VeteranAttestationResult attestation)
+    {
+        VeteranRank rank = attestation?.FinalRank ?? VeteranRank.C;
+        veteran.veteranRank = VeteranRankFormat.ToPersistentString(rank);
+        veteran.grade = veteran.veteranRank;
+        veteran.ratingVersion = !string.IsNullOrWhiteSpace(attestation?.RatingVersion)
+            ? attestation.RatingVersion
+            : (VeteranAttestationConfig != null ? VeteranAttestationConfig.ratingVersion : "fallback-c");
+        veteran.qualifyingTrialId = attestation?.QualifyingTrialId ?? string.Empty;
+        veteran.isLegacy = false;
+        veteran.schemaVersion = VeteranCharacter.CurrentVeteranSchemaVersion;
+        if (attestation == null || attestation.CompletionStatus == AttestationCompletionStatus.Fallback)
+            Debug.LogWarning($"[VeteranAttestation] Fallback C: character={veteran.characterId}, version={veteran.ratingVersion}, error={attestation?.ErrorCode ?? "no_result"}.");
+    }
+
+    IEnumerator ShowAttestationCeremony(VeteranAttestationResult result)
+    {
+        resultsAttestationPanel.style.display = DisplayStyle.Flex;
+        resultsSkipButton.style.display = DisplayStyle.Flex;
+        resultsPortraitImage.sprite = characterManager.Character.portrait;
+        resultsFinalRankLabel.text = string.Empty;
+        resultsSkipButton.SetEnabled(false);
+        string[] stages =
+        {
+            "Фиксация боевого опыта…",
+            "Анализ снаряжения…",
+            "Моделирование предельной угрозы…",
+            "Ранг присваивается…"
+        };
+        float duration = VeteranAttestationConfig != null ? VeteranAttestationConfig.ceremonyMinimumSeconds : 4.5f;
+        float skipDelay = VeteranAttestationConfig != null ? VeteranAttestationConfig.ceremonySkipDelaySeconds : 1.5f;
+        float elapsed = 0f;
+        int stage = -1;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            int nextStage = Mathf.Min(stages.Length - 1, Mathf.FloorToInt(elapsed / Mathf.Max(0.01f, duration / stages.Length)));
+            if (nextStage != stage)
+            {
+                stage = nextStage;
+                resultsAttestationStageLabel.text = stages[stage];
+            }
+            if (elapsed >= skipDelay) resultsSkipButton.SetEnabled(true);
+            if (elapsed >= skipDelay && resultsSkipRequested) break;
+            yield return null;
+        }
+        resultsAttestationStageLabel.text = "Ранг присвоен";
+        resultsFinalRankLabel.text = VeteranRankFormat.ToPersistentString(result?.FinalRank ?? VeteranRank.C);
+        resultsSkipButton.style.display = DisplayStyle.None;
     }
 
     VeteranCharacter BuildVeteranSnapshot(int floorsCleared)
@@ -78,10 +161,16 @@ public partial class RunFlowController
             inheritedUniquePassiveSkillName = characterManager.Progress.MentorUniquePassiveSkillName,
             inheritedUniquePassiveLevel = characterManager.Progress.MentorUniquePassiveLevel,
             floorsCleared = floorsCleared,
-            grade = VeteranSystem.GradeForFloors(floorsCleared),
+            grade = "C",
             // Формула PowerLevel остаётся открытым вопросом ГДД. Не подменяем решение дизайнера.
             powerLevel = 0
         };
+
+        veteran.buildSnapshot = VeteranBuildSnapshot.Capture(
+            characterManager.Character.characterId,
+            characterManager.Combatant,
+            characterManager.Character.uniqueActiveSkill,
+            characterManager.Progress.UniqueActiveLevel);
 
         foreach (var pair in characterManager.Progress.KnownSkillLevels)
         {

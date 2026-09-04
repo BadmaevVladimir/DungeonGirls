@@ -104,10 +104,10 @@ public partial class HubManager
             int equipmentCount = veteran.finalEquipmentSnapshot != null && veteran.finalEquipmentSnapshot.Count > 0
                 ? veteran.finalEquipmentSnapshot.Count
                 : (veteran.finalEquipment != null ? veteran.finalEquipment.Count : 0);
-            var row = new Label($"{displayName} — оценка {veteran.grade}, этажей пройдено: {veteran.floorsCleared}, HP {veteran.finalHP:F0}, навыков: {skillCount}, предметов: {equipmentCount}");
-            row.AddToClassList("body-label");
+            string text = $"{displayName} — оценка {veteran.grade}, этажей пройдено: {veteran.floorsCleared}, HP {veteran.finalHP:F0}, навыков: {skillCount}, предметов: {equipmentCount}";
+            var portrait = FindCharacter(veteran.characterId)?.portrait;
+            var row = AddIconRow(veteranDeckScrollView, portrait, text);
             tutorialManager?.BindTooltip(row, "Оценка ветерана", TutorialContent.TooltipGrade);
-            veteranDeckScrollView.Add(row);
         }
 
         if (veteranDeckScrollView.childCount == 0)
@@ -140,10 +140,9 @@ public partial class HubManager
             string relationship = relationshipLevel >= SaveManager.MaxRelationshipLevel
                 ? $"отношения: ур. {relationshipLevel}/3 (макс.)"
                 : $"отношения: ур. {relationshipLevel}/3, {relationshipPoints}/{nextThreshold}";
-            var row = new Label($"{character.characterName} ({DisplayFormat.CharacterClassDisplayName(character.characterClass)}) — копий: {copies}, прохождений: {runs}, {relationship}, открытых сцен: {seenScenes}");
-            row.AddToClassList("body-label");
+            string text = $"{character.characterName} ({DisplayFormat.CharacterClassDisplayName(character.characterClass)}) — копий: {copies}, прохождений: {runs}, {relationship}, открытых сцен: {seenScenes}";
+            var row = AddIconRow(charactersScrollView, character.portrait, text);
             tutorialManager?.BindTooltip(row, "Отношения", TutorialContent.TooltipRelationships);
-            charactersScrollView.Add(row);
         }
 
         if (charactersScrollView.childCount == 0)
@@ -220,17 +219,40 @@ public partial class HubManager
 
     string CharacterDisplayName(string characterId)
     {
+        var character = FindCharacter(characterId);
+        return character != null ? character.characterName : characterId;
+    }
+
+    static VisualElement AddIconRow(VisualElement container, Sprite icon, string text)
+    {
+        var row = new VisualElement();
+        row.AddToClassList("icon-row");
+        if (icon != null)
+        {
+            var image = new Image { sprite = icon, scaleMode = ScaleMode.ScaleToFit };
+            image.AddToClassList("icon-row-icon-large");
+            row.Add(image);
+        }
+        var label = new Label(text);
+        label.AddToClassList("icon-row-text");
+        row.Add(label);
+        container.Add(row);
+        return row;
+    }
+
+    CharacterData FindCharacter(string characterId)
+    {
         if (gachaCharacters != null)
         {
             foreach (var character in gachaCharacters)
             {
                 if (character != null && System.String.Equals(character.characterId, characterId, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    return character.characterName;
+                    return character;
                 }
             }
         }
-        return characterId;
+        return null;
     }
 
 

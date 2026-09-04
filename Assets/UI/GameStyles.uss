@@ -77,6 +77,100 @@ Button {
     margin-top: 12px;
 }
 
+.pause-columns {
+    flex-direction: row;
+    margin-top: 10px;
+}
+
+.pause-equipment-column {
+    margin-right: 24px;
+}
+
+.pause-stats-column {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.pause-stats-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    background-color: rgb(20, 20, 25);
+    border-radius: 4px;
+    padding: 10px 12px;
+}
+
+.pause-stat-row {
+    width: 50%;
+    flex-direction: row;
+    justify-content: space-between;
+    padding-right: 8px;
+    margin-bottom: 4px;
+}
+
+.pause-stat-row-label {
+    color: rgb(190, 190, 196);
+    font-size: 13px;
+}
+
+.pause-stat-row-value {
+    color: rgb(232, 232, 236);
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+.equipment-grid {
+    flex-direction: row;
+}
+
+.equipment-slot-column {
+    flex-direction: column;
+    justify-content: space-between;
+    height: 250px;
+}
+
+.equipment-slot-column-left {
+    margin-right: 6px;
+}
+
+.equipment-slot-column-right {
+    margin-left: 6px;
+}
+
+.equipment-slot {
+    width: 58px;
+    height: 58px;
+    background-color: rgb(20, 20, 25);
+    border-width: 1px;
+    border-color: rgb(90, 80, 60);
+    border-radius: 4px;
+    align-items: center;
+    justify-content: center;
+}
+
+.equipment-slot-icon {
+    width: 34px;
+    height: 34px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.equipment-portrait {
+    width: 128px;
+    height: 250px;
+    background-color: rgb(20, 20, 25);
+    border-width: 1px;
+    border-color: rgb(135, 115, 70);
+    border-radius: 4px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.equipment-portrait-image {
+    width: 100%;
+    height: 100%;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
 .title-label {
     font-size: 52px;
     color: rgb(240, 240, 240);
@@ -194,8 +288,83 @@ Button {
     flex-grow: 1;
 }
 
+.combat-title-badge {
+    align-self: flex-start;
+    background-color: rgba(20, 20, 25, 0.75);
+    color: rgb(255, 240, 200);
+    font-size: 15px;
+    -unity-font-style: bold;
+    padding: 4px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
 .map-panel {
     flex-direction: column;
+}
+
+/* Каркас run-экранов (предмет/привал/торговец/событие/ловушка/левел-ап) — цветная шапка по типу
+   вместо плоской панели без рамки, см. брейнсторм "комплексная переработка окон" 2026-09-04. */
+
+.run-panel {
+    background-color: rgb(26, 26, 31);
+    border-radius: 8px;
+    overflow: hidden;
+    flex-grow: 1;
+    padding: 0;
+}
+
+.run-panel-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom-width: 2px;
+}
+
+.run-panel-header-title {
+    font-size: 19px;
+    -unity-font-style: bold;
+}
+
+.run-panel-body {
+    padding: 16px 18px;
+    flex-grow: 1;
+}
+
+.run-panel-header-item {
+    background-color: rgb(58, 50, 30);
+    border-bottom-color: rgb(240, 210, 125);
+    color: rgb(255, 240, 200);
+}
+
+.run-panel-header-camp {
+    background-color: rgb(46, 66, 46);
+    border-bottom-color: rgb(100, 170, 100);
+    color: rgb(220, 245, 220);
+}
+
+.run-panel-header-merchant {
+    background-color: rgb(34, 48, 64);
+    border-bottom-color: rgb(120, 170, 230);
+    color: rgb(220, 235, 250);
+}
+
+.run-panel-header-event {
+    background-color: rgb(58, 38, 32);
+    border-bottom-color: rgb(212, 120, 80);
+    color: rgb(250, 220, 205);
+}
+
+.run-panel-header-trap {
+    background-color: rgb(64, 34, 34);
+    border-bottom-color: rgb(210, 90, 90);
+    color: rgb(250, 215, 215);
+}
+
+.run-panel-header-levelup {
+    background-color: rgb(48, 38, 60);
+    border-bottom-color: rgb(170, 140, 220);
+    color: rgb(235, 225, 250);
 }
 
 .map-status-label {
@@ -628,7 +797,7 @@ Button {
     justify-content: space-between;
     align-items: stretch;
     flex-wrap: wrap;
-    max-height: 180px;
+    max-height: 240px;
     overflow: hidden;
 }
 
@@ -636,9 +805,75 @@ Button {
     flex-grow: 1;
     flex-basis: 260px;
     min-height: 92px;
-    max-height: 150px;
+    max-height: 230px;
     margin-right: 8px;
     overflow: hidden;
+}
+
+/* Карточка выбора слота (комплексная переработка, вариант A) — иконка+название в шапке, ниже
+   полная таблица статов предмета: у каждой строки своё "было → стало", а не единственная
+   выбранная "главная" дельта — иначе для колец/амулетов с непересекающимися бонусами часть
+   информации терялась. */
+
+.item-compare-card-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.item-compare-card-title {
+    flex-grow: 1;
+}
+
+.item-compare-card-icon {
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    background-color: rgb(38, 36, 44);
+    border-radius: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.item-compare-stat-row {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 3px;
+}
+
+.item-compare-stat-value-row {
+    flex-direction: row;
+}
+
+.item-compare-stat-label {
+    color: rgb(150, 150, 158);
+    font-size: 12px;
+}
+
+.item-compare-stat-value {
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.item-compare-stat-value-old {
+    color: rgb(150, 150, 158);
+    -unity-font-style: normal;
+}
+
+.item-compare-stat-arrow {
+    color: rgb(150, 150, 158);
+}
+
+.item-compare-stat-up {
+    color: rgb(120, 200, 120);
+}
+
+.item-compare-stat-down {
+    color: rgb(224, 110, 110);
+}
+
+.item-compare-stat-neutral {
+    color: rgb(190, 190, 196);
 }
 
 /* 7.2/8.2 [НОВОЕ]: презентация награды модальным окном поверх текущей сцены (обычно боя) —
@@ -795,17 +1030,43 @@ Button {
 .item-card {
     flex-grow: 1;
     margin: 4px;
-    padding: 8px;
+    padding: 12px;
     background-color: rgb(47, 47, 58);
-    border-width: 1px;
+    border-width: 2px;
     border-color: rgb(105, 105, 122);
-    border-radius: 6px;
+    border-radius: 8px;
 }
 
+.item-card-row {
+    flex-direction: row;
+}
+
+.item-card-icon {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    margin-right: 16px;
+    background-color: rgb(28, 28, 34);
+    border-width: 1px;
+    border-color: rgb(90, 90, 100);
+    border-radius: 8px;
+}
+
+.item-card-text-column {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.item-card-border-common { border-color: rgb(180, 180, 180); }
+.item-card-border-rare { border-color: rgb(90, 150, 230); }
+.item-card-border-epic { border-color: rgb(190, 110, 230); }
+.item-card-border-cursed { border-color: rgb(225, 75, 95); }
+
 .item-card-header {
-    font-size: 14px;
-    color: rgb(202, 202, 214);
+    font-size: 11px;
     -unity-font-style: bold;
+    text-transform: uppercase;
+    margin-bottom: 2px;
 }
 
 .item-card-name {
@@ -943,9 +1204,9 @@ Button {
     color: rgb(248, 248, 252);
     border-width: 1px;
     border-color: rgb(135, 135, 150);
-    border-radius: 4px;
-    padding: 12px;
-    margin-bottom: 8px;
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
     white-space: normal;
     -unity-text-align: upper-left;
     height: auto;
@@ -953,6 +1214,38 @@ Button {
 
 .choice-card:hover {
     background-color: rgb(75, 75, 92);
+    border-color: rgb(240, 210, 125);
+}
+
+.choice-card-title-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.choice-card-title {
+    color: rgb(248, 248, 252);
+    font-size: 15px;
+    -unity-font-style: bold;
+    white-space: normal;
+    flex-shrink: 1;
+}
+
+.choice-card-level-badge {
+    background-color: rgb(38, 36, 44);
+    color: rgb(240, 210, 125);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.choice-card-description {
+    color: rgb(190, 190, 196);
+    font-size: 13px;
+    white-space: normal;
 }
 
 /* --- Редкость (8.2): серый/синий/фиолетовый --- */
@@ -1004,6 +1297,44 @@ Button {
     font-size: 40px;
     -unity-font-style: bold;
     margin-bottom: 20px;
+}
+
+.results-attestation-panel {
+    align-items: center;
+    min-width: 420px;
+    padding: 18px;
+    margin-bottom: 16px;
+    background-color: rgb(35, 33, 45);
+    border-width: 2px;
+    border-color: rgb(190, 160, 85);
+    border-radius: 10px;
+}
+
+.results-portrait {
+    width: 96px;
+    height: 96px;
+    margin-bottom: 10px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.results-attestation-stage {
+    color: rgb(225, 215, 190);
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+.results-rank-track {
+    color: rgb(150, 145, 165);
+    font-size: 20px;
+    letter-spacing: 2px;
+}
+
+.results-final-rank {
+    color: rgb(245, 205, 95);
+    font-size: 52px;
+    -unity-font-style: bold;
+    margin-top: 6px;
+    margin-bottom: 8px;
 }
 
 /* --- Таверна / Кузница (доработка Codex: крафт-экраны, 8.1/8.2) --- */
@@ -1058,6 +1389,33 @@ Button {
     white-space: normal;
     color: rgb(232, 232, 236);
     font-size: 15px;
+}
+
+.icon-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.icon-row-icon {
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+    -unity-background-scale-mode: scale-to-fit;
+    flex-shrink: 0;
+}
+
+.icon-row-icon-large {
+    width: 40px;
+    height: 40px;
+    margin-right: 10px;
+    -unity-background-scale-mode: scale-to-fit;
+    flex-shrink: 0;
+}
+
+.icon-row-text {
+    flex-shrink: 1;
+    white-space: normal;
 }
 
 .craft-screen-header {
@@ -1394,7 +1752,53 @@ Button {
     -unity-font-style: bold;
 }
 
+.run-log-toggle-button {
+    width: auto;
+    min-width: 90px;
+    font-size: 14px;
+}
+
 .tutorial-overlay,
+.settings-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(7, 7, 10, 0.88);
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-card {
+    width: 480px;
+    max-width: 90%;
+    padding: 28px;
+    background-color: rgb(27, 27, 34);
+    border-width: 2px;
+    border-color: rgb(95, 105, 128);
+    border-radius: 10px;
+}
+
+.settings-row {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 16px;
+    margin-bottom: 24px;
+}
+
+.settings-slider {
+    flex-grow: 1;
+    margin-left: 12px;
+    margin-right: 12px;
+}
+
+.settings-value-label {
+    width: 48px;
+    color: rgb(220, 220, 225);
+    -unity-text-align: middle-right;
+}
+
 .help-overlay {
     position: absolute;
     left: 0;

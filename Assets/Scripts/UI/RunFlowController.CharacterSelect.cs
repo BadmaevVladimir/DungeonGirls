@@ -220,6 +220,9 @@ public partial class RunFlowController
 
     void BeginRunWithMentor(VeteranCharacter mentor)
     {
+        runCompletionCommitted = false;
+        resultsSkipRequested = false;
+        currentRunCompletionId = System.Guid.NewGuid().ToString("N");
         selectedMentor = mentor;
         selectedTransferredSkills = mentor != null
             ? VeteranSystem.RollTransferredSkills(mentor, new System.Random(System.Environment.TickCount ^ mentor.GetHashCode()))

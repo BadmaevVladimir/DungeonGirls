@@ -99,6 +99,7 @@ public class SaveManager : MonoBehaviour
         if (data.seenVNScenes == null) data.seenVNScenes = new List<CharacterSceneList>();
         if (data.relationshipPoints == null) data.relationshipPoints = new List<KeyCountEntry>();
         if (data.seenTutorialHints == null) data.seenTutorialHints = new List<string>();
+        if (data.completedRunIds == null) data.completedRunIds = new List<string>();
         if (data.resources == null) data.resources = new List<KeyCountEntry>();
         if (data.unlockedTavernRecipes == null) data.unlockedTavernRecipes = new List<string>();
         if (data.unlockedForgeBlueprints == null) data.unlockedForgeBlueprints = new List<string>();
@@ -124,6 +125,7 @@ public class SaveManager : MonoBehaviour
         NormalizeIds(data.unlockedTavernRecipes);
         NormalizeIds(data.unlockedForgeBlueprints);
         NormalizeIds(data.researchedItemPrototypes);
+        NormalizeIds(data.completedRunIds);
 
         // Стартовая копия Дженифер нужна и в уже созданных сохранениях, чтобы она была видна
         // в статистике экрана персонажей. Существующие дополнительные копии не затрагиваются.
@@ -204,7 +206,24 @@ public class SaveManager : MonoBehaviour
                 }
             }
             veteran.floorsCleared = Mathf.Clamp(veteran.floorsCleared, 0, DungeonManager.TotalFloors);
-            veteran.grade = VeteranSystem.GradeForFloors(veteran.floorsCleared);
+            bool hasAttestationMarker = veteran.schemaVersion >= VeteranCharacter.CurrentVeteranSchemaVersion &&
+                !string.IsNullOrWhiteSpace(veteran.ratingVersion);
+            if (!hasAttestationMarker)
+            {
+                veteran.isLegacy = true;
+                if (string.IsNullOrWhiteSpace(veteran.grade))
+                    veteran.grade = VeteranSystem.GradeForFloors(veteran.floorsCleared);
+                continue;
+            }
+
+            veteran.isLegacy = false;
+            if (!VeteranRankFormat.TryParse(veteran.veteranRank, out VeteranRank rank))
+            {
+                Debug.LogWarning($"[SaveManager] Неизвестный ранг ветерана '{veteran.veteranRank}' для {veteran.characterId}; нормализован до C.");
+                rank = VeteranRank.C;
+            }
+            veteran.veteranRank = VeteranRankFormat.ToPersistentString(rank);
+            veteran.grade = veteran.veteranRank;
         }
     }
 
@@ -406,15 +425,19 @@ public class SaveManager : MonoBehaviour
     }
 
     // Нулевой результат всё ещё выдаёт валюту и учитывает завершённый забег, но не создаёт ветерана.
-    public bool CompleteRun(int metaCurrency, int gachaCurrency, string characterId, VeteranCharacter veteran, int relationshipPoints = 0)
+    public bool CompleteRun(int metaCurrency, int gachaCurrency, string characterId, VeteranCharacter veteran,
+        int relationshipPoints = 0, string completionId = null)
     {
         if (metaCurrency < 0 || gachaCurrency < 0 || relationshipPoints < 0 || string.IsNullOrWhiteSpace(characterId)) return false;
         if (veteran != null && (!string.Equals(veteran.characterId, characterId, StringComparison.OrdinalIgnoreCase) || veteran.floorsCleared < 1)) return false;
+        if (!string.IsNullOrWhiteSpace(completionId) && Data.completedRunIds.Exists(id =>
+            string.Equals(id, completionId, StringComparison.Ordinal))) return true;
         Data.metaCurrency += metaCurrency;
         Data.gachaCurrency += gachaCurrency;
         if (veteran != null) Data.veteranDeck.Add(veteran);
         FindOrCreateEntry(Data.characterRunCounts, characterId).count++;
         AddRelationshipPointsInternal(characterId, relationshipPoints);
+        if (!string.IsNullOrWhiteSpace(completionId)) Data.completedRunIds.Add(completionId);
         SaveGame();
         return true;
     }

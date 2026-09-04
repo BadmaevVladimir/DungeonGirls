@@ -1,10 +1,74 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 public partial class RunFlowController
 {
+    const float MapDragThreshold = 8f;
+    const float MapWheelSpeed = 3f;
+
+    bool mapScrollInteractionsSetUp;
+    bool mapDragActive;
+    bool mapDragCaptured;
+    int mapDragPointerId;
+    Vector2 mapDragStartPointerPos;
+    Vector2 mapDragStartScrollOffset;
+
+    // Карта — это единственный горизонтальный ScrollView с одной кнопкой-скроллбаром снизу;
+    // добавляем колесо мыши и драг ЛКМ поверх стандартного UI Toolkit ScrollView, который сам
+    // этого не умеет. Регистрируется один раз за жизнь компонента — CacheElements зовётся в
+    // каждом OnEnable, а VisualElement переживает повторные OnEnable/OnDisable.
+    void SetupMapGraphScrollInteractions()
+    {
+        if (mapScrollInteractionsSetUp || mapGraphScroll == null) return;
+        mapScrollInteractionsSetUp = true;
+
+        mapGraphScroll.RegisterCallback<WheelEvent>(evt =>
+        {
+            mapGraphScroll.scrollOffset += new Vector2(evt.delta.y * MapWheelSpeed, 0f);
+            evt.StopPropagation();
+        });
+
+        mapGraphScroll.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            if (evt.button != 0) return;
+            mapDragActive = true;
+            mapDragCaptured = false;
+            mapDragPointerId = evt.pointerId;
+            mapDragStartPointerPos = evt.position;
+            mapDragStartScrollOffset = mapGraphScroll.scrollOffset;
+        }, TrickleDown.TrickleDown);
+
+        mapGraphScroll.RegisterCallback<PointerMoveEvent>(evt =>
+        {
+            if (!mapDragActive || evt.pointerId != mapDragPointerId) return;
+            var delta = (Vector2)evt.position - mapDragStartPointerPos;
+            if (!mapDragCaptured)
+            {
+                if (Mathf.Abs(delta.x) < MapDragThreshold) return;
+                mapDragCaptured = true;
+                mapGraphScroll.CapturePointer(mapDragPointerId);
+            }
+            mapGraphScroll.scrollOffset = mapDragStartScrollOffset - new Vector2(delta.x, 0f);
+        }, TrickleDown.TrickleDown);
+
+        mapGraphScroll.RegisterCallback<PointerUpEvent>(evt =>
+        {
+            if (evt.pointerId != mapDragPointerId) return;
+            if (mapDragCaptured) mapGraphScroll.ReleasePointer(mapDragPointerId);
+            mapDragActive = false;
+            mapDragCaptured = false;
+        }, TrickleDown.TrickleDown);
+
+        mapGraphScroll.RegisterCallback<PointerCaptureOutEvent>(evt =>
+        {
+            mapDragActive = false;
+            mapDragCaptured = false;
+        });
+    }
+
     IEnumerator MapPreviewFlow()
     {
         floorManager.SetFloorState(FloorState.MapChoice);

@@ -33,10 +33,29 @@ public partial class RunFlowController
 
             foreach (var option in options)
             {
-                string description = option.Description;
-                string cardText = string.IsNullOrWhiteSpace(description) ? option.ToString() : $"{option}\n{description}";
-                var btn = new Button { text = cardText };
+                var btn = new Button();
                 btn.AddToClassList("choice-card");
+
+                var titleRow = new VisualElement();
+                titleRow.AddToClassList("choice-card-title-row");
+
+                var title = new Label(option.TitleName);
+                title.AddToClassList("choice-card-title");
+                titleRow.Add(title);
+
+                var badge = new Label(option.LevelBadgeText);
+                badge.AddToClassList("choice-card-level-badge");
+                titleRow.Add(badge);
+
+                btn.Add(titleRow);
+
+                if (!string.IsNullOrWhiteSpace(option.Description))
+                {
+                    var description = new Label(option.Description);
+                    description.AddToClassList("choice-card-description");
+                    btn.Add(description);
+                }
+
                 levelUpCardsContainer.Add(btn);
                 buttons.Add(btn);
             }

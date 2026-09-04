@@ -12,6 +12,16 @@ public static class ChestRevealAnimator
     public const int WinningLogicalIndex = 16; // GDD 11.1: слот 17 из 20 (индексация с нуля).
     public const float IconWidth = 64f;
 
+    // Длина общего "разгона" в джингле открытия сундука (Audio/SFX/ChestOpen_Jingle.rpp) — общая
+    // для всех трёх редкостей, финальный аккорд каждой версии начинается сразу после неё. При
+    // пропуске рулетки (Skip) аудио доматывается на эту позицию, чтобы игрок всё равно услышал
+    // финал, который идентифицирует редкость награды, а не тишину/середину разгона.
+    public const float JingleBuildupDuration = 3.5f;
+
+    // true, если аудио ещё не дошло до финального аккорда — тогда его стоит домотать на скипе.
+    public static bool ShouldJumpToEnding(bool audioIsPlaying, float audioTime) =>
+        audioIsPlaying && audioTime < JingleBuildupDuration;
+
     public static IEnumerator Shake(VisualElement element, float duration, Vector3 amplitude, int vibrato)
     {
         Vector3 shakeOffset = Vector3.zero;
@@ -40,7 +50,8 @@ public static class ChestRevealAnimator
         VisualElement viewport,
         Action<int, bool> onBuildSlot,
         Button skipButton,
-        int winningIndex)
+        int winningIndex,
+        Action onSkip = null)
     {
         int totalIcons = ReelLength + ReelPadding * 2;
         for (int i = 0; i < totalIcons; i++) onBuildSlot(i, i == winningIndex);
@@ -50,7 +61,11 @@ public static class ChestRevealAnimator
         strip.style.left = viewportCenter - IconWidth / 2f - ReelPadding * IconWidth;
 
         bool skipped = false;
-        void OnSkip() => skipped = true;
+        void OnSkip()
+        {
+            skipped = true;
+            onSkip?.Invoke();
+        }
         if (skipButton != null) skipButton.clicked += OnSkip;
 
         float targetLeft = viewportCenter - IconWidth / 2f - winningIndex * IconWidth;

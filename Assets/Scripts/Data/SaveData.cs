@@ -45,6 +45,8 @@ public class VeteranEquipmentEntry
 [Serializable]
 public class VeteranCharacter
 {
+    public const int CurrentVeteranSchemaVersion = 2;
+
     public string characterId;
     public float finalHP;
     public string uniquePassiveSkillName;
@@ -59,12 +61,18 @@ public class VeteranCharacter
     public int floorsCleared;
     public string grade;
     public int powerLevel;
+    public string veteranRank;
+    public string ratingVersion;
+    public string qualifyingTrialId;
+    public bool isLegacy;
+    public int schemaVersion;
+    public VeteranBuildSnapshot buildSnapshot;
 }
 
 [Serializable]
 public class SaveData
 {
-    public const int CurrentSaveVersion = 7; // 7 = постоянные ресурсы, блюда и открытия Таверны/Кузницы.
+    public const int CurrentSaveVersion = 8; // 8 = скрытая аттестация и versioned veteran snapshots.
 
     public int saveVersion = SaveData.CurrentSaveVersion;
 
@@ -87,6 +95,7 @@ public class SaveData
     public List<CharacterSceneList> seenVNScenes = new List<CharacterSceneList>();
     public List<KeyCountEntry> relationshipPoints = new List<KeyCountEntry>();
     public List<string> seenTutorialHints = new List<string>();
+    public List<string> completedRunIds = new List<string>();
 
     // JsonUtility не поддерживает Dictionary: все постоянные keyed-данные хранятся списками и
     // нормализуются SaveManager.MigrateIfNeeded.

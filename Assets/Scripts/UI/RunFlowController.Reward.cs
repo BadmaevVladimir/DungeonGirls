@@ -23,6 +23,21 @@ public partial class RunFlowController
         });
     }
 
+    static void SetRarityBorderClass(VisualElement element, ItemTier tier)
+    {
+        element.RemoveFromClassList("item-card-border-common");
+        element.RemoveFromClassList("item-card-border-rare");
+        element.RemoveFromClassList("item-card-border-epic");
+        element.RemoveFromClassList("item-card-border-cursed");
+        element.AddToClassList(tier switch
+        {
+            ItemTier.Common => "item-card-border-common",
+            ItemTier.Rare => "item-card-border-rare",
+            ItemTier.Epic => "item-card-border-epic",
+            _ => "item-card-border-cursed"
+        });
+    }
+
     IEnumerator ShowLootSummaryFlow(RoomRewardResult reward)
     {
         floorManager.SetFloorState(FloorState.LootSummary);
@@ -189,14 +204,8 @@ public partial class RunFlowController
 
         // Джингл длиной ровно под PlayReel (4с) — стартует одновременно с началом прокрутки, не с
         // тряской: тайминг рассчитан на сам спин, финал совпадает с остановкой на выигрышном слоте.
-        if (chestOpenAudioSource != null)
-        {
-            AudioClip openClip = ChestOpenClipFor(reward.ItemRarity);
-            if (openClip != null)
-            {
-                chestOpenAudioSource.PlayOneShot(openClip);
-            }
-        }
+        AudioClip openClip = ChestOpenClipFor(reward.ItemRarity);
+        TaggedAudio.Play(chestOpenAudioSource, openClip, AudioCategory.SFX);
 
         void BuildSlot(int index, bool isWinning)
         {
@@ -207,7 +216,7 @@ public partial class RunFlowController
             chestReelStrip.Add(icon);
         }
 
-        yield return ChestRevealAnimator.PlayReel(chestReelStrip, chestReelViewport, BuildSlot, chestSkipButton, winningIndex);
+        yield return ChestRevealAnimator.PlayReel(chestReelStrip, chestReelViewport, BuildSlot, chestSkipButton, winningIndex, JumpChestAudioToEnding);
 
         // Вспышка/burst на приземлении (финальный ревью, замена world-space ParticleSystem — см.
         // SpawnChestBurst): UI Toolkit-нативные "искры" внутри chestRevealContainer.
@@ -235,6 +244,17 @@ public partial class RunFlowController
         ItemTier.Rare => chestOpenRareClip,
         _ => chestOpenEpicClip
     };
+
+    // При пропуске рулетки (Skip) джингл доматывается сразу на финальный аккорд, а не обрывается —
+    // игрок должен успеть услышать акцент, идентифицирующий редкость награды.
+    void JumpChestAudioToEnding()
+    {
+        if (chestOpenAudioSource == null) return;
+        if (ChestRevealAnimator.ShouldJumpToEnding(chestOpenAudioSource.isPlaying, chestOpenAudioSource.time))
+        {
+            chestOpenAudioSource.time = ChestRevealAnimator.JingleBuildupDuration;
+        }
+    }
 
     // ==================== Сравнение предмета (3.4, "Без инвентаря") ====================
 
@@ -310,6 +330,172 @@ public partial class RunFlowController
         return string.Join("\n", lines);
     }
 
+    // Комплексная переработка выбора слота (вариант A): карточка = шапка (иконка + "Заменить: X")
+    // и ПОЛНАЯ таблица статов предмета — у каждой строки своё "было → стало", а не единственная
+    // выбранная "главная" дельта. Иначе для колец/амулетов с непересекающимися бонусами часть
+    // информации (например старое значение стата, которого нет у нового предмета) терялась.
+    static VisualElement BuildItemCompareCard(ItemData candidate, ItemData replacement)
+    {
+        var card = new VisualElement();
+
+        var header = new VisualElement();
+        header.AddToClassList("item-compare-card-header");
+        if (candidate != null && candidate.icon != null)
+        {
+            var icon = new Image { sprite = candidate.icon, scaleMode = ScaleMode.ScaleToFit };
+            icon.AddToClassList("item-compare-card-icon");
+            header.Add(icon);
+        }
+        var title = new Label(candidate != null ? $"Заменить: {candidate.itemName}" : "Занять свободный слот");
+        title.AddToClassList("choice-card-title");
+        title.AddToClassList("item-compare-card-title");
+        header.Add(title);
+        if (candidate != null)
+        {
+            var levelBadge = new Label($"ур. {candidate.itemLevel}");
+            levelBadge.AddToClassList("choice-card-level-badge");
+            header.Add(levelBadge);
+        }
+        card.Add(header);
+
+        foreach (var row in GetComparableStatRows(candidate, replacement))
+        {
+            card.Add(BuildStatRow(row.Label, row.Old, row.New));
+        }
+
+        return card;
+    }
+
+    static VisualElement BuildStatRow(string label, float? oldValue, float? newValue)
+    {
+        var row = new VisualElement();
+        row.AddToClassList("item-compare-stat-row");
+
+        var labelElement = new Label(label);
+        labelElement.AddToClassList("item-compare-stat-label");
+        row.Add(labelElement);
+
+        var valueRow = new VisualElement();
+        valueRow.AddToClassList("item-compare-stat-value-row");
+
+        // Всегда показываем обе стороны "было → стало" (с "—"-заглушкой, если стата не было),
+        // иначе форма строк "прыгает" — где-то есть стрелка, где-то голое число.
+        string direction;
+        if (oldValue.HasValue && newValue.HasValue)
+        {
+            float delta = newValue.Value - oldValue.Value;
+            direction = delta > 0.05f ? "item-compare-stat-up" : delta < -0.05f ? "item-compare-stat-down" : "item-compare-stat-neutral";
+        }
+        else if (newValue.HasValue)
+        {
+            direction = "item-compare-stat-up"; // приобретаем стат, которого не было
+        }
+        else
+        {
+            direction = "item-compare-stat-down"; // теряем стат, которого нет у нового предмета
+        }
+
+        var oldLabel = new Label(oldValue.HasValue ? FormatStatValue(oldValue.Value) : "—");
+        oldLabel.AddToClassList("item-compare-stat-value");
+        oldLabel.AddToClassList("item-compare-stat-value-old");
+        valueRow.Add(oldLabel);
+
+        var arrow = new Label(" → ");
+        arrow.AddToClassList("item-compare-stat-arrow");
+        valueRow.Add(arrow);
+
+        var valueLabel = new Label(newValue.HasValue ? FormatStatValue(newValue.Value) : "—");
+        valueLabel.AddToClassList("item-compare-stat-value");
+        valueLabel.AddToClassList(direction);
+        valueRow.Add(valueLabel);
+
+        row.Add(valueRow);
+        return row;
+    }
+
+    static string FormatStatValue(float value) =>
+        Mathf.Abs(value - Mathf.Round(value)) < 0.05f ? value.ToString("F0") : value.ToString("F2");
+
+    static List<(string Label, float? Old, float? New)> GetComparableStatRows(ItemData current, ItemData replacement)
+    {
+        var rows = new List<(string, float?, float?)>();
+        void AddRow(string label, float? oldVal, float? newVal)
+        {
+            if (oldVal.HasValue || newVal.HasValue) rows.Add((label, oldVal, newVal));
+        }
+
+        AddRow("Урон", WeaponDamageMid(current), WeaponDamageMid(replacement));
+        AddRow("Скорость атаки", WeaponSpeedValue(current), WeaponSpeedValue(replacement));
+        AddRow("Физ. защита", PhysicalDefenseValue(current), PhysicalDefenseValue(replacement));
+        AddRow("Макс. физ. защита", MaxDefenseBonusValue(current), MaxDefenseBonusValue(replacement));
+        AddRow("Маг. щит", MagicShieldValue(current), MagicShieldValue(replacement));
+        AddRow("HP", HpBonusValue(current), HpBonusValue(replacement));
+        AddRow("Ярость", RageBonusValue(current), RageBonusValue(replacement));
+
+        var currentBonus = BonusStatValue(current);
+        var replacementBonus = BonusStatValue(replacement);
+        if (currentBonus.Label != null && currentBonus.Label == replacementBonus.Label)
+        {
+            AddRow(currentBonus.Label, currentBonus.Value, replacementBonus.Value);
+        }
+        else
+        {
+            if (currentBonus.Label != null) AddRow(currentBonus.Label, currentBonus.Value, null);
+            if (replacementBonus.Label != null) AddRow(replacementBonus.Label, null, replacementBonus.Value);
+        }
+
+        return rows;
+    }
+
+    static float? WeaponDamageMid(ItemData item)
+    {
+        if (item == null || item.slot != EquipmentSlot.Weapon || item.weaponSubtype == WeaponSubtype.None || item.weaponSubtype == WeaponSubtype.Shield) return null;
+        DamageCalculator.ComputeDamageRange(item.EffectiveDamage, out float min, out float max);
+        return (min + max) / 2f;
+    }
+
+    static float? WeaponSpeedValue(ItemData item) =>
+        item != null && item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield
+            ? item.attackSpeed
+            : (float?)null;
+
+    static float? PhysicalDefenseValue(ItemData item) => item != null && item.physicalDefense > 0f ? item.EffectiveDefense : (float?)null;
+
+    static float? MaxDefenseBonusValue(ItemData item) => item != null && item.maxPhysicalDefenseBonus > 0f ? item.EffectiveMaxDefenseBonus : (float?)null;
+
+    static float? MagicShieldValue(ItemData item) => item != null && item.MagicShieldEffective > 0f ? item.MagicShieldEffective : (float?)null;
+
+    static float? HpBonusValue(ItemData item) => item != null && item.HpBonusEffective > 0f ? item.HpBonusEffective : (float?)null;
+
+    static float? RageBonusValue(ItemData item) =>
+        item != null && item.rageBonusFlatPercent > 0f ? StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.itemLevel) : (float?)null;
+
+    static (string Label, float? Value) BonusStatValue(ItemData item)
+    {
+        if (item?.bonusStat == null || item.bonusStat.type == BonusStatType.None || Mathf.Approximately(item.bonusStat.baseValue, 0f))
+            return (null, null);
+        float value = item.bonusStat.type == BonusStatType.MaxPhysicalDefenseFlat
+            ? ItemEffectBalance.ArmorAccessoryMaxDefense(item.bonusStat.baseValue, item.itemLevel)
+            : StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel);
+        string label = BonusStatLabel(item.bonusStat.type);
+        return string.IsNullOrEmpty(label) ? (null, null) : (label, value);
+    }
+
+    static string BonusStatLabel(BonusStatType type) => type switch
+    {
+        BonusStatType.CritChancePercent => "Шанс крита",
+        BonusStatType.ArmorPenetrationFlat => "Пробивание брони",
+        BonusStatType.AttackSpeedPercent => "Скорость атаки",
+        BonusStatType.DamagePercent => "Урон",
+        BonusStatType.FlatHP => "HP",
+        BonusStatType.MaxPhysicalDefenseFlat => "Макс. физ. защита",
+        BonusStatType.MagicShieldFlat => "Маг. щит",
+        BonusStatType.WeaponDamageFlat => "Урон оружия",
+        BonusStatType.EvasionPercent => "Уклонение",
+        BonusStatType.ArmorIgnorePercent => "Игнорирование брони",
+        _ => string.Empty
+    };
+
     // 3.4: если новый предмет подходит сразу в несколько слотов (2 слота оружия/рук, 2 слота
     // колец) — показываем ВСЕ подходящие слоты с их текущим содержимым и даём игроку самому
     // выбрать, какой занять (или отказаться от нового предмета вовсе). Никакого автовыбора слота.
@@ -318,6 +504,10 @@ public partial class RunFlowController
         var candidates = characterManager.GetComparisonCandidates(newItem); // null-элемент = свободный слот
 
         ShowOnly(itemComparePanel);
+        newItemIcon.sprite = newItem.icon;
+        newItemRarityLabel.text = DisplayFormat.RarityLabel(newItem.tier).ToUpperInvariant();
+        SetRarityClass(newItemRarityLabel, newItem.tier);
+        SetRarityBorderClass(newItemCard, newItem.tier);
         newItemName.text = newItem.itemName;
         newItemStats.text = ItemComparisonSummary(newItem);
         newItemStats.tooltip = DisplayFormat.ItemStatsText(newItem);
@@ -327,13 +517,10 @@ public partial class RunFlowController
         var buttons = new List<Button>();
         foreach (var candidate in candidates)
         {
-            var btn = new Button
-            {
-                text = candidate != null ? $"Заменить: {candidate.itemName}\n{ItemComparisonSummary(candidate)}" : "Занять свободный слот",
-                tooltip = candidate != null ? DisplayFormat.ItemStatsText(candidate) : "Новый предмет займёт свободный слот."
-            };
+            var btn = new Button { tooltip = candidate != null ? DisplayFormat.ItemStatsText(candidate) : "Новый предмет займёт свободный слот." };
             btn.AddToClassList("choice-card");
             btn.AddToClassList("item-slot-choice");
+            btn.Add(BuildItemCompareCard(candidate, newItem));
             slotChoicesContainer.Add(btn);
             buttons.Add(btn);
         }

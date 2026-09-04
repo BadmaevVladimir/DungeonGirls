@@ -774,13 +774,9 @@ public partial class RunFlowController
         enemyStageRow.Clear();
         enemyStageEntries.Clear();
 
-        int enemyCount = enemies.Count;
-        float enemySpriteSize = enemyCount switch
-        {
-            <= 1 => 384f,
-            2 => 260f,
-            _ => 190f
-        };
+        // Один фиксированный размер для всех боёв (было: 384/260/190 в зависимости от числа врагов —
+        // из-за этого один и тот же монстр менял видимый размер от боя к бою, выглядело комично.
+        const float enemySpriteSize = 260f;
 
         foreach (var enemy in enemies)
         {

@@ -1,0 +1,179 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b8a23c781ae4b2a86dd6b2a3817dc04, type: 3}
+  m_Name: VeteranAttestationConfig
+  m_EditorClassIdentifier: DungeonGirls.Runtime::VeteranAttestationConfig
+  ratingVersion: veteran-rating-2026-09-v2
+  referenceProfile:
+    maxHp: 1100
+    physicalDefense: 42
+    hitDamage: 60
+    attacksPerSecond: 1.2
+  tiers:
+  - tierId: B
+    rank: 1
+    requiredPassingTrials: 1
+    healthMultiplier: 0.75
+    pressureMultiplier: 0.75
+    escalationMultiplier: 0.8
+    trialSeeds:
+    - trialId: brass_executioner
+      seeds:
+      - 10101
+      - 10102
+      - 10103
+    - trialId: thousand_handed_guardian
+      seeds:
+      - 10201
+      - 10202
+      - 10203
+    - trialId: ashen_bastion
+      seeds:
+      - 10301
+      - 10302
+      - 10303
+  - tierId: A
+    rank: 2
+    requiredPassingTrials: 2
+    healthMultiplier: 1
+    pressureMultiplier: 1
+    escalationMultiplier: 1
+    trialSeeds:
+    - trialId: brass_executioner
+      seeds:
+      - 20101
+      - 20102
+      - 20103
+    - trialId: thousand_handed_guardian
+      seeds:
+      - 20201
+      - 20202
+      - 20203
+    - trialId: ashen_bastion
+      seeds:
+      - 20301
+      - 20302
+      - 20303
+  - tierId: S
+    rank: 3
+    requiredPassingTrials: 2
+    healthMultiplier: 1.25
+    pressureMultiplier: 1.2
+    escalationMultiplier: 1.2
+    trialSeeds:
+    - trialId: brass_executioner
+      seeds:
+      - 30101
+      - 30102
+      - 30103
+    - trialId: thousand_handed_guardian
+      seeds:
+      - 30201
+      - 30202
+      - 30203
+    - trialId: ashen_bastion
+      seeds:
+      - 30301
+      - 30302
+      - 30303
+  - tierId: S+
+    rank: 4
+    requiredPassingTrials: 3
+    healthMultiplier: 1.7
+    pressureMultiplier: 1.55
+    escalationMultiplier: 1.5
+    trialSeeds:
+    - trialId: brass_executioner
+      seeds:
+      - 40101
+      - 40102
+      - 40103
+    - trialId: thousand_handed_guardian
+      seeds:
+      - 40201
+      - 40202
+      - 40203
+    - trialId: ashen_bastion
+      seeds:
+      - 40301
+      - 40302
+      - 40303
+  trials:
+  - trialId: brass_executioner
+    archetype: 0
+    hpMultiplier: 0.75
+    defenseMultiplier: 0.6
+    damageMultiplier: 1.35
+    attackSpeedMultiplier: 0.45
+    specialIntervalSeconds: 6
+    specialDamageGrowth: 0.25
+    specialCountBeforeBerserk: 4
+    hitCountForArmorReduction: 0
+    armorReductionPercent: 0
+    armorReductionCapPercent: 0
+    armorReductionDurationSeconds: 0
+    barrierMaxHpPercent: 0
+    barrierDurationSeconds: 0
+    vulnerabilityDurationSeconds: 0
+    vulnerabilityDamageBonusPercent: 0
+    regenerationMaxHpPercentPerSecond: 0
+    escalationIntervalSeconds: 20
+    regenerationCapMultiplier: 1
+    damageCapMultiplier: 3
+  - trialId: thousand_handed_guardian
+    archetype: 1
+    hpMultiplier: 1
+    defenseMultiplier: 0.45
+    damageMultiplier: 0.45
+    attackSpeedMultiplier: 3
+    specialIntervalSeconds: 0
+    specialDamageGrowth: 0
+    specialCountBeforeBerserk: 0
+    hitCountForArmorReduction: 10
+    armorReductionPercent: 4
+    armorReductionCapPercent: 40
+    armorReductionDurationSeconds: 6
+    barrierMaxHpPercent: 0
+    barrierDurationSeconds: 0
+    vulnerabilityDurationSeconds: 0
+    vulnerabilityDamageBonusPercent: 0
+    regenerationMaxHpPercentPerSecond: 0
+    escalationIntervalSeconds: 20
+    regenerationCapMultiplier: 1
+    damageCapMultiplier: 3
+  - trialId: ashen_bastion
+    archetype: 2
+    hpMultiplier: 1.1
+    defenseMultiplier: 0.25
+    damageMultiplier: 0.65
+    attackSpeedMultiplier: 1
+    specialIntervalSeconds: 0
+    specialDamageGrowth: 0
+    specialCountBeforeBerserk: 0
+    hitCountForArmorReduction: 0
+    armorReductionPercent: 0
+    armorReductionCapPercent: 0
+    armorReductionDurationSeconds: 0
+    barrierMaxHpPercent: 25
+    barrierDurationSeconds: 5
+    vulnerabilityDurationSeconds: 3
+    vulnerabilityDamageBonusPercent: 25
+    regenerationMaxHpPercentPerSecond: 0.5
+    escalationIntervalSeconds: 20
+    regenerationCapMultiplier: 3
+    damageCapMultiplier: 3
+  virtualTimeLimitSeconds: 120
+  processedEventLimit: 100000
+  realHardTimeoutMilliseconds: 2000
+  logSimulationDetails: 0
+  ceremonyMinimumSeconds: 4.5
+  ceremonySkipDelaySeconds: 1.5

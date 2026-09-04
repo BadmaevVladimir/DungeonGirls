@@ -167,6 +167,9 @@ public class TavernForgeUIWiringTests
         // Оба сервиса читают/пишут один и тот же SaveManager.Data — критично для того, чтобы Tavern
         // и Forge screens (созданные один раз в HubManager.Start()) видели изменения друг друга без
         // повторного создания сервисов при каждом открытии экрана.
+        // LoadGame may read the developer's real local save. Isolate this assertion from any
+        // pre-existing RawMeat entry; the test verifies shared object identity, not save contents.
+        saveManager.Data.resources.RemoveAll(entry => entry.key == PersistentResourceIds.RawMeat);
         saveManager.Data.resources.Add(new KeyCountEntry { key = PersistentResourceIds.RawMeat, count = 4 });
         Assert.AreEqual(4, tavern.GetIngredientAmount(PersistentResourceIds.RawMeat));
     }

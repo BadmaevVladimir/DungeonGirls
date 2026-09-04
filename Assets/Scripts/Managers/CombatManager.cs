@@ -4,6 +4,9 @@ using UnityEngine;
 
 public class CombatManager : MonoBehaviour
 {
+    ICombatRandom combatRandom = new UnityCombatRandom();
+    bool suppressCombatLogs;
+
     public CombatantRuntime Player { get; private set; }
     public List<CombatantRuntime> Enemies { get; private set; } = new List<CombatantRuntime>();
     public bool IsCombatActive { get; private set; }
@@ -34,10 +37,28 @@ public class CombatManager : MonoBehaviour
     // ActiveSkillActivated) вместо того, чтобы полагаться на этот ивент 3 раза подряд.
     public event System.Action<CombatantRuntime, bool> AttackPerformed;
 
+    // Emitted after evasion has failed but before damage is applied. The attestation scenarios use
+    // this to count real connected hits (blocked hits included) without duplicating hit resolution.
+    public event System.Action<CombatantRuntime, CombatantRuntime> AttackConnected;
+
     void Log(string message)
     {
-        Debug.Log(message);
+        if (!suppressCombatLogs) Debug.Log(message);
         LogMessage?.Invoke(message);
+    }
+
+    // Hidden attestation runs the real combat rules without flooding the Editor/player log. Keeping
+    // this switch on CombatManager lets the simulator reuse the production attack/status pipeline
+    // instead of maintaining a second, inevitably drifting implementation.
+    public void SetHeadlessSimulationMode(bool enabled) => suppressCombatLogs = enabled;
+
+    // Scripted trial attacks and cooldown skills still resolve through the exact live-combat path.
+    public void ResolveScriptedAttack(CombatantRuntime attacker, WeaponAttackState weapon,
+        float damageMultiplier = 1f, bool isRegularAttack = false)
+    {
+        if (!IsCombatActive || attacker == null || weapon == null) return;
+        ResolveAttack(attacker, weapon, damageMultiplier, isRegularAttack);
+        CheckCombatEnd();
     }
 
     static bool IgnoresDebuffs(CombatantRuntime target) =>
@@ -59,6 +80,9 @@ public class CombatManager : MonoBehaviour
     // сегодня всегда 1 элемент на класс (инфраструктура готова к N, контент не меняется).
     // Заменяет прежние плоские activeSkill*-поля/ConfigureUniqueActiveSkill.
     public List<ActiveSkillRuntimeState> ActiveSkills { get; } = new List<ActiveSkillRuntimeState>();
+
+    public void SetRandomSource(ICombatRandom randomSource) =>
+        combatRandom = randomSource ?? new UnityCombatRandom();
 
     public void ConfigureActiveSkills(IEnumerable<ActiveSkillConfigEntry> skills)
     {
@@ -636,7 +660,7 @@ public class CombatManager : MonoBehaviour
         {
             target.BleedTickAccumulator -= 1f;
             bool isCriticalTick = BleedRules.CanTickCritically(target.BleedLevel) && target.BleedSource != null &&
-                Random.value * 100f < CombatCriticalRules.CalculateChancePercent(target.BleedSource);
+                combatRandom.Value01() * 100f < CombatCriticalRules.CalculateChancePercent(target.BleedSource);
             float tickDamage = target.BleedDamagePerSecond;
             if (isCriticalTick)
             {
@@ -705,21 +729,9 @@ public class CombatManager : MonoBehaviour
         // "Ускользание" (3.11, Плут, собственный бонус шанса уклонения) + "Тень" (3.11, уникальная
         // пассивка Плута, только пока активна Скрытность) — складываются: шанс полностью
         // проигнорировать атаку (любого типа урона).
-        float itemEvasionPercent = BalanceClamps.ClampItemEvasionPercent(
-            ItemEffectBalance.ElusivenessEvasionPercent(target.ItemElusivenessLevel) + target.ItemEvasionBonusPercent);
-        float evadeChancePercent = target.SkillEvasionLevel * 5f + itemEvasionPercent + target.MonsterEvasionPercent;
+        float evadeChancePercent = CombatEvasionRules.CalculateChancePercent(target);
 
-        float slipAwayBonus = target.SkillSlipAwayLevel switch { 1 => 1f, 2 => 2f, 3 => 3f, 4 => 4f, 5 => 5f, _ => 0f };
-        evadeChancePercent += slipAwayBonus;
-
-        if (target.IsStealthed && target.UniqueShadowLevel > 0)
-        {
-            evadeChancePercent += target.UniqueShadowLevel switch { 1 => 10f, 2 => 15f, 3 => 20f, 4 => 25f, 5 => 30f, _ => 0f };
-        }
-
-        evadeChancePercent = BalanceClamps.ClampEvasionChancePercent(evadeChancePercent);
-
-        if (evadeChancePercent > 0f && Random.value * 100f < evadeChancePercent)
+        if (evadeChancePercent > 0f && combatRandom.Value01() * 100f < evadeChancePercent)
         {
             Log($"[Combat] {target.DisplayName} уклоняется от атаки {attacker.DisplayName}.");
 
@@ -763,7 +775,9 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        float baseAttackDamage = Random.Range(weapon.DamageMin, weapon.DamageMax) * damageMultiplier;
+        AttackConnected?.Invoke(attacker, target);
+
+        float baseAttackDamage = combatRandom.Range(weapon.DamageMin, weapon.DamageMax) * damageMultiplier;
         float damage = baseAttackDamage;
         if (pendulumBonusPercent > 0f)
             damage *= 1f + pendulumBonusPercent / 100f;
@@ -854,7 +868,7 @@ public class CombatManager : MonoBehaviour
             critMultiplier += convertedSources * 2f;
         }
 
-        bool isCrit = critChancePercent > 0f && Random.value * 100f < critChancePercent;
+        bool isCrit = critChancePercent > 0f && combatRandom.Value01() * 100f < critChancePercent;
 
         // 3.11 "Дымовая граната" (уникальная активка Плута): пока есть заряды гарантированного
         // крита от этого навыка, ОБЫЧНАЯ атака (isRegularAttack) гарантированно критует и расходует
@@ -1012,7 +1026,7 @@ public class CombatManager : MonoBehaviour
         if (!result.WasBlocked && weapon.DamageType == DamageType.Physical && weapon.ArmorBreakLevel > 0)
         {
             float extraWearChance = ItemEffectBalance.ArmorBreakExtraWearChancePercent(weapon.ArmorBreakLevel);
-            if (Random.value * 100f < extraWearChance)
+            if (combatRandom.Value01() * 100f < extraWearChance)
             {
                 target.PhysicalDefenseCurrent = Mathf.Max(0f, target.PhysicalDefenseCurrent - 1f);
                 Log($"[Combat] «Разрушение брони» снижает физ. защиту {target.DisplayName} ещё на 1.");
@@ -1323,7 +1337,7 @@ public class CombatManager : MonoBehaviour
             case SkillId.MonsterStunningScream:
                 // "15% шанс при атаке снизить шанс крита персонажа на 20% на 4 сек." — на атаке, не на попадании.
                 // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель игнорирует крит-дебафф.
-                if (Random.value < 0.15f && !IgnoresDebuffs(target))
+                if (combatRandom.Value01() < 0.15f && !IgnoresDebuffs(target))
                 {
                     target.CritChanceDebuffPercent = 20f;
                     target.CritChanceDebuffTimer = target.AdjustNegativeStatusDuration(4f);

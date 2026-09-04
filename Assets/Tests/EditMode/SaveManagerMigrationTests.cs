@@ -13,7 +13,8 @@ public class SaveManagerMigrationTests
             characterRunCounts = null,
             seenVNScenes = null,
             relationshipPoints = null,
-            seenTutorialHints = null
+            seenTutorialHints = null,
+            completedRunIds = null
         };
 
         SaveManager.MigrateIfNeeded(data);
@@ -24,6 +25,7 @@ public class SaveManagerMigrationTests
         Assert.IsNotNull(data.seenVNScenes);
         Assert.IsNotNull(data.relationshipPoints);
         Assert.IsNotNull(data.seenTutorialHints);
+        Assert.IsNotNull(data.completedRunIds);
     }
 
     [Test]
@@ -97,5 +99,52 @@ public class SaveManagerMigrationTests
         Assert.AreEqual(5, data.resources[0].count);
         Assert.IsNotNull(data.preparedDishes);
         CollectionAssert.AreEqual(new[] { "stew" }, data.unlockedTavernRecipes);
+    }
+
+    [Test]
+    public void Migration_PreservesLegacyVeteranAndMarksItLegacy()
+    {
+        var veteran = new VeteranCharacter { characterId = "jennifer", floorsCleared = 5, grade = "B" };
+        var data = new SaveData { veteranDeck = new List<VeteranCharacter> { veteran } };
+        SaveManager.MigrateIfNeeded(data);
+        Assert.IsTrue(veteran.isLegacy);
+        Assert.AreEqual("B", veteran.grade);
+    }
+
+    [Test]
+    public void Migration_UnknownNewRank_NormalizesToC()
+    {
+        var veteran = new VeteranCharacter
+        {
+            characterId = "violet",
+            schemaVersion = VeteranCharacter.CurrentVeteranSchemaVersion,
+            ratingVersion = "v1",
+            veteranRank = "UNKNOWN"
+        };
+        var data = new SaveData { veteranDeck = new List<VeteranCharacter> { veteran } };
+        SaveManager.MigrateIfNeeded(data);
+        Assert.IsFalse(veteran.isLegacy);
+        Assert.AreEqual("C", veteran.veteranRank);
+        Assert.AreEqual("C", veteran.grade);
+    }
+
+    [Test]
+    public void NewVeteran_RoundTripsRankVersionAndSnapshot()
+    {
+        var data = new SaveData();
+        data.veteranDeck.Add(new VeteranCharacter
+        {
+            characterId = "sasha",
+            schemaVersion = VeteranCharacter.CurrentVeteranSchemaVersion,
+            veteranRank = "S+",
+            ratingVersion = "v1",
+            qualifyingTrialId = "brass_executioner",
+            buildSnapshot = new VeteranBuildSnapshot { characterId = "sasha", combatantJson = "{}" }
+        });
+        var loaded = UnityEngine.JsonUtility.FromJson<SaveData>(UnityEngine.JsonUtility.ToJson(data));
+        Assert.AreEqual("S+", loaded.veteranDeck[0].veteranRank);
+        Assert.AreEqual("v1", loaded.veteranDeck[0].ratingVersion);
+        Assert.AreEqual("brass_executioner", loaded.veteranDeck[0].qualifyingTrialId);
+        Assert.AreEqual("sasha", loaded.veteranDeck[0].buildSnapshot.characterId);
     }
 }

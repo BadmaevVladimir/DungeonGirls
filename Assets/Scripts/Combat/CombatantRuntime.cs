@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 // Временный дебафф, влияющий на скорость атаки (проклятие Колдуна, будущие эффекты и т.п.).
+[Serializable]
 public class ActiveDebuff
 {
     public string Id;
@@ -19,6 +21,7 @@ public class ActiveDebuff
     public CursedEffectId CursedEffect;
 }
 
+[Serializable]
 public class CombatantRuntime
 {
     public string DisplayName;
@@ -33,7 +36,7 @@ public class CombatantRuntime
 
     // 10.6: пиксель-арт спрайт персонажа/монстра (CharacterData.portrait / MonsterData.sprite),
     // для рендера в бою (CombatPanel). Может быть null (например, у Monster_Boss — арт ещё не готов).
-    public Sprite Sprite;
+    [NonSerialized] public Sprite Sprite;
 
     // (доп.): немодифицированное MonsterData.monsterName (без префикса-прилагательного модификатора,
     // см. CombatantFactory.CreateMonsterCombatant) — стабильный ключ для поиска idle/attack-анимации
@@ -50,7 +53,7 @@ public class CombatantRuntime
     public float MagicShieldCurrent;
 
     // Run-level food modifiers are rebound by CharacterManager when combat stats are rebuilt.
-    public ActiveFoodBuff ActiveFoodBuff;
+    [NonSerialized] public ActiveFoodBuff ActiveFoodBuff;
     public float FoodReceivedHealingPercent;
     public float RunReceivedHealingPercent;
     public float FoodDamagePercent;
@@ -66,7 +69,7 @@ public class CombatantRuntime
     // (3.9 "Амбидекстрия"), каждое со своим независимым таймером атаки.
     public List<WeaponAttackState> Weapons = new List<WeaponAttackState>();
 
-    public CombatantRuntime Target;
+    [NonSerialized] public CombatantRuntime Target;
 
     // Боссы независимо от обычных атак готовят «Тяжёлую атаку» 5 секунд. Легаси-путь для боссов БЕЗ
     // BossKitData (см. BossEncounter ниже) — CombatManager.TickBossHeavyAttacks пропускает боссов,
@@ -77,7 +80,7 @@ public class CombatantRuntime
     // Boss framework (минимальный слайс): null для всех не-боссов и для боссов без bossKit (см.
     // MonsterData.bossKit/CombatantFactory). Владеет фазой/кулдаунами/ожидающим телеграфом этого
     // конкретного боя — см. BossEncounterState, CombatManager.TickBossEncounters.
-    public BossEncounterState BossEncounter;
+    [NonSerialized] public BossEncounterState BossEncounter;
 
     // Boss framework (минимальный слайс) — отдельный shield pool способности (BossAbilityEffectKind.
     // ShieldPool), НЕ путать с MagicShieldCurrent/Max выше (тот — экипировка/маг. щит персонажа,
@@ -126,7 +129,7 @@ public class CombatantRuntime
     public int CursedParanoiaStacks;
     public int CursedRecklessStacks;
     public float CursedRecklessDecayTimer;
-    public System.Action<int> AddRunCurrency;
+    [NonSerialized] public System.Action<int> AddRunCurrency;
 
     // 3.11 (Task 6b, item-passive wiring) — armor-bound пассивки эпических предметов, character-level,
     // тем же паттерном, что и три поля выше.
@@ -182,7 +185,7 @@ public class CombatantRuntime
     public float BleedTimer;
     public float BleedTickAccumulator;
     public int BleedLevel;
-    public CombatantRuntime BleedSource;
+    [NonSerialized] public CombatantRuntime BleedSource;
 
     // 3.11 (Плут) — "Скрытность": булево состояние + таймер, длительность всегда 3с (StealthStatus).
     // Персонаж начинает бой БЕЗ Скрытности (не устанавливается здесь, только объявлено — StartCombat
