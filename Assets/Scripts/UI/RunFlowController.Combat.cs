@@ -376,6 +376,8 @@ public partial class RunFlowController
         combatManager.ActiveSkillActivated += OnActiveSkillActivated;
         combatManager.AttackPerformed += OnAttackPerformed;
         ShowOnly(combatPanel);
+        // W11: тема боя текущей героини (или тема босса, если она добавлена в Resources/Music).
+        MusicPlayer.Instance?.PlayCombat(characterManager.Character != null ? characterManager.Character.characterId : null, isBoss);
         combatManager.StartCombat(characterManager.Combatant, enemies);
         BuildEnemyStageEntries(enemies);
         StartPlayerIdleFlipbook();
@@ -424,6 +426,9 @@ public partial class RunFlowController
 
         UnsubscribeCombatEvents();
         StopPlayerFlipbook();
+        // W11: вне боя музыки в текущем объёме нет — гасим, а не оставляем боевую тему играть
+        // поверх карты и комнат.
+        MusicPlayer.Instance?.StopMusic();
 
         for (int i = 0; i < characterManager.Combatant.Weapons.Count && i < originalStats.Count; i++)
         {

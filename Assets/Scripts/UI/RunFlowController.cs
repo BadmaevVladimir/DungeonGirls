@@ -355,6 +355,7 @@ public partial class RunFlowController : MonoBehaviour
         CacheElements(root);
         tutorialManager = TutorialManager.GetOrCreate(uiDocument, saveManager);
         AudioSettingsManager.GetOrCreate(uiDocument);
+        MusicPlayer.GetOrCreate(uiDocument); // W11: фоновая музыка
         BindStaticTutorialTooltips();
         startRunButton.clicked += OpenCharacterSelect;
         characterSelectBackButton.clicked += () =>

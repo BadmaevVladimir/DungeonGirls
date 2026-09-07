@@ -120,6 +120,7 @@ public partial class HubManager : MonoBehaviour
         forgeService = saveManager.CreateForgeService();
         tutorialManager = TutorialManager.GetOrCreate(uiDocument, saveManager);
         AudioSettingsManager.GetOrCreate(uiDocument);
+        MusicPlayer.GetOrCreate(uiDocument)?.PlayHub(); // W11: музыка деревни с первого кадра
         vnManager = uiDocument.GetComponent<VNManager>();
         if (vnManager == null) vnManager = uiDocument.gameObject.AddComponent<VNManager>();
         vnManager.SceneCompleted += OnVNSceneCompleted;

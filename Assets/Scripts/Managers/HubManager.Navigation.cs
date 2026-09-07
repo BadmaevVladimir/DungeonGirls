@@ -19,6 +19,7 @@ public partial class HubManager
         CloseCheatMenu();
         RefreshVillagePlates();
         mainMenuScreen.style.display = DisplayStyle.Flex;
+        MusicPlayer.Instance?.PlayHub(); // W11
     }
 
     void OpenCheatMenu()

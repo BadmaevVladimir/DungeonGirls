@@ -257,5 +257,6 @@ public partial class RunFlowController
         runScreen.style.display = DisplayStyle.None;
         pauseScreen.style.display = DisplayStyle.None;
         mainMenuScreen.style.display = DisplayStyle.Flex;
+        MusicPlayer.Instance?.PlayHub(); // W11: возвращение из забега возвращает и музыку деревни
     }
 }
