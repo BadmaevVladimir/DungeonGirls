@@ -19,9 +19,16 @@ public static class PlayModeSmokeTest
     // Тест мутирует реальный SaveManager (SaveGame() пишет на диск при каждом изменении) —
     // бэкапим настоящий файл сохранения игрока и восстанавливаем его в Finish(), чтобы не
     // затереть его реальный прогресс тестовыми значениями валют/зданий.
+    //
+    // ФИКС 07.09.2026: с появлением резервной копии (R06) каждая запись оставляет рядом ещё и
+    // .bak. Восстановление одного основного файла оставляло .bak с состоянием ТЕСТА — а он
+    // используется, когда основной файл нечитаем, то есть смоук молча подкладывал игроку чужой
+    // прогресс на случай сбоя. Спутники сохранения бэкапятся и восстанавливаются вместе с ним.
     static string savePath;
     static byte[] originalSaveBytes;
     static bool originalSaveExisted;
+    static readonly Dictionary<string, byte[]> originalCompanionBytes = new Dictionary<string, byte[]>();
+    static readonly List<string> companionSuffixes = new List<string> { ".bak", ".corrupt", ".tmp" };
 
     public static void Run()
     {
@@ -30,6 +37,12 @@ public static class PlayModeSmokeTest
         if (originalSaveExisted)
         {
             originalSaveBytes = File.ReadAllBytes(savePath);
+        }
+        originalCompanionBytes.Clear();
+        foreach (string suffix in companionSuffixes)
+        {
+            string companion = savePath + suffix;
+            originalCompanionBytes[companion] = File.Exists(companion) ? File.ReadAllBytes(companion) : null;
         }
 
         try
@@ -2320,6 +2333,13 @@ public static class PlayModeSmokeTest
                 File.Delete(savePath);
                 Info.Add("Тестовый save-файл удалён (до теста сохранения не существовало).");
             }
+
+            foreach (var pair in originalCompanionBytes)
+            {
+                if (pair.Value != null) File.WriteAllBytes(pair.Key, pair.Value);
+                else if (File.Exists(pair.Key)) File.Delete(pair.Key);
+            }
+            Info.Add("Спутники сохранения (.bak/.corrupt/.tmp) восстановлены в состояние до теста.");
         }
         catch (Exception e)
         {
