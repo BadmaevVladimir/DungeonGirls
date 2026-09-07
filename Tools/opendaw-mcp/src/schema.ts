@@ -103,8 +103,10 @@ const crossCheck = (doc: Arrangement): ReadonlyArray<DocumentIssue> => {
     const patternLengths = new Map<string, number>()
     for (const [name, pattern] of Object.entries(doc.patterns)) {
         let length = 0
+        let lengthParsed = false
         collect(issues, `patterns.${name}.length`, () => {
             length = parseDuration(pattern.length, signature)
+            lengthParsed = true
             patternLengths.set(name, length)
         })
         pattern.notes.forEach((note, index) => {
@@ -114,7 +116,7 @@ const crossCheck = (doc: Arrangement): ReadonlyArray<DocumentIssue> => {
             let duration = 0
             collect(issues, `${base}.at`, () => {position = parsePosition(note.at, signature)})
             collect(issues, `${base}.d`, () => {duration = parseDuration(note.d, signature)})
-            if (length > 0 && duration > 0 && position + duration > length) {
+            if (lengthParsed && length > 0 && duration > 0 && position + duration > length) {
                 issues.push({
                     path: base,
                     message: `нота выходит за длину паттерна "${name}" (${position + duration} > ${length} тиков)`
@@ -142,7 +144,7 @@ const crossCheck = (doc: Arrangement): ReadonlyArray<DocumentIssue> => {
         }
         track.place.forEach((placement, placeIndex) => {
             const base = `tracks[${index}].place[${placeIndex}]`
-            if (!patternLengths.has(placement.pattern)) {
+            if (!(placement.pattern in doc.patterns)) {
                 issues.push({path: `${base}.pattern`, message: `паттерн "${placement.pattern}" не объявлен`})
             }
             collect(issues, `${base}.at`, () => {

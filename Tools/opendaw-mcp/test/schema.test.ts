@@ -73,4 +73,22 @@ describe("parseDocument", () => {
         const input = {...minimal(), loop: {start: "2.1", end: "2.1"}}
         expect(() => parseDocument(input)).toThrow(DocumentError)
     })
+
+    it("отвергает паттерн с неправильной длиной, не путая с необъявленным паттерном", () => {
+        const input = minimal()
+        input.patterns.riff!.length = "1/5"
+        try {
+            parseDocument(input)
+            expect.unreachable("должно было бросить")
+        } catch (error) {
+            expect(error).toBeInstanceOf(DocumentError)
+            const {issues} = error as DocumentError
+            expect(issues).toContainEqual({
+                path: "patterns.riff.length",
+                message: expect.stringContaining("")
+            })
+            const notDeclaredIssue = issues.find(i => i.message.includes("не объявлен"))
+            expect(notDeclaredIssue).toBeUndefined()
+        }
+    })
 })
