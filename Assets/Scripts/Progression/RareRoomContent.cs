@@ -13,6 +13,22 @@ public sealed class RareRoomFloorState
     public void Reserve(RareRoomContentId id) => counts[id] = Count(id) + 1;
 }
 
+// Содержимое, которого на забег должно быть не больше одного экземпляра. Его "израсходованность"
+// раньше жила ТОЛЬКО в run-флагах RunFlowController (hotSpringsTriggeredThisRun и т.п.), которые
+// выставляются при ВХОДЕ в комнату. Но контент всего этажа резолвится одним проходом до того, как
+// игрок сделал хоть один шаг, поэтому внутри одного этажа несколько узлов видели одинаковые
+// (ещё не выставленные) флаги и получали одно и то же одноразовое содержимое.
+public enum OneShotRoomContentId { PersonalRest, HuntQuest, SwordInStone }
+
+// Резервирование одноразового содержимого на время резолва одного этажа. Дополняет run-флаги, а не
+// заменяет их: флаг закрывает контент на весь забег, этот ledger — на текущий проход генерации.
+public sealed class OneShotRoomFloorState
+{
+    readonly HashSet<OneShotRoomContentId> reserved = new HashSet<OneShotRoomContentId>();
+    public bool IsReserved(OneShotRoomContentId id) => reserved.Contains(id);
+    public bool TryReserve(OneShotRoomContentId id) => reserved.Add(id);
+}
+
 public static class RareRoomContentResolver
 {
     public static RareRoomContentId Resolve(RoomType roomType, int floor, RareRoomConfig config,

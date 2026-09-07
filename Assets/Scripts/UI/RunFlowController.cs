@@ -306,6 +306,10 @@ public partial class RunFlowController : MonoBehaviour
     bool pendingCombatReward;
     bool pendingCombatWasBoss;
     bool pendingStandaloneChestReward;
+    // R02 (ГДД 3.6): успешная ловушка/событие даёт опыт. Флаг выставляют TrapRoomFlow/QuestRoomFlow,
+    // а выдаёт его ResolvePendingRoomRewards вместе с боевым опытом — одна транзакция XP на комнату
+    // и один общий проход левел-апов, а не отдельная выдача из каждой ветки исхода.
+    bool pendingSuccessfulEventOrTrapXp;
     RoomRewardGrant pendingRoomRewardGrant;
     System.Action lootSummaryConfirmHandler;
 

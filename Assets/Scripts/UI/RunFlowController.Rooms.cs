@@ -20,6 +20,7 @@ public partial class RunFlowController
 
         if (chanceSucceeded)
         {
+            pendingSuccessfulEventOrTrapXp = true; // R02, ГДД 3.6
             var trapResources = new List<ResourceAmount>();
             var ingredient = rewardManager.RollIngredientReward(RewardRoomContext.Trap, new UnityRewardRandom());
             var material = rewardManager.RollForgeMaterial(RewardRoomContext.Trap, new UnityRewardRandom());
@@ -128,13 +129,42 @@ public partial class RunFlowController
 
         if (string.Equals(roomNode.ContentKey, PersonalRestContentKey, System.StringComparison.Ordinal))
         {
-            if (!TryReservePersonalRestRoom())
-                throw new System.InvalidOperationException($"Personal rest content for node {roomNode.Id} was already consumed.");
-            yield return PersonalRestRoomFlow();
+            if (TryReservePersonalRestRoom())
+            {
+                yield return PersonalRestRoomFlow();
+                yield break;
+            }
+
+            // R01 (эшелон 2): резервирование на этапе генерации (см. ResolveSpecialContent) уже не
+            // даёт двум узлам получить личный отдых, но брошенное отсюда исключение вешало корутину
+            // забега целиком — худший из возможных исходов. Отыгрываем комнату как обычное событие.
+            Debug.LogWarning($"[Rooms] Личный отдых узла {roomNode.Id} уже израсходован в этом забеге — комната отыграна как обычное событие.");
+            yield return QuestRoomFlow(PickFallbackQuest());
             yield break;
         }
 
         var quest = GetResolvedQuest(roomNode);
+        if (IsOneShotQuestAlreadyConsumed(quest))
+        {
+            // R01: тот же разрыв между генерацией и run-флагами для «Добычи»/«Меча в камне» —
+            // без этой проверки повторный узел выдал бы одноразовую награду второй раз.
+            Debug.LogWarning($"[Rooms] Одноразовое событие «{quest.Name}» узла {roomNode.Id} уже пройдено в этом забеге — подставлено обычное событие этажа.");
+            quest = PickFallbackQuest();
+        }
+        yield return QuestRoomFlow(quest);
+    }
+
+    // Событие без одноразовой награды для текущего этажа: оба одноразовых варианта помечены как
+    // уже израсходованные, поэтому PickForFloor гарантированно вернёт Сфинкса/Кольцо фей.
+    QuestDefinition PickFallbackQuest() =>
+        QuestCatalog.PickForFloor(dungeonManager.CurrentFloorNumber, huntAlreadyTriggered: true, swordAlreadySucceeded: true);
+
+    bool IsOneShotQuestAlreadyConsumed(QuestDefinition quest) =>
+        (quest == QuestCatalog.Hunt && huntQuestTriggeredThisRun) ||
+        (quest == QuestCatalog.SwordInStone && swordInStoneSucceededThisRun);
+
+    IEnumerator QuestRoomFlow(QuestDefinition quest)
+    {
         if (quest == QuestCatalog.Hunt) huntQuestTriggeredThisRun = true;
 
         if (quest.InteractionType == QuestInteractionType.MultipleChoice)
@@ -167,6 +197,7 @@ public partial class RunFlowController
 
             if (picked.IsCorrect)
             {
+                pendingSuccessfulEventOrTrapXp = true; // R02: верный ответ — успешное событие.
                 // ГДД 5.4: верный ответ на загадку сфинкса — +200 валюты забега в следующем бою.
                 characterManager.Modifiers.NextChestCurrencyBonus = (characterManager.Modifiers.NextChestCurrencyBonus ?? 0) + 200;
             }
@@ -181,6 +212,10 @@ public partial class RunFlowController
             yield return ShowChancePopupAndWait(quest.DescriptionText, quest.Level, quest.SuccessText, quest.FailText,
                 quest.AttemptButtonText, quest.SkipButtonText, quest.SkipText, TutorialContent.EventRoom);
             trapPopupTitle.text = "Ловушка";
+
+            // R02: опыт даёт сам факт успешной проверки, независимо от того, какая это квестовая
+            // ветка — награда предмета/рационов идёт отдельно ниже.
+            if (chanceAttempted && chanceSucceeded) pendingSuccessfulEventOrTrapXp = true;
 
             if (quest == QuestCatalog.FairyRing)
             {

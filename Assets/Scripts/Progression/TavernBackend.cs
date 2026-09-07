@@ -39,15 +39,30 @@ public sealed class CatalogUnlockPolicy
 
 public sealed class TavernService
 {
-    readonly SaveData data;
+    // R03: см. тот же комментарий в ForgeBackend.cs — SaveManager.ResetProgress заменяет объект
+    // SaveData, поэтому сервис хранит провайдер, а не захваченную ссылку.
+    readonly Func<SaveData> dataProvider;
     readonly Action persist;
     readonly CatalogUnlockPolicy access;
 
+    SaveData data => dataProvider();
+
     public TavernService(SaveData data, Action persist = null, CatalogUnlockPolicy access = null)
+        : this(DataProviderFor(data), persist, access)
     {
-        this.data = data ?? throw new ArgumentNullException(nameof(data));
+    }
+
+    public TavernService(Func<SaveData> dataProvider, Action persist = null, CatalogUnlockPolicy access = null)
+    {
+        this.dataProvider = dataProvider ?? throw new ArgumentNullException(nameof(dataProvider));
         this.persist = persist;
         this.access = access ?? new CatalogUnlockPolicy();
+    }
+
+    static Func<SaveData> DataProviderFor(SaveData data)
+    {
+        if (data == null) throw new ArgumentNullException(nameof(data));
+        return () => data;
     }
 
     public TavernRecipeState GetRecipeState(FoodRecipeData recipe, int tavernLevel)

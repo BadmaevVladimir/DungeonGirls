@@ -76,6 +76,18 @@ public class CombatManager : MonoBehaviour
         _ => 3 // "3 быстрые атаки" (Дженифер/Воин) — единственный hit-loop навык прототипа кроме Дымовой гранаты
     };
 
+    // R05: восстановление после активного навыка — часть боевых правил, а не длительность
+    // анимации. Число равно прежнему фактическому поведению Дженифер (11 кадров SkillBrightStrike
+    // на 12 fps), чтобы фикс не менял баланс заодно с расхождением; UI обязан рисовать анимацию
+    // ровно этой длины. Дымовая граната Плута замаха не имеет и блокировки не даёт.
+    public const float ThreeQuickStrikesRecoverySeconds = 11f / 12f;
+
+    public static float ResolveActiveSkillAttackLockSeconds(CharacterClass characterClass) => characterClass switch
+    {
+        CharacterClass.Rogue => 0f,
+        _ => ThreeQuickStrikesRecoverySeconds
+    };
+
     // Активные-скилы-панель (2026-09-03): список сконфигурированных на текущий бой слотов —
     // сегодня всегда 1 элемент на класс (инфраструктура готова к N, контент не меняется).
     // Заменяет прежние плоские activeSkill*-поля/ConfigureUniqueActiveSkill.
@@ -100,6 +112,7 @@ public class CombatManager : MonoBehaviour
                 CooldownTimer = 0f,
                 IsToggleActive = false,
                 AutoMode = entry.AutoMode,
+                AttackLockSeconds = entry.AttackLockSeconds,
             });
         }
     }
@@ -171,6 +184,11 @@ public class CombatManager : MonoBehaviour
         }
 
         ActiveSkillActivated?.Invoke(Player, slot.Data.skillName);
+
+        // R05: восстановление после замаха ставит сама боевая модель — одинаково в бою со сценой и
+        // в headless-симуляции аттестации. Выставляется до hit-loop: ResolveAttack блокировку не
+        // проверяет, зато следующий же Tick уже не начнёт обычную атаку.
+        if (slot.AttackLockSeconds > 0f) Player.AttackLockRemaining = slot.AttackLockSeconds;
 
         // 3.11 "Дымовая граната" (уникальная активка Плута): при активации даёт Скрытность и
         // заряжает гарантированные криты на N последующих ОБЫЧНЫХ атак — не бьёт сама.
@@ -409,6 +427,11 @@ public class CombatManager : MonoBehaviour
 
     static void ResetAttackTimers(CombatantRuntime combatant)
     {
+        // R05: CombatantRuntime игрока переиспользуется между боями. Незавершённое восстановление
+        // после навыка (бой кончился прямо во время замаха) иначе украло бы первую секунду
+        // следующего боя. Раньше от этого страховался UI в StopPlayerFlipbook — теперь это, как и
+        // сама блокировка, забота боевой модели.
+        combatant.AttackLockRemaining = 0f;
         foreach (var weapon in combatant.Weapons)
         {
             weapon.AttackTimer = 0f;
@@ -534,9 +557,9 @@ public class CombatManager : MonoBehaviour
             weapon.SecondsSinceLastAttack += Mathf.Max(0f, deltaTime);
 
         // 3.9 "Заморозка": замороженный участник не может атаковать; таймеры атаки не копятся.
-        // AttackLocked — тот же эффект "не копится/не бьёт", но временно и по воле UI (см.
-        // CombatantRuntime.AttackLocked) — обычная атака не должна прерывать анимацию скилла.
-        if (!attacker.IsAlive || attacker.IsFrozen || attacker.AttackLocked)
+        // Восстановление после активного навыка — тот же эффект "не копится/не бьёт", но временно
+        // и по таймеру боевой модели (см. CombatantRuntime.AttackLockRemaining).
+        if (!attacker.IsAlive || attacker.IsFrozen || attacker.IsAttackLocked)
         {
             return;
         }
@@ -558,6 +581,9 @@ public class CombatManager : MonoBehaviour
     void UpdateStatusEffects(CombatantRuntime combatant, float deltaTime)
     {
         combatant.CombatRegenCooldownRemaining = Mathf.Max(0f, combatant.CombatRegenCooldownRemaining - deltaTime);
+        // R05: восстановление после активного навыка истекает по боевому времени, а не по концу
+        // UI-анимации — иначе бой без сцены (симуляция аттестации) блокировки вообще не видел.
+        combatant.AttackLockRemaining = Mathf.Max(0f, combatant.AttackLockRemaining - deltaTime);
         if (combatant.CursedRecklessStacks > 0)
         {
             combatant.CursedRecklessDecayTimer -= deltaTime;

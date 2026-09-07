@@ -184,7 +184,8 @@ public class CursedItemTests
         var cm = NewGo("combat").AddComponent<CombatManager>(); cm.StartCombat(player, new List<CombatantRuntime> { enemy });
         cm.Tick(1.01f);
         Assert.AreEqual(1, player.CursedRecklessStacks);
-        player.AttackLocked = true;
+        // R05: блокировка стала таймером боевой модели — держим её заведомо дольше окна распада.
+        player.AttackLockRemaining = CursedItemRules.RecklessStackDecaySeconds + 1f;
         cm.Tick(CursedItemRules.RecklessStackDecaySeconds + 0.01f);
         Assert.AreEqual(0, player.CursedRecklessStacks);
     }

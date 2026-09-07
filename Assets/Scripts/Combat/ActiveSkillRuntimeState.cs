@@ -11,6 +11,9 @@ public class ActiveSkillRuntimeState
     public float CooldownTimer;
     public bool IsToggleActive;
     public bool AutoMode;
+    // R05: сколько секунд после активации персонаж не начинает обычных атак (см.
+    // CombatManager.ResolveActiveSkillAttackLockSeconds).
+    public float AttackLockSeconds;
 }
 
 // Вход для CombatManager.ConfigureActiveSkills — то, что вызывающая сторона (RunFlowController)
@@ -22,12 +25,15 @@ public readonly struct ActiveSkillConfigEntry
     public readonly int HitCount;
     public readonly float DamageMultiplierPerHit;
     public readonly bool AutoMode;
+    public readonly float AttackLockSeconds;
 
-    public ActiveSkillConfigEntry(ActiveSkillData data, int hitCount, float damageMultiplierPerHit, bool autoMode)
+    public ActiveSkillConfigEntry(ActiveSkillData data, int hitCount, float damageMultiplierPerHit, bool autoMode,
+        float attackLockSeconds = 0f)
     {
         Data = data;
         HitCount = hitCount;
         DamageMultiplierPerHit = damageMultiplierPerHit;
         AutoMode = autoMode;
+        AttackLockSeconds = attackLockSeconds;
     }
 }

@@ -25,11 +25,13 @@ public class SaveManager : MonoBehaviour
             ResourcesChanged?.Invoke();
         });
 
+    // R03: провайдер, а не текущий Data — созданный один раз сервис обязан пережить ResetProgress()
+    // и LoadGame(), которые подменяют объект SaveData целиком.
     public TavernService CreateTavernService(CatalogUnlockPolicy access = null) =>
-        new TavernService(Data, PersistResourceTransaction, access);
+        new TavernService(() => Data, PersistResourceTransaction, access);
 
     public ForgeService CreateForgeService(CatalogUnlockPolicy access = null) =>
-        new ForgeService(Data, PersistResourceTransaction, access);
+        new ForgeService(() => Data, PersistResourceTransaction, access);
 
     void PersistResourceTransaction()
     {
@@ -55,7 +57,12 @@ public class SaveManager : MonoBehaviour
     }
 
     string SavePath => Path.Combine(Application.persistentDataPath, SaveFileName);
-    string TempSavePath => SavePath + ".tmp";
+
+    // R06: true, если последняя загрузка не смогла прочитать основной файл. Прогресс при этом не
+    // потерян молча: повреждённый файл сохранён рядом (.corrupt), а UI может честно сказать
+    // игроку, что произошло, вместо вида «прогресс просто исчез».
+    public bool LastLoadFailed { get; private set; }
+    public string LastLoadFailureMessage { get; private set; }
 
     void Awake()
     {
@@ -64,24 +71,20 @@ public class SaveManager : MonoBehaviour
 
     public void LoadGame()
     {
-        if (File.Exists(SavePath))
+        var outcome = SaveFileStore.Load(SavePath);
+        Data = outcome.Data;
+        LastLoadFailed = outcome.Failed;
+        LastLoadFailureMessage = outcome.Message;
+
+        if (!string.IsNullOrEmpty(outcome.Message))
         {
-            try
-            {
-                string json = File.ReadAllText(SavePath);
-                Data = JsonUtility.FromJson<SaveData>(json) ?? new SaveData();
-                MigrateIfNeeded(Data);
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[SaveManager] Не удалось прочитать сохранение ({SavePath}): {e.Message}. Начинаем с чистого прогресса.");
-                Data = new SaveData();
-            }
+            if (outcome.Failed) Debug.LogError($"[SaveManager] {outcome.Message}");
+            else Debug.LogWarning($"[SaveManager] {outcome.Message}");
         }
-        else
-        {
-            Data = new SaveData();
-        }
+
+        // Восстановленный из резервной копии прогресс сразу становится основным файлом, иначе
+        // следующая же запись сравнивала бы его с несуществующим основным.
+        if (outcome.RestoredFromBackup) SaveGame();
     }
 
     // 9.4 (ФИКС, Codex P2 2026-08-27): минимальная миграция по saveVersion — а не полный
@@ -263,23 +266,7 @@ public class SaveManager : MonoBehaviour
         return id;
     }
 
-    public void SaveGame()
-    {
-        string json = JsonUtility.ToJson(Data, true);
-
-        // Атомарная запись: пишем во временный файл рядом, затем заменяем основной за одну
-        // файловую операцию. File.Replace требует существующий целевой файл — на самом первом
-        // сохранении (SavePath ещё не существует) используем File.Move как эквивалент.
-        File.WriteAllText(TempSavePath, json);
-        if (File.Exists(SavePath))
-        {
-            File.Replace(TempSavePath, SavePath, null);
-        }
-        else
-        {
-            File.Move(TempSavePath, SavePath);
-        }
-    }
+    public void SaveGame() => SaveFileStore.Write(SavePath, JsonUtility.ToJson(Data, true));
 
     // ==================== Мета-валюта / гача-валюта (8.5) ====================
 
@@ -541,5 +528,117 @@ public class SaveManager : MonoBehaviour
             list.Add(entry);
         }
         return entry;
+    }
+}
+
+// R06: файловый слой сохранения. Вынесен из SaveManager отдельным статическим типом, чтобы
+// поведение при повреждённом файле проверялось тестом на временной папке, а не на живом сейве
+// игрока: SaveManager — MonoBehaviour, чей путь жёстко привязан к Application.persistentDataPath.
+public static class SaveFileStore
+{
+    public static string TempPathFor(string savePath) => savePath + ".tmp";
+    // Предыдущая успешно записанная копия. File.Replace умеет отдать вытесняемый файл в backup-путь
+    // той же операцией, так что резервная копия не стоит ни одной лишней записи на диск.
+    public static string BackupPathFor(string savePath) => savePath + ".bak";
+    public static string CorruptPathFor(string savePath) => savePath + ".corrupt";
+
+    public sealed class LoadOutcome
+    {
+        public SaveData Data;
+        public bool Failed;                 // прогресс прочитать не удалось вообще
+        public bool RestoredFromBackup;     // данные подняты из .bak, основной файл нужно переписать
+        public string Message;              // человекочитаемая причина, null если всё штатно
+    }
+
+    // Атомарная запись: пишем во временный файл рядом, затем заменяем основной за одну файловую
+    // операцию. File.Replace требует существующий целевой файл — на самом первом сохранении
+    // используем File.Move как эквивалент (резервировать тогда ещё нечего).
+    public static void Write(string savePath, string json)
+    {
+        string tempPath = TempPathFor(savePath);
+        File.WriteAllText(tempPath, json);
+        if (File.Exists(savePath)) File.Replace(tempPath, savePath, BackupPathFor(savePath));
+        else File.Move(tempPath, savePath);
+    }
+
+    public static LoadOutcome Load(string savePath)
+    {
+        string backupPath = BackupPathFor(savePath);
+
+        if (!File.Exists(savePath))
+        {
+            // Основного файла нет, но резервная копия может пережить внешнее удаление или сбой
+            // файловой системы — это такой же полноценный прогресс, а не черновик.
+            if (TryRead(backupPath, out var restored))
+                return new LoadOutcome
+                {
+                    Data = restored,
+                    RestoredFromBackup = true,
+                    Message = $"Основное сохранение отсутствует — прогресс восстановлен из резервной копии ({backupPath})."
+                };
+            return new LoadOutcome { Data = new SaveData() };
+        }
+
+        if (TryRead(savePath, out var loaded)) return new LoadOutcome { Data = loaded };
+
+        // Раньше здесь просто начинался чистый прогресс, и первая же запись затирала повреждённый
+        // файл — единственный шанс на восстановление исчезал молча. Теперь файл в любом случае
+        // откладывается в сторону, и только потом пробуется резервная копия.
+        string corruptPath = CorruptPathFor(savePath);
+        bool preserved = TryPreserveCorrupt(savePath, corruptPath);
+        string preservedNote = preserved
+            ? $"повреждённый файл сохранён как {corruptPath}"
+            : $"повреждённый файл НЕ удалось отложить в {corruptPath}";
+
+        if (TryRead(backupPath, out var fromBackup))
+            return new LoadOutcome
+            {
+                Data = fromBackup,
+                RestoredFromBackup = true,
+                Message = $"Не удалось прочитать сохранение ({savePath}); прогресс восстановлен из резервной копии, {preservedNote}."
+            };
+
+        return new LoadOutcome
+        {
+            Data = new SaveData(),
+            Failed = true,
+            Message = $"Не удалось прочитать сохранение ({savePath}), резервная копия недоступна, {preservedNote}. Начат чистый прогресс."
+        };
+    }
+
+    public static bool TryRead(string path, out SaveData data)
+    {
+        data = null;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return false;
+        try
+        {
+            var parsed = JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
+            if (parsed == null) return false; // пустой файл или литерал "null" — тоже нечитаемое сохранение
+            SaveManager.MigrateIfNeeded(parsed);
+            data = parsed;
+            return true;
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[SaveFileStore] Файл сохранения {path} нечитаем: {e.Message}");
+            return false;
+        }
+    }
+
+    // Уносим повреждённый файл из-под будущей записи, но не удаляем: это единственная копия
+    // прогресса игрока, и решать её судьбу должен человек, а не автоматика.
+    static bool TryPreserveCorrupt(string savePath, string corruptPath)
+    {
+        try
+        {
+            if (File.Exists(corruptPath)) File.Delete(corruptPath);
+            File.Move(savePath, corruptPath);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[SaveFileStore] Не удалось отложить повреждённое сохранение в {corruptPath}: {e.Message}");
+            return false;
+        }
     }
 }

@@ -155,7 +155,7 @@ public sealed class CombatSimulationEngine : ICombatSimulationEngine
         state.Combat.ConfigureActiveSkills(new[]
         {
             new ActiveSkillConfigEntry(state.TransientSkill, snapshot.hitCount,
-                snapshot.damageMultiplierPerHit, autoMode: true)
+                snapshot.damageMultiplierPerHit, autoMode: true, snapshot.attackLockSeconds)
         });
     }
 

@@ -14,13 +14,16 @@ public partial class RunFlowController
     void ResolveGeneratedFloorMapContent()
     {
         var rareState = new RareRoomFloorState();
+        // R01: одноразовое содержимое резервируется на время прохода по узлам этажа — run-флаги
+        // выставляются только при входе в комнату и на этапе генерации ещё все false.
+        var oneShotState = new OneShotRoomFloorState();
         foreach (var node in floorManager.CurrentMap.Nodes)
         {
             var previousRandomState = UnityEngine.Random.state;
             UnityEngine.Random.InitState(node.ContentSeed);
             try
             {
-                ResolveNodeContent(node, rareState);
+                ResolveNodeContent(node, rareState, oneShotState);
                 node.ContentResolved = true;
             }
             finally
@@ -31,7 +34,7 @@ public partial class RunFlowController
         floorManager.FinalizeGeneratedContent();
     }
 
-    void ResolveNodeContent(FloorMapNode node, RareRoomFloorState rareState)
+    void ResolveNodeContent(FloorMapNode node, RareRoomFloorState rareState, OneShotRoomFloorState oneShotState)
     {
         node.ResolvedMonsterIds ??= new List<string>();
         node.ResolvedMerchantOffers ??= new List<FloorMerchantOfferState>();
@@ -53,7 +56,7 @@ public partial class RunFlowController
                 node.ContentKey = $"trap:{trap.Name}";
                 break;
             case RoomType.Special:
-                ResolveSpecialContent(node, rareState);
+                ResolveSpecialContent(node, rareState, oneShotState);
                 break;
             case RoomType.Merchant:
                 ResolveMerchantContent(node);
@@ -82,7 +85,7 @@ public partial class RunFlowController
         node.ContentKey = $"combat:{string.Join("|", node.ResolvedMonsterIds)}";
     }
 
-    void ResolveSpecialContent(FloorMapNode node, RareRoomFloorState rareState)
+    void ResolveSpecialContent(FloorMapNode node, RareRoomFloorState rareState, OneShotRoomFloorState oneShotState)
     {
         var rare = RareRoomContentResolver.Resolve(RoomType.Special, dungeonManager.CurrentFloorNumber,
             RareRoomConfig, rareState, new UnityRewardRandom());
@@ -98,14 +101,22 @@ public partial class RunFlowController
         }
 
         bool personalRoomAvailable = IsPersonalRestRoomAvailable() &&
+            !oneShotState.IsReserved(OneShotRoomContentId.PersonalRest) &&
             (characterManager.RoomsClearedThisRun > 0 || node.Kind != FloorMapNodeKind.Start);
         if (personalRoomAvailable && UnityEngine.Random.value < 0.30f)
         {
+            oneShotState.TryReserve(OneShotRoomContentId.PersonalRest);
             node.ContentKey = PersonalRestContentKey;
             return;
         }
 
-        var quest = QuestCatalog.PickForFloor(dungeonManager.CurrentFloorNumber, huntQuestTriggeredThisRun, swordInStoneSucceededThisRun);
+        // Добыча и Меч в камне тоже одноразовые: run-флаг ещё не выставлен, поэтому уже
+        // зарезервированный на этом этаже вариант исключается через те же аргументы PickForFloor.
+        var quest = QuestCatalog.PickForFloor(dungeonManager.CurrentFloorNumber,
+            huntQuestTriggeredThisRun || oneShotState.IsReserved(OneShotRoomContentId.HuntQuest),
+            swordInStoneSucceededThisRun || oneShotState.IsReserved(OneShotRoomContentId.SwordInStone));
+        if (quest == QuestCatalog.Hunt) oneShotState.TryReserve(OneShotRoomContentId.HuntQuest);
+        else if (quest == QuestCatalog.SwordInStone) oneShotState.TryReserve(OneShotRoomContentId.SwordInStone);
         node.ContentKey = $"special:{quest.Name}";
     }
 
@@ -197,11 +208,16 @@ public partial class RunFlowController
         pendingCombatReward = false;
         pendingCombatWasBoss = false;
         pendingStandaloneChestReward = false;
+        pendingSuccessfulEventOrTrapXp = false;
         pendingRoomRewardGrant = null;
     }
 
     IEnumerator ResolvePendingRoomRewards()
     {
+        // Один список на всю комнату: если ловушка провалилась и вызвала бой, опыт за бой и опыт за
+        // событие не должны порождать два независимых прохода левел-апов.
+        var levelsGained = new List<int>();
+
         if (pendingCombatReward)
         {
             floorManager.SetFloorState(FloorState.RoomRewardResolve);
@@ -224,23 +240,36 @@ public partial class RunFlowController
             pendingRoomRewardGrant.TryApply(characterManager.AddCurrency, ingredientStacks.Add);
             saveManager.AddResources(ingredientStacks);
 
-            var levelsGained = characterManager.GrantExperience(
+            levelsGained.AddRange(characterManager.GrantExperience(
                 rewardManager,
                 pendingCombatWasBoss ? ExperienceSource.Boss : ExperienceSource.CombatRoom,
-                dungeonManager.CurrentFloorNumber);
+                dungeonManager.CurrentFloorNumber));
+        }
+
+        // R02: ровно одна транзакция опыта за успешную ловушку/событие в комнате. Раньше
+        // RewardManager.SuccessfulEventOrTrap считался, но никем не выдавался.
+        if (pendingSuccessfulEventOrTrapXp)
+        {
+            floorManager.SetFloorState(FloorState.RoomRewardResolve);
+            levelsGained.AddRange(characterManager.GrantExperience(
+                rewardManager, ExperienceSource.SuccessfulEventOrTrap, dungeonManager.CurrentFloorNumber));
+        }
+
+        if (pendingCombatReward)
+        {
             yield return ShowLootSummaryFlow(pendingRoomRewardGrant.Result);
             if (pendingRoomRewardGrant.Result.HasChest)
                 yield return ShowResolvedRewardChestFlow(pendingRoomRewardGrant.Result.Chest);
+        }
 
-            // ГДД: повышение уровня открывается только после завершения выдачи награды.
-            foreach (int reachedLevel in levelsGained)
-            {
-                bool activeUpgraded = characterManager.Progress.TryAutoUpgradeUniqueActiveAtLevel(reachedLevel);
-                string activeUpgradeNotice = activeUpgraded
-                    ? $"Уникальный активный навык «{characterManager.Progress.Character.uniqueActiveSkill.skillName}» автоматически повышен до ур. {characterManager.Progress.UniqueActiveLevel}."
-                    : null;
-                yield return LevelUpFlow(activeUpgradeNotice);
-            }
+        // ГДД: повышение уровня открывается только после завершения выдачи награды.
+        foreach (int reachedLevel in levelsGained)
+        {
+            bool activeUpgraded = characterManager.Progress.TryAutoUpgradeUniqueActiveAtLevel(reachedLevel);
+            string activeUpgradeNotice = activeUpgraded
+                ? $"Уникальный активный навык «{characterManager.Progress.Character.uniqueActiveSkill.skillName}» автоматически повышен до ур. {characterManager.Progress.UniqueActiveLevel}."
+                : null;
+            yield return LevelUpFlow(activeUpgradeNotice);
         }
 
         if (pendingStandaloneChestReward)

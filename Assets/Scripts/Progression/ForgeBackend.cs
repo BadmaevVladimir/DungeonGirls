@@ -30,15 +30,32 @@ public enum ForgeBlueprintState
 
 public sealed class ForgeService
 {
-    readonly SaveData data;
+    // R03: сервис живёт всё время хаба, а SaveManager.ResetProgress ЗАМЕНЯЕТ объект SaveData
+    // целиком. Захваченная в конструкторе ссылка после сброса указывала на отсоединённые данные:
+    // расход шёл по старым запасам, а на диск писался уже новый объект. Держим провайдер, а не
+    // ссылку, — любая замена SaveData подхватывается сама.
+    readonly Func<SaveData> dataProvider;
     readonly Action persist;
     readonly CatalogUnlockPolicy access;
 
+    SaveData data => dataProvider();
+
     public ForgeService(SaveData data, Action persist = null, CatalogUnlockPolicy access = null)
+        : this(DataProviderFor(data), persist, access)
     {
-        this.data = data ?? throw new ArgumentNullException(nameof(data));
+    }
+
+    public ForgeService(Func<SaveData> dataProvider, Action persist = null, CatalogUnlockPolicy access = null)
+    {
+        this.dataProvider = dataProvider ?? throw new ArgumentNullException(nameof(dataProvider));
         this.persist = persist;
         this.access = access ?? new CatalogUnlockPolicy();
+    }
+
+    static Func<SaveData> DataProviderFor(SaveData data)
+    {
+        if (data == null) throw new ArgumentNullException(nameof(data));
+        return () => data;
     }
 
     public bool IsPrototypeResearched(string prototypeId) =>

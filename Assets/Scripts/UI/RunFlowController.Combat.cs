@@ -58,13 +58,6 @@ public partial class RunFlowController
             playerFlipbookCoroutine = null;
         }
 
-        // Защита от зависшей блокировки, если бой закончился/прервался прямо во время анимации
-        // скилла (её onComplete тогда не успевает снять AttackLocked сам) — Player переиспользуется
-        // между боями, залипший флаг иначе перманентно отключил бы обычные атаки во всех следующих боях.
-        if (combatManager.Player != null)
-        {
-            combatManager.Player.AttackLocked = false;
-        }
         capturingSkillHits = false;
         pendingSkillHits.Clear();
         capturingAttackHits = false;
@@ -371,7 +364,8 @@ public partial class RunFlowController
             int hitCount = CombatManager.ResolveActiveSkillHitCount(activeCharacter.characterClass);
             combatManager.ConfigureActiveSkills(new[]
             {
-                new ActiveSkillConfigEntry(activeCharacter.uniqueActiveSkill, hitCount, activeMultiplier, activeSkillAutoModePreference)
+                new ActiveSkillConfigEntry(activeCharacter.uniqueActiveSkill, hitCount, activeMultiplier, activeSkillAutoModePreference,
+                    CombatManager.ResolveActiveSkillAttackLockSeconds(activeCharacter.characterClass))
             });
         }
 
@@ -1257,10 +1251,10 @@ public partial class RunFlowController
         // см. capturingSkillHits/pendingSkillHits.
         if (skillName == "3 быстрые атаки")
         {
-            // Обычная атака не может начаться и оборвать анимацию скилла (см. CombatantRuntime.
-            // AttackLocked / TickCombatant) — снижает ДПС на время анимации, это осознанный выбор.
-            // Снимается в onComplete ниже; StopPlayerFlipbook — аварийный сброс, если бой прервётся раньше.
-            combatManager.Player.AttackLocked = true;
+            // R05: блокировку обычных атак на время замаха ставит CombatManager (см.
+            // ResolveActiveSkillAttackLockSeconds) — UI её больше не выставляет и не снимает, иначе
+            // механика зависела бы от наличия анимации. Длина флипбука ниже (11 кадров / 12 fps)
+            // подобрана под ThreeQuickStrikesRecoverySeconds: меняя одно, меняй и второе.
             capturingSkillHits = true;
             pendingSkillHits.Clear();
             playerSkillAnimationPlaying = true;
@@ -1268,7 +1262,6 @@ public partial class RunFlowController
 
             PlayPlayerOneShotFlipbook(JenniferAnimationFrames.SkillBrightStrike, 12f, onComplete: () =>
             {
-                combatManager.Player.AttackLocked = false;
                 playerSkillAnimationPlaying = false;
 
                 // Все 3 захваченных удара показываются одним пакетом, синхронно с концом анимации —

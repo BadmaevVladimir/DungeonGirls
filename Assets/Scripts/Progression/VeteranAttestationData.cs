@@ -65,6 +65,9 @@ public class VeteranActiveSkillSnapshot
     public float cooldownSeconds;
     public int hitCount;
     public float damageMultiplierPerHit;
+    // R05: та же блокировка обычных атак, что и в бою со сценой. Без неё симуляция на том же seed
+    // успевала лишние автоатаки, и аттестация оценивала не ту сборку, которой играет игрок.
+    public float attackLockSeconds;
 }
 
 [Serializable]
@@ -105,7 +108,9 @@ public class VeteranBuildSnapshot
                 cooldownSeconds = activeSkillData.cooldownSeconds,
                 hitCount = activeSkillData.skillType == ActiveSkillType.Toggle ? 0 : CombatManager.ResolveActiveSkillHitCount(
                     activeSkillData.skillId == SkillId.SmokeBomb ? CharacterClass.Rogue : CharacterClass.Warrior),
-                damageMultiplierPerHit = activeSkillLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f }
+                damageMultiplierPerHit = activeSkillLevel switch { 1 => 1.10f, 2 => 1.30f, _ => 1.50f },
+                attackLockSeconds = activeSkillData.skillType == ActiveSkillType.Toggle ? 0f : CombatManager.ResolveActiveSkillAttackLockSeconds(
+                    activeSkillData.skillId == SkillId.SmokeBomb ? CharacterClass.Rogue : CharacterClass.Warrior)
             };
         }
         return snapshot;
@@ -139,7 +144,7 @@ public class VeteranBuildSnapshot
         runtime.ShieldPoolCurrent = 0f;
         runtime.ShieldPoolMax = 0f;
         runtime.ShieldPoolExpireTimer = float.PositiveInfinity;
-        runtime.AttackLocked = false;
+        runtime.AttackLockRemaining = 0f;
         runtime.Target = null;
         runtime.BossEncounter = null;
         runtime.BleedSource = null;
