@@ -45,6 +45,14 @@ public static class PlayModeSmokeTest
             originalCompanionBytes[companion] = File.Exists(companion) ? File.ReadAllBytes(companion) : null;
         }
 
+        // Страховка на выход редактора. Один раз наблюдалось, что после восстановления в Finish()
+        // файл сохранения всё равно оказывался перезаписан тестовыми значениями, а настоящий
+        // прогресс уезжал в .bak; воспроизвести это трассировкой SaveGame() не удалось, механизм
+        // остался неподтверждённым. Поэтому восстановление повторяется на последнем хуке перед
+        // завершением процесса: оно идемпотентно, а цена ошибки — реальный прогресс игрока.
+        EditorApplication.quitting -= RestoreRealSaveFiles;
+        EditorApplication.quitting += RestoreRealSaveFiles;
+
         try
         {
             RunPureLogicChecks();
@@ -697,8 +705,16 @@ public static class PlayModeSmokeTest
         var descTestActiveSkill = ScriptableObject.CreateInstance<ActiveSkillData>();
         descTestActiveSkill.skillName = "ТестАктивка";
         descTestActiveSkill.effectDescription = "Тестовое описание активного навыка.";
+        descTestActiveSkill.maxLevel = 3;
+        descTestActiveSkill.cooldownSeconds = 4f;
         var descTestActiveOption = new LevelUpOption { Type = LevelUpOptionType.UpgradeUniqueActive, ActiveSkill = descTestActiveSkill, ResultingLevel = 2 };
-        Check(descTestActiveOption.Description == "Тестовое описание активного навыка.", $"7.2 LevelUpOption.Description (активка): '{descTestActiveOption.Description}'");
+        // АКТУАЛИЗИРОВАНО 07.09.2026: описание активки больше НЕ берётся из effectDescription
+        // дословно — DisplayFormat.Active собирает его под конкретный уровень (2-й ур. = 130%
+        // силы обычной атаки) и подставляет перезарядку из ассета. Проверяем именно это, иначе
+        // тест ловил бы только то, что поле не потерялось.
+        Check(descTestActiveOption.Description.Contains("130") && descTestActiveOption.Description.Contains("4") &&
+              descTestActiveOption.Description != descTestActiveSkill.effectDescription,
+            $"7.2 LevelUpOption.Description (активка) собирается под уровень: '{descTestActiveOption.Description}'");
         UnityEngine.Object.DestroyImmediate(descTestActiveSkill);
 
         // 8.2 (уточнено): расчёт целевой позиции ленты сундука (та же формула, что и в
@@ -1162,10 +1178,16 @@ public static class PlayModeSmokeTest
         Check(mapTutorial.Body.Contains("стрелка") || mapTutorial.Body.Contains("стрелк"),
             "Туториал: карта этажа объясняет, что ходить можно только по стрелкам");
 
-        Check(TutorialContent.TooltipArmor.Contains("изнашивается") && TutorialContent.TooltipShield.Contains("магический урон") &&
-              TutorialContent.ActiveSkillTooltip("jennifer") != TutorialContent.ActiveSkillTooltip("violet") &&
-              TutorialContent.BerserkTooltip(30f).Contains("убить") && !string.IsNullOrWhiteSpace(TutorialContent.StealthTooltip(2.5f, 1)),
-            "Тултипы: броня и щит расшифрованы, активный навык и Берсерк собираются под конкретную героиню");
+        // АКТУАЛИЗИРОВАНО 07.09.2026: раньше это была одна составная проверка из пяти условий —
+        // при падении она не говорила, какое именно сломалось (сломалось слово «убить» в тултипе
+        // Берсерка, переписанном на «может привести к гибели»). Разбито по одному утверждению.
+        Check(TutorialContent.TooltipArmor.Contains("изнашивается"), "Тултипы: броня объясняет износ");
+        Check(TutorialContent.TooltipShield.Contains("магический урон"), "Тултипы: щит объясняет, какой урон принимает");
+        Check(TutorialContent.ActiveSkillTooltip("jennifer") != TutorialContent.ActiveSkillTooltip("violet"),
+            "Тултипы: активный навык собирается под конкретную героиню");
+        Check(TutorialContent.BerserkTooltip(30f).Contains("30%") && TutorialContent.BerserkTooltip(30f).Contains("гибели"),
+            $"Тултипы: Берсерк называет текущее сопротивление и предупреждает о смертельном риске: '{TutorialContent.BerserkTooltip(30f)}'");
+        Check(!string.IsNullOrWhiteSpace(TutorialContent.StealthTooltip(2.5f, 1)), "Тултипы: Скрытность описана");
 
         // Новые тултипы боя: подпись бейджа приходит с числом («Заморозка ×7», «Барьер 40/40»),
         // а модификатор монстра — только как прилагательное внутри имени.
@@ -1449,7 +1471,9 @@ public static class PlayModeSmokeTest
         RequireElement(root, "PauseScreen");
         RequireElement(root, "PauseCharacterStatsLabel");
         RequireElement(root, "PauseSkillsScrollView");
-        RequireElement(root, "PauseEquipmentScrollView");
+        // АКТУАЛИЗИРОВАНО 07.09.2026: экран экипировки в паузе переделан со списка на сетку
+        // «герой в центре, слоты вокруг» — PauseEquipmentScrollView больше не существует.
+        RequireElement(root, "PauseEquipmentGrid");
         RequireElement(root, "PauseResumeButton");
         RequireElement(root, "PauseAbandonRunButton");
         RequireElement(root, "PauseQuitGameButton");
@@ -1549,10 +1573,26 @@ public static class PlayModeSmokeTest
             "1 п.2 карточка Вайолет показывает полный диалоговый спрайт без обрезания сверху");
         var violetPassiveLabel = root.Q<Label>("CharacterSelectPassiveSkill_violet");
         var violetActiveLabel = root.Q<Label>("CharacterSelectActiveSkill_violet");
-        Check(violetPassiveLabel != null && violetPassiveLabel.text.Contains(violetCharacterAsset.uniquePassiveSkill.skillName) && violetPassiveLabel.tooltip == violetCharacterAsset.uniquePassiveSkill.effectDescription,
-            "1 п.2 пассивный навык показывает название и хранит описание для hover-tooltip");
-        Check(violetActiveLabel != null && violetActiveLabel.text.Contains(violetCharacterAsset.uniqueActiveSkill.skillName) && violetActiveLabel.tooltip == violetCharacterAsset.uniqueActiveSkill.effectDescription,
-            "1 п.2 активный навык показывает название и хранит описание для hover-tooltip");
+        // АКТУАЛИЗИРОВАНО 07.09.2026: hover-tooltip больше НЕ хранит effectDescription дословно.
+        // Карточка собирает описание под стартовый уровень героини (он зависит от числа гача-копий,
+        // см. GachaCopyBonusCalculator) и снимает разметку через Plain. Сверяемся с тем же
+        // форматтером, которым пользуется UI, а не с зашитым в тест текстом: тест проверяет, что
+        // карточка использует форматтер и правильный уровень, и не ломается от правки формулировок.
+        var violetStartingBonus = GachaCopyBonusCalculator.CalculateBonus(saveManager.GetCharacterCopies("violet"));
+        int violetPassiveLevel = Mathf.Min(violetCharacterAsset.uniquePassiveSkill.maxLevel, 1 + violetStartingBonus.PassiveLevelBonus);
+        int violetActiveLevel = Mathf.Min(violetCharacterAsset.uniqueActiveSkill.maxLevel, 1 + violetStartingBonus.ActiveLevelBonus);
+        string expectedPassiveTooltip = SkillDescriptionFormatter.Plain(
+            SkillDescriptionFormatter.Passive(violetCharacterAsset.uniquePassiveSkill, violetPassiveLevel));
+        string expectedActiveTooltip = SkillDescriptionFormatter.Plain(
+            SkillDescriptionFormatter.Active(violetCharacterAsset.uniqueActiveSkill, violetActiveLevel));
+        Check(violetPassiveLabel != null && violetPassiveLabel.text.Contains(violetCharacterAsset.uniquePassiveSkill.skillName) &&
+              violetPassiveLabel.tooltip == expectedPassiveTooltip && !string.IsNullOrWhiteSpace(violetPassiveLabel.tooltip) &&
+              !violetPassiveLabel.tooltip.Contains("<color"),
+            $"1 п.2 пассивный навык показывает название и хранит описание под стартовый уровень: '{violetPassiveLabel?.tooltip}'");
+        Check(violetActiveLabel != null && violetActiveLabel.text.Contains(violetCharacterAsset.uniqueActiveSkill.skillName) &&
+              violetActiveLabel.tooltip == expectedActiveTooltip && !string.IsNullOrWhiteSpace(violetActiveLabel.tooltip) &&
+              !violetActiveLabel.tooltip.Contains("<color"),
+            $"1 п.2 активный навык показывает название и хранит описание под стартовый уровень: '{violetActiveLabel?.tooltip}'");
         Check(characterSkillTooltip.style.display != DisplayStyle.Flex,
             "1 п.2 tooltip скрыт до наведения курсора");
         runFlow.ReturnToMainMenu();
@@ -1960,7 +2000,9 @@ public static class PlayModeSmokeTest
         Check(visibleEffects.Exists(e => e.label == "Урон снижен" && !e.isBuff) &&
               visibleEffects.Exists(e => e.label == "Скорость атаки снижена" && !e.isBuff),
             "4.7 штрафы событий к урону и скорости отображаются отдельными дебаффами");
-        Check(visibleEffects.Exists(e => e.label == "Гарантированные криты ×2" && e.isBuff) &&
+        // АКТУАЛИЗИРОВАНО 07.09.2026: «криты» -> «критические атаки» по общей политике
+        // формулировок (см. DisplayFormat.Formalize).
+        Check(visibleEffects.Exists(e => e.label == "Гарантированные критические атаки ×2" && e.isBuff) &&
               visibleEffects.Exists(e => e.label == "Рипост готов" && e.isBuff) &&
               visibleEffects.Exists(e => e.label.Contains("Физ. сопротивление") && e.isBuff) &&
               visibleEffects.Exists(e => e.label.Contains("Маг. сопротивление") && e.isBuff) &&
@@ -2316,6 +2358,22 @@ public static class PlayModeSmokeTest
         return condition;
     }
 
+    // Идемпотентно: возвращает каталог сохранения ровно в то состояние, в каком он был до теста.
+    // Вызывается и из Finish(), и на EditorApplication.quitting — см. комментарий в Run().
+    static void RestoreRealSaveFiles()
+    {
+        if (string.IsNullOrEmpty(savePath)) return;
+
+        if (originalSaveExisted) File.WriteAllBytes(savePath, originalSaveBytes);
+        else if (File.Exists(savePath)) File.Delete(savePath);
+
+        foreach (var pair in originalCompanionBytes)
+        {
+            if (pair.Value != null) File.WriteAllBytes(pair.Key, pair.Value);
+            else if (File.Exists(pair.Key)) File.Delete(pair.Key);
+        }
+    }
+
     static void Finish()
     {
         EditorApplication.update -= OnUpdate;
@@ -2323,23 +2381,10 @@ public static class PlayModeSmokeTest
 
         try
         {
-            if (originalSaveExisted)
-            {
-                File.WriteAllBytes(savePath, originalSaveBytes);
-                Info.Add("Реальный save-файл восстановлен из бэкапа после теста.");
-            }
-            else if (File.Exists(savePath))
-            {
-                File.Delete(savePath);
-                Info.Add("Тестовый save-файл удалён (до теста сохранения не существовало).");
-            }
-
-            foreach (var pair in originalCompanionBytes)
-            {
-                if (pair.Value != null) File.WriteAllBytes(pair.Key, pair.Value);
-                else if (File.Exists(pair.Key)) File.Delete(pair.Key);
-            }
-            Info.Add("Спутники сохранения (.bak/.corrupt/.tmp) восстановлены в состояние до теста.");
+            RestoreRealSaveFiles();
+            Info.Add(originalSaveExisted
+                ? "Реальный save-файл и спутники (.bak/.corrupt/.tmp) восстановлены в состояние до теста."
+                : "Тестовый save-файл и спутники удалены (до теста сохранения не существовало).");
         }
         catch (Exception e)
         {
