@@ -177,3 +177,4 @@ MonoBehaviour:
   logSimulationDetails: 0
   ceremonyMinimumSeconds: 4.5
   ceremonySkipDelaySeconds: 1.5
+  attestationFrameBudgetMilliseconds: 6

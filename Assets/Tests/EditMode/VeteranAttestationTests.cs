@@ -415,4 +415,179 @@ public class VeteranAttestationTests
 
         Assert.Less(piercing.EnemyRemainingHp, plain.EnemyRemainingHp);
     }
+
+    // ==================== R04 — пошаговый расчёт аттестации ====================
+
+    // Считает вызовы и умеет "стоить" заданное время, чтобы отличить компьютерное время от
+    // настенного при проверке hard-таймаута.
+    sealed class CountingEngine : ICombatSimulationEngine
+    {
+        readonly Func<CombatSimulationRequest, CombatSimulationOutcome> resolve;
+        readonly int millisecondsPerCall;
+        public int Calls { get; private set; }
+
+        public CountingEngine(Func<CombatSimulationRequest, CombatSimulationOutcome> resolve, int millisecondsPerCall = 0)
+        {
+            this.resolve = resolve;
+            this.millisecondsPerCall = millisecondsPerCall;
+        }
+
+        public CombatSimulationResult Simulate(CombatSimulationRequest request)
+        {
+            Calls++;
+            if (millisecondsPerCall > 0) System.Threading.Thread.Sleep(millisecondsPerCall);
+            return new CombatSimulationResult { Outcome = resolve(request), Seed = request.Seed };
+        }
+    }
+
+    static VeteranAttestationResult Drain(VeteranAttestationRunner runner)
+    {
+        while (runner.Step()) { }
+        return runner.Result;
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void R04_StepwiseRunner_MatchesSynchronousEvaluate(bool alwaysWin)
+    {
+        Func<CombatSimulationRequest, CombatSimulationOutcome> resolve = _ =>
+            alwaysWin ? CombatSimulationOutcome.Victory : CombatSimulationOutcome.Defeat;
+
+        var sync = new VeteranAttestationService(new FakeEngine(resolve))
+            .Evaluate(Snapshot(), Config(), AttestationRunMode.Release);
+        var stepwise = Drain(new VeteranAttestationService(new FakeEngine(resolve))
+            .CreateRunner(Snapshot(), Config(), AttestationRunMode.Release));
+
+        Assert.AreEqual(sync.FinalRank, stepwise.FinalRank);
+        Assert.AreEqual(sync.SimulationCount, stepwise.SimulationCount);
+        Assert.AreEqual(sync.QualifyingTrialId, stepwise.QualifyingTrialId);
+        Assert.AreEqual(sync.CompletionStatus, stepwise.CompletionStatus);
+    }
+
+    [Test]
+    public void R04_MixedOutcomes_StepwiseMatchesSynchronous()
+    {
+        // Ветка с ранними выходами (2 победы / 2 поражения) — самая чувствительная к порядку обхода.
+        Func<CombatSimulationRequest, CombatSimulationOutcome> resolve = request =>
+            request.Trial.trialId == "t3" ? CombatSimulationOutcome.Victory : CombatSimulationOutcome.Defeat;
+
+        var sync = new VeteranAttestationService(new FakeEngine(resolve))
+            .Evaluate(Snapshot(), Config(), AttestationRunMode.Release);
+        var stepwise = Drain(new VeteranAttestationService(new FakeEngine(resolve))
+            .CreateRunner(Snapshot(), Config(), AttestationRunMode.Release));
+
+        Assert.AreEqual(sync.SimulationCount, stepwise.SimulationCount);
+        Assert.AreEqual(sync.FinalRank, stepwise.FinalRank);
+        Assert.AreEqual(sync.QualifyingTrialId, stepwise.QualifyingTrialId);
+    }
+
+    [Test]
+    public void R04_SingleStep_NeverRunsMoreThanOneSimulation()
+    {
+        var engine = new CountingEngine(_ => CombatSimulationOutcome.Defeat);
+        var runner = new VeteranAttestationService(engine)
+            .CreateRunner(Snapshot(), Config(), AttestationRunMode.FullMatrix);
+
+        int previous = 0;
+        int steps = 0;
+        while (runner.Step())
+        {
+            Assert.LessOrEqual(engine.Calls - previous, 1, "Один Step не должен прокручивать несколько боёв.");
+            previous = engine.Calls;
+            steps++;
+        }
+
+        Assert.AreEqual(36, runner.Result.SimulationCount);
+        // Ровно один бой на шаг: без этой проверки тест прошёл бы вхолостую, если бы расчёт снова
+        // прокручивался целиком за один MoveNext (тело цикла тогда просто не выполняется).
+        Assert.AreEqual(36, steps, "Расчёт обязан уступать кадр после каждого боя.");
+    }
+
+    [Test]
+    public void R04_ResultIsUnavailableUntilComplete()
+    {
+        var runner = new VeteranAttestationService(new FakeEngine(_ => CombatSimulationOutcome.Defeat))
+            .CreateRunner(Snapshot(), Config(), AttestationRunMode.Release);
+
+        Assert.IsNull(runner.Result, "Недосчитанный результат нельзя показывать игроку.");
+        runner.Step();
+        Assert.IsNull(runner.Result);
+
+        Drain(runner);
+        Assert.IsTrue(runner.IsComplete);
+        Assert.IsNotNull(runner.Result);
+    }
+
+    [Test]
+    public void R04_HardTimeout_MeasuresComputeTimeNotWallClock()
+    {
+        // Растянутый по кадрам расчёт идёт дольше лимита по настенным часам. Если бы таймаут
+        // мерил их, аттестация всегда падала бы в fallback C.
+        var config = Config();
+        config.realHardTimeoutMilliseconds = 50;
+        var runner = new VeteranAttestationService(new FakeEngine(_ => CombatSimulationOutcome.Defeat))
+            .CreateRunner(Snapshot(), config, AttestationRunMode.FullMatrix);
+
+        while (runner.Step()) System.Threading.Thread.Sleep(5); // «пауза между кадрами»
+
+        Assert.AreEqual(AttestationCompletionStatus.Completed, runner.Result.CompletionStatus);
+        Assert.AreEqual(36, runner.Result.SimulationCount);
+    }
+
+    [Test]
+    public void R04_HardTimeout_StillTripsOnRealComputeTime()
+    {
+        var config = Config();
+        config.realHardTimeoutMilliseconds = 30;
+        var runner = new VeteranAttestationService(new CountingEngine(_ => CombatSimulationOutcome.Defeat, millisecondsPerCall: 12))
+            .CreateRunner(Snapshot(), config, AttestationRunMode.FullMatrix);
+
+        Drain(runner);
+
+        Assert.AreEqual(AttestationCompletionStatus.Fallback, runner.Result.CompletionStatus);
+        Assert.AreEqual("hard_timeout", runner.Result.ErrorCode);
+        Assert.Less(runner.Result.SimulationCount, 36);
+    }
+
+    [Test]
+    public void R04_StepWithin_DrainsWithinBudgetAndReportsCompletion()
+    {
+        var runner = new VeteranAttestationService(new FakeEngine(_ => CombatSimulationOutcome.Defeat))
+            .CreateRunner(Snapshot(), Config(), AttestationRunMode.FullMatrix);
+
+        int frames = 0;
+        while (runner.StepWithin(1d)) frames++;
+
+        Assert.IsTrue(runner.IsComplete);
+        Assert.AreEqual(36, runner.Result.SimulationCount);
+        Assert.Less(frames, 36, "Бюджет кадра должен укладывать несколько боёв в один кадр.");
+    }
+
+    [Test]
+    public void R04_InvalidConfig_FallsBackWithoutRunningAnything()
+    {
+        var config = Config();
+        config.ratingVersion = string.Empty;
+        var engine = new CountingEngine(_ => CombatSimulationOutcome.Victory);
+
+        var result = Drain(new VeteranAttestationService(engine).CreateRunner(Snapshot(), config, AttestationRunMode.Release));
+
+        Assert.AreEqual(AttestationCompletionStatus.Fallback, result.CompletionStatus);
+        Assert.AreEqual(VeteranRank.C, result.FinalRank);
+        Assert.AreEqual(0, engine.Calls);
+    }
+
+    [Test]
+    public void R04_RunCompletionIsCommittedBeforeTheRankIsShown()
+    {
+        string source = System.IO.File.ReadAllText("Assets/Scripts/UI/RunFlowController.Results.cs");
+        int commit = source.IndexOf("CommitRunCompletion(victory, completion, clearBonus, veteran);", StringComparison.Ordinal);
+        int reveal = source.IndexOf("RevealAttestationRank(attestation);", StringComparison.Ordinal);
+
+        Assert.Greater(commit, 0);
+        Assert.Greater(reveal, commit,
+            "Награда за забег обязана фиксироваться до показа ранга: выход в этом окне не должен терять забег.");
+        StringAssert.DoesNotContain("service.Evaluate(veteran.buildSnapshot", source,
+            "Синхронный Evaluate перед церемонией — это и есть замирание UI из R04.");
+    }
 }

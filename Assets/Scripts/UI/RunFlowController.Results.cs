@@ -35,52 +35,74 @@ public partial class RunFlowController
             : string.Empty;
         VeteranCharacter veteran = null;
         VeteranAttestationResult attestation = null;
+        bool commitAttempted = false;
         if (ShouldCreateVeteran(victory))
         {
             veteran = BuildVeteranSnapshot(DungeonManager.TotalFloors);
-            var service = new VeteranAttestationService(new CombatSimulationEngine());
-            attestation = service.Evaluate(veteran.buildSnapshot, VeteranAttestationConfig, AttestationRunMode.Release);
-            ApplyAttestation(veteran, attestation);
-            yield return ShowAttestationCeremony(attestation);
+            var runner = new VeteranAttestationService(new CombatSimulationEngine())
+                .CreateRunner(veteran.buildSnapshot, VeteranAttestationConfig, AttestationRunMode.Release);
+
+            // R04: расчёт идёт внутри церемонии, по кусочку за кадр. Как только ранг известен,
+            // награда за забег фиксируется тем же кадром — до показа ранга и до того, как игрок
+            // сможет что-либо нажать. Раньше фиксация шла ПОСЛЕ церемонии, и выход в этом окне
+            // терял мета-валюту, гача-валюту, ветерана и отношения целиком.
+            yield return AttestationCeremonyFlow(runner, () =>
+            {
+                attestation = runner.Result;
+                ApplyAttestation(veteran, attestation);
+                CommitRunCompletion(victory, completion, clearBonus, veteran);
+                commitAttempted = true;
+            });
+
+            RevealAttestationRank(attestation);
         }
         else
         {
             resultsAttestationPanel.style.display = DisplayStyle.None;
         }
 
-        if (saveManager != null)
-        {
-            int floorsCleared = victory ? DungeonManager.TotalFloors : Mathf.Max(0, dungeonManager.CurrentFloorNumber - 1);
-            int relationshipPoints = floorsCleared * 10;
-            int relationshipAdded = 0;
-            int relationshipBefore = saveManager.GetRelationshipPoints(characterManager.Character.characterId);
-            if (saveManager.CompleteRun(completion.MetaCurrency, completion.GachaCurrency, characterManager.Character.characterId,
-                veteran, relationshipPoints, currentRunCompletionId))
-            {
-                runCompletionCommitted = true;
-                relationshipAdded = saveManager.GetRelationshipPoints(characterManager.Character.characterId) - relationshipBefore;
-                if (relationshipAdded > 0) tutorialManager?.QueueOnce(TutorialContent.Relationships);
-            }
-            if (veteran != null && runCompletionCommitted) tutorialManager?.QueueOnce(TutorialContent.VeteranCreated);
-
-            string relationshipReward = relationshipAdded > 0
-                ? $"+{relationshipAdded} отношений с {characterManager.Character.characterName} ({saveManager.GetRelationshipPoints(characterManager.Character.characterId)}/{SaveManager.RelationshipLevelThreeThreshold})\n"
-                : string.Empty;
-            string veteranReward = veteran != null && runCompletionCommitted
-                ? $"Ветеран добавлен в колоду. Ранг: {veteran.veteranRank}\n"
-                : string.Empty;
-            resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, relationshipReward, veteranReward);
-        }
+        // Поражение идёт без ветерана и без церемонии — фиксируем здесь.
+        if (!commitAttempted) CommitRunCompletion(victory, completion, clearBonus, veteran);
 
         resultsTitleLabel.text = victory ? "Победа" : "Поражение";
         resultsTitleLabel.RemoveFromClassList(victory ? "results-defeat" : "results-victory");
         resultsTitleLabel.AddToClassList(victory ? "results-victory" : "results-defeat");
 
-        if (saveManager == null) resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, string.Empty,
-            veteran != null ? $"Ранг: {veteran.veteranRank}\n" : string.Empty);
-
         resultsContinueButton.SetEnabled(true);
         yield return WaitForClick(resultsContinueButton);
+    }
+
+    // Единственная точка фиксации итога забега. CompleteRun идемпотентен по currentRunCompletionId,
+    // поэтому повторный вход на экран результатов не может выдать награду дважды.
+    void CommitRunCompletion(bool victory, RunCompletionReward completion, string clearBonus, VeteranCharacter veteran)
+    {
+        if (saveManager == null)
+        {
+            resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, string.Empty,
+                veteran != null ? $"Ранг: {veteran.veteranRank}\n" : string.Empty);
+            return;
+        }
+
+        int floorsCleared = victory ? DungeonManager.TotalFloors : Mathf.Max(0, dungeonManager.CurrentFloorNumber - 1);
+        int relationshipPoints = floorsCleared * 10;
+        int relationshipAdded = 0;
+        int relationshipBefore = saveManager.GetRelationshipPoints(characterManager.Character.characterId);
+        if (saveManager.CompleteRun(completion.MetaCurrency, completion.GachaCurrency, characterManager.Character.characterId,
+            veteran, relationshipPoints, currentRunCompletionId))
+        {
+            runCompletionCommitted = true;
+            relationshipAdded = saveManager.GetRelationshipPoints(characterManager.Character.characterId) - relationshipBefore;
+            if (relationshipAdded > 0) tutorialManager?.QueueOnce(TutorialContent.Relationships);
+        }
+        if (veteran != null && runCompletionCommitted) tutorialManager?.QueueOnce(TutorialContent.VeteranCreated);
+
+        string relationshipReward = relationshipAdded > 0
+            ? $"+{relationshipAdded} отношений с {characterManager.Character.characterName} ({saveManager.GetRelationshipPoints(characterManager.Character.characterId)}/{SaveManager.RelationshipLevelThreeThreshold})\n"
+            : string.Empty;
+        string veteranReward = veteran != null && runCompletionCommitted
+            ? $"Ветеран добавлен в колоду. Ранг: {veteran.veteranRank}\n"
+            : string.Empty;
+        resultsBodyLabel.text = BuildResultsText(victory, completion, clearBonus, relationshipReward, veteranReward);
     }
 
     public static bool ShouldCreateVeteran(bool victory) => victory;
@@ -110,7 +132,9 @@ public partial class RunFlowController
             Debug.LogWarning($"[VeteranAttestation] Fallback C: character={veteran.characterId}, version={veteran.ratingVersion}, error={attestation?.ErrorCode ?? "no_result"}.");
     }
 
-    IEnumerator ShowAttestationCeremony(VeteranAttestationResult result)
+    // R04: церемония и расчёт идут одновременно. onRankResolved вызывается ровно один раз, тем
+    // кадром, когда ранг стал известен, — раньше, чем игрок увидит результат.
+    IEnumerator AttestationCeremonyFlow(VeteranAttestationRunner runner, System.Action onRankResolved)
     {
         resultsAttestationPanel.style.display = DisplayStyle.Flex;
         resultsSkipButton.style.display = DisplayStyle.Flex;
@@ -126,10 +150,17 @@ public partial class RunFlowController
         };
         float duration = VeteranAttestationConfig != null ? VeteranAttestationConfig.ceremonyMinimumSeconds : 4.5f;
         float skipDelay = VeteranAttestationConfig != null ? VeteranAttestationConfig.ceremonySkipDelaySeconds : 1.5f;
+        double frameBudget = VeteranAttestationConfig != null
+            ? VeteranAttestationConfig.AttestationFrameBudgetMilliseconds
+            : VeteranAttestationConfig.DefaultAttestationFrameBudgetMilliseconds;
         float elapsed = 0f;
         int stage = -1;
-        while (elapsed < duration)
+        bool rankResolved = false;
+
+        while (true)
         {
+            if (!runner.IsComplete) runner.StepWithin(frameBudget);
+
             elapsed += Time.unscaledDeltaTime;
             int nextStage = Mathf.Min(stages.Length - 1, Mathf.FloorToInt(elapsed / Mathf.Max(0.01f, duration / stages.Length)));
             if (nextStage != stage)
@@ -138,9 +169,24 @@ public partial class RunFlowController
                 resultsAttestationStageLabel.text = stages[stage];
             }
             if (elapsed >= skipDelay) resultsSkipButton.SetEnabled(true);
-            if (elapsed >= skipDelay && resultsSkipRequested) break;
+
+            if (runner.IsComplete && !rankResolved)
+            {
+                rankResolved = true;
+                onRankResolved?.Invoke();
+            }
+
+            // Церемония не может закончиться раньше, чем известен ранг: «Пропустить» ускоряет
+            // показ, но не подменяет результат — иначе игрок увидел бы C от недосчитанной
+            // аттестации. Если счёт затянулся дольше минимальной длительности, последняя стадия
+            // просто держится на экране, а кадр остаётся живым.
+            if (rankResolved && (elapsed >= duration || (resultsSkipRequested && elapsed >= skipDelay))) break;
             yield return null;
         }
+    }
+
+    void RevealAttestationRank(VeteranAttestationResult result)
+    {
         resultsAttestationStageLabel.text = "Ранг присвоен";
         resultsFinalRankLabel.text = VeteranRankFormat.ToPersistentString(result?.FinalRank ?? VeteranRank.C);
         resultsSkipButton.style.display = DisplayStyle.None;

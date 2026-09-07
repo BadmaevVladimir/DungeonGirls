@@ -16,6 +16,17 @@ public class VeteranAttestationConfig : ScriptableObject
     public float ceremonyMinimumSeconds;
     public float ceremonySkipDelaySeconds;
 
+    // R04: сколько миллисекунд кадра отдаётся расчёту аттестации, пока идёт церемония. Меньше —
+    // плавнее анимация и дольше счёт, больше — наоборот. Ноль означает «поле отсутствует в старом
+    // .asset»: см. AttestationFrameBudgetMilliseconds ниже.
+    public float attestationFrameBudgetMilliseconds = DefaultAttestationFrameBudgetMilliseconds;
+
+    public const float DefaultAttestationFrameBudgetMilliseconds = 6f;
+
+    public float AttestationFrameBudgetMilliseconds => attestationFrameBudgetMilliseconds > 0f
+        ? attestationFrameBudgetMilliseconds
+        : DefaultAttestationFrameBudgetMilliseconds;
+
     public bool TryValidate(out string error)
     {
         var errors = new List<string>();
