@@ -22,6 +22,9 @@ public class CampManager : MonoBehaviour
         return true;
     }
 
+    // Храм ур.5: перезапуск этажа возвращает запас рационов на момент входа на этаж.
+    public void RestoreRations(int remaining) => RationsRemaining = Mathf.Max(0, remaining);
+
     public void AddRations(int amount)
     {
         if (amount > 0) RationsRemaining += amount;

@@ -192,6 +192,70 @@ public class CharacterManager : MonoBehaviour
         return value;
     }
 
+    // ==================== Снимок состояния для перезапуска этажа (Храм ур.5, D03a) ====================
+
+    public CharacterRunStateSnapshot CaptureRunState()
+    {
+        var combatant = CombatRuntimeClone.Clone(Combatant);
+        // Временные покомнатные модификаторы в снимок не переносятся (см. FloorRestartSnapshot):
+        // их владельцы — FoodBuff/RestBonus/RunRoomDebuff — при восстановлении сбрасываются, и
+        // оставленные в рантайме значения стали бы неистекающим баффом.
+        ClearRoomScopedModifiers(combatant);
+        return new CharacterRunStateSnapshot
+        {
+            Progress = RunStateClone.Clone(Progress),
+            Combatant = combatant,
+            EquippedItems = new List<ItemData>(EquippedItems),
+            Modifiers = RunStateClone.Clone(Modifiers),
+            RunCurrency = RunCurrency,
+            RoomsClearedThisRun = RoomsClearedThisRun,
+            RoomsClearedOnCurrentFloor = RoomsClearedOnCurrentFloor
+        };
+    }
+
+    public void RestoreRunState(CharacterRunStateSnapshot snapshot)
+    {
+        if (snapshot == null) return;
+
+        // Сначала снимаем действующие эффекты со СТАРОГО рантайма, иначе они останутся
+        // привязанными к объекту, который мы сейчас заменим.
+        FoodBuff.Clear();
+        RunRoomDebuff.Clear();
+        RestBonus.Clear();
+
+        Progress = RunStateClone.Clone(snapshot.Progress);
+        Modifiers = RunStateClone.Clone(snapshot.Modifiers) ?? new RunModifiers();
+        EquippedItems = new List<ItemData>(snapshot.EquippedItems);
+        RunCurrency = snapshot.RunCurrency;
+        RoomsClearedThisRun = snapshot.RoomsClearedThisRun;
+        RoomsClearedOnCurrentFloor = snapshot.RoomsClearedOnCurrentFloor;
+        pendingExplorerIngredientRoll = false;
+
+        Combatant = CombatRuntimeClone.Clone(snapshot.Combatant);
+        ClearRoomScopedModifiers(Combatant);
+        BindRuntimeServicesAndCurses();
+    }
+
+    static void ClearRoomScopedModifiers(CombatantRuntime runtime)
+    {
+        if (runtime == null) return;
+        runtime.ActiveFoodBuff = null;
+        runtime.FoodReceivedHealingPercent = 0f;
+        runtime.RunReceivedHealingPercent = 0f;
+        runtime.FoodDamagePercent = 0f;
+        runtime.FoodPhysicalDamagePercent = 0f;
+        runtime.FoodBossDamagePercent = 0f;
+        runtime.FoodArmorEffectivenessPercent = 0f;
+        runtime.FoodAttackSpeedPercent = 0f;
+        runtime.FoodCritChancePoints = 0f;
+        runtime.FoodNegativeStatusDurationReductionPercent = 0f;
+        runtime.FoodBarrierActive = false;
+        runtime.RestBonusDamagePercent = 0f;
+        runtime.RestBonusAttackSpeedPercent = 0f;
+        runtime.RestBonusReceivedHealingPercent = 0f;
+        runtime.RestBonusCritChancePoints = 0f;
+    }
+
     public void ActivateFood(FoodRecipeData recipe) => FoodBuff.Activate(recipe, Combatant);
 
     // Таверна ур.5 (D03b): вызывается после привала. Возвращает выданный бонус, чтобы UI и журнал

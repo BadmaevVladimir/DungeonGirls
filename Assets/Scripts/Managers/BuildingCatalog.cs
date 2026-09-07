@@ -117,6 +117,10 @@ public static class BuildingCatalog
         return bonus;
     }
 
+    // Храм ур.5 (D03a): перезапуск с начала этажа при смерти. [ПРЕДПОЛОЖЕНИЕ] Один раз за забег и
+    // без дополнительного штрафа: уровень уже стоит 1500 мета-валюты. Число живёт здесь одним местом.
+    public static int TempleFloorRestarts(int templeLevel) => templeLevel >= 5 ? 1 : 0;
+
     // Таверна ур.5 (D03b): после каждого привала — случайный бонус на 3 комнаты в отдельном
     // слоте, складывающийся с эффектом блюда. См. RestBonusCatalog.
     public static bool TavernGrantsRestBonus(int tavernLevel) => tavernLevel >= 5;

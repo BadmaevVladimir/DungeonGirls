@@ -607,6 +607,7 @@ public partial class RunFlowController : MonoBehaviour
         dungeonManager.SetRunState(RunState.RunSetup);
         dungeonManager.GenerateDungeon();
         dungeonManager.SetRunState(RunState.InFloor);
+        BeginRunFloorRestarts(); // Храм ур.5 (D03a)
 
         bool victory = false;
 
@@ -616,44 +617,71 @@ public partial class RunFlowController : MonoBehaviour
             floorManager.GenerateFloorMap(dungeonManager.CurrentFloorNumber);
             characterManager.BeginFloor(); // 8.5: сброс счётчика пройденных комнат этого этажа
             ResolveGeneratedFloorMapContent();
-            totalRoomsThisFloorCached = floorManager.TotalRoomsOnFloor;
-            UpdateTopBar();
-            yield return MapPreviewFlow();
 
-            bool floorLost = false;
+            // Храм ур.5 (D03a): состояние перед входом в первую комнату этажа. Без пятого уровня
+            // возвращается null, и попытка этажа ровно одна — как было раньше.
+            var floorEntrySnapshot = CaptureFloorRestartSnapshot();
+            bool floorLost;
 
-            while (true)
+            while (true) // попытки этажа: вторая и далее возможны только через перезапуск Храма
             {
-                floorManager.SetFloorState(FloorState.RoomEntry);
-                FloorMapNode currentNode = floorManager.CurrentNode;
-                bool isBossRoom = currentNode.Kind == FloorMapNodeKind.Boss;
-
-                ResetPendingRoomRewards();
-                characterManager.BeginRoom();
-                yield return ResolveMapNode(currentNode);
-
-                floorManager.MarkCurrentRoomCompleted();
+                totalRoomsThisFloorCached = floorManager.TotalRoomsOnFloor;
                 UpdateTopBar();
+                yield return MapPreviewFlow();
 
-                if (!characterManager.IsAlive)
+                floorLost = false;
+
+                while (true)
                 {
-                    floorLost = true;
-                    break;
-                }
+                    floorManager.SetFloorState(FloorState.RoomEntry);
+                    FloorMapNode currentNode = floorManager.CurrentNode;
+                    bool isBossRoom = currentNode.Kind == FloorMapNodeKind.Boss;
 
-                // 8.5: комната засчитывается в награду за поражение только если персонаж её пережил.
-                characterManager.MarkRoomCleared();
+                    ResetPendingRoomRewards();
+                    characterManager.BeginRoom();
+                    yield return ResolveMapNode(currentNode);
 
-                // Только post-combat flow переносится перед camp. Отдельные сундуки ловушек/
-                // событий сохраняют прежнее место после camp и не получают combat-summary.
-                if (pendingCombatReward) yield return ResolvePendingRoomRewards();
+                    floorManager.MarkCurrentRoomCompleted();
+                    UpdateTopBar();
 
-                if (isBossRoom)
-                {
-                    // После босса игрок получает ещё одну возможность потратить рацион перед
-                    // следующим этажом. На 10-м этаже привал уже ничего не меняет, поэтому его
-                    // не предлагаем после финального босса.
-                    if (dungeonManager.CurrentFloorNumber < DungeonManager.TotalFloors && campManager.CanCamp)
+                    if (!characterManager.IsAlive)
+                    {
+                        floorLost = true;
+                        break;
+                    }
+
+                    // 8.5: комната засчитывается в награду за поражение только если персонаж её пережил.
+                    characterManager.MarkRoomCleared();
+
+                    // Только post-combat flow переносится перед camp. Отдельные сундуки ловушек/
+                    // событий сохраняют прежнее место после camp и не получают combat-summary.
+                    if (pendingCombatReward) yield return ResolvePendingRoomRewards();
+
+                    if (isBossRoom)
+                    {
+                        // После босса игрок получает ещё одну возможность потратить рацион перед
+                        // следующим этажом. На 10-м этаже привал уже ничего не меняет, поэтому его
+                        // не предлагаем после финального босса.
+                        if (dungeonManager.CurrentFloorNumber < DungeonManager.TotalFloors && campManager.CanCamp)
+                        {
+                            floorManager.SetFloorState(FloorState.CampPhase);
+                            yield return CampOfferAndPhaseCoroutine();
+
+                            if (!characterManager.IsAlive)
+                            {
+                                floorLost = true;
+                                break;
+                            }
+                        }
+
+                        break; // этаж пройден (2.5: комната босса всегда последняя)
+                    }
+
+                    if (skipNextAutoCamp)
+                    {
+                        skipNextAutoCamp = false;
+                    }
+                    else if (campManager.CanCamp)
                     {
                         floorManager.SetFloorState(FloorState.CampPhase);
                         yield return CampOfferAndPhaseCoroutine();
@@ -665,30 +693,15 @@ public partial class RunFlowController : MonoBehaviour
                         }
                     }
 
-                    break; // этаж пройден (2.5: комната босса всегда последняя)
+                    yield return ResolvePendingRoomRewards();
+
+                    // Even a single target (notably Boss) is selected on the map; navigation never
+                    // infers reachability from depth alone.
+                    yield return MapChoiceFlow();
                 }
 
-                if (skipNextAutoCamp)
-                {
-                    skipNextAutoCamp = false;
-                }
-                else if (campManager.CanCamp)
-                {
-                    floorManager.SetFloorState(FloorState.CampPhase);
-                    yield return CampOfferAndPhaseCoroutine();
-
-                    if (!characterManager.IsAlive)
-                    {
-                        floorLost = true;
-                        break;
-                    }
-                }
-
-                yield return ResolvePendingRoomRewards();
-
-                // Even a single target (notably Boss) is selected on the map; navigation never
-                // infers reachability from depth alone.
-                yield return MapChoiceFlow();
+                if (!floorLost || !CanRestartFloor(floorEntrySnapshot)) break;
+                yield return FloorRestartFlow(floorEntrySnapshot);
             }
 
             if (floorLost)

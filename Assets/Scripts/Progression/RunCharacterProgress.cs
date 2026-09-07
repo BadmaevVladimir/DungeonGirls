@@ -41,6 +41,12 @@ public class RunCharacterProgress
         LevelUpRerollsRemaining = Mathf.Max(0, amount);
     }
 
+    // Храм ур.5: порог последнего автоулучшения — часть состояния забега. Без него клон снимка
+    // мог бы выдать повышение активного навыка на том же уровне повторно.
+    public int LastAutoActiveUpgradeLevel => lastAutoActiveUpgradeLevel;
+
+    public void RestoreLastAutoActiveUpgradeLevel(int level) => lastAutoActiveUpgradeLevel = Mathf.Max(0, level);
+
     public bool TrySpendLevelUpReroll()
     {
         if (LevelUpRerollsRemaining <= 0)
