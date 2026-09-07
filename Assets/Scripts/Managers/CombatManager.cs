@@ -847,7 +847,7 @@ public class CombatManager : MonoBehaviour
             damage *= 1f + attacker.ItemDamageBonusPercent / 100f;
         }
 
-        damage *= 1f + attacker.FoodDamagePercent / 100f;
+        damage *= 1f + attacker.TotalDamageBonusPercent / 100f; // блюдо + бонус привала (Таверна ур.5)
         if (weapon.DamageType == DamageType.Physical)
             damage *= 1f + attacker.FoodPhysicalDamagePercent / 100f;
         if (target.IsBoss)

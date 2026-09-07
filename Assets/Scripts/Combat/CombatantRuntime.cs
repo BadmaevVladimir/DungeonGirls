@@ -71,6 +71,21 @@ public class CombatantRuntime
     public float FoodNegativeStatusDurationReductionPercent;
     public bool FoodBarrierActive;
 
+    // Таверна ур.5 (D03b): случайный бонус привала живёт в собственном слоте и складывается с
+    // блюдом. Отдельные поля обязательны — ActiveFoodBuff присваивает Food*-поля абсолютными
+    // значениями и обнуляет их при истечении, поэтому общий с ним канал затирал бы этот бонус.
+    // Складываются с Food*-полями в точках потребления ниже (Total*-свойства).
+    public float RestBonusDamagePercent;
+    public float RestBonusAttackSpeedPercent;
+    public float RestBonusReceivedHealingPercent;
+    public float RestBonusCritChancePoints;
+
+    public float TotalDamageBonusPercent => FoodDamagePercent + RestBonusDamagePercent;
+    public float TotalAttackSpeedBonusPercent => FoodAttackSpeedPercent + RestBonusAttackSpeedPercent;
+    public float TotalCritChanceBonusPoints => FoodCritChancePoints + RestBonusCritChancePoints;
+    public float TotalReceivedHealingPercent =>
+        FoodReceivedHealingPercent + RunReceivedHealingPercent + RestBonusReceivedHealingPercent;
+
     // Одно оружие — у монстров и большинства снаряжения персонажа; два — при дуал-вилде
     // (3.9 "Амбидекстрия"), каждое со своим независимым таймером атаки.
     public List<WeaponAttackState> Weapons = new List<WeaponAttackState>();
@@ -292,7 +307,7 @@ public class CombatantRuntime
         if (weapon.PrototypeEffect != WeaponPrototypeEffectId.LastArgumentConversion)
         {
             multiplier *= 1f + ItemAttackSpeedBonusPercent / 100f;
-            multiplier *= 1f + FoodAttackSpeedPercent / 100f;
+            multiplier *= 1f + TotalAttackSpeedBonusPercent / 100f;
         }
         else if (ItemAttackSpeedBonusPercent < 0f) multiplier *= 1f + ItemAttackSpeedBonusPercent / 100f;
 
@@ -323,7 +338,7 @@ public class CombatantRuntime
     public float GetPositiveAttackSpeedBonusPercent()
     {
         float multiplier = (1f + Mathf.Max(0f, ItemAttackSpeedBonusPercent) / 100f) *
-            (1f + Mathf.Max(0f, FoodAttackSpeedPercent) / 100f);
+            (1f + Mathf.Max(0f, TotalAttackSpeedBonusPercent) / 100f);
         foreach (var modifier in ActiveDebuffs)
             if (modifier.AttackSpeedMultiplier > 1f) multiplier *= modifier.AttackSpeedMultiplier;
         if (SkillFrenzyLevel > 0)
@@ -344,8 +359,7 @@ public class CombatantRuntime
     public float Heal(float amount)
     {
         float before = CurrentHP;
-        float receivedMultiplier = Mathf.Max(0f, 1f +
-            (FoodReceivedHealingPercent + RunReceivedHealingPercent) / 100f);
+        float receivedMultiplier = Mathf.Max(0f, 1f + TotalReceivedHealingPercent / 100f);
         CurrentHP = Mathf.Min(MaxHP, CurrentHP + Mathf.Max(0f, amount) * receivedMultiplier);
         return CurrentHP - before;
     }

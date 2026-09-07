@@ -79,9 +79,12 @@ public partial class RunFlowController
         AddPauseStatRow(pauseStatsGrid, "Шанс критического удара", $"{CombatCriticalRules.CalculateChancePercent(combatant):F0}%");
         AddPauseStatRow(pauseStatsGrid, "Уклонение", $"{CombatEvasionRules.CalculateChancePercent(combatant):F0}%");
         AddPauseStatRow(pauseStatsGrid, "Скорость атаки", $"+{combatant.GetPositiveAttackSpeedBonusPercent():F0}%");
-        AddPauseStatRow(pauseStatsGrid, "Урон", $"+{Mathf.Max(0f, combatant.ItemDamageBonusPercent + combatant.FoodDamagePercent):F0}%");
+        AddPauseStatRow(pauseStatsGrid, "Урон", $"+{Mathf.Max(0f, combatant.ItemDamageBonusPercent + combatant.TotalDamageBonusPercent):F0}%");
         AddPauseStatRow(pauseStatsGrid, "Физ. сопротивление", $"{combatant.PhysicalResistancePercent:F0}%");
         AddPauseStatRow(pauseStatsGrid, "Маг. сопротивление", $"{combatant.MagicalResistancePercent:F0}%");
+        // Таверна ур.5 (D03b): бонус привала виден игроку, иначе он неотличим от его отсутствия.
+        if (characterManager.RestBonus != null && characterManager.RestBonus.IsActive)
+            AddPauseStatRow(pauseStatsGrid, "Бонус привала", characterManager.RestBonus.Describe());
     }
 
     // Экран экипировки в стиле "герой в центре, слоты вокруг" (см. брейнсторм 2026-09-04):

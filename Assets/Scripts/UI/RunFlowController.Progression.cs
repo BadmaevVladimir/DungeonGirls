@@ -193,11 +193,21 @@ public partial class RunFlowController
         }
         selectedPreparedDish = null;
 
+        // ГДД 8.1, Таверна ур.5 (D03b): бонус выдаётся ПОСЛЕ отдыха и не заменяет блюдо — у него
+        // свой слот. Лечение текущего привала он не задевает намеренно: оно уже произошло выше.
+        var restBonus = characterManager.TryGrantRestBonus();
+        string restBonusNotice = restBonus.Id != RestBonusId.None
+            ? $"\nТаверна: {restBonus.Describe()} на {RestBonusCatalog.DurationRooms} комнаты"
+            : string.Empty;
+        if (restBonus.Id != RestBonusId.None)
+            LogEvent($"[Привал] Бонус Таверны: {restBonus.Describe()} на {RestBonusCatalog.DurationRooms} комнаты.");
+
         campText.text = dishNotice + (string.IsNullOrEmpty(dishNotice) ? string.Empty : "\n") +
             $"{characterManager.Character.characterName} отдыхает у привала..." +
             $"\n+{result.HpRestored:F0} здоровья" +
             (result.ArmorRestored > 0f ? $", +{result.ArmorRestored:F0} физ. защиты (Полевой ремонт)" : string.Empty) +
             (result.BacklashDamage > 0f ? $"\nРасплата: −{result.BacklashDamage:F0} здоровья" : string.Empty) +
+            restBonusNotice +
             $"\nОсталось рационов: {campManager.RationsRemaining}";
         LogEvent($"[Привал] +{result.HpRestored:F0} здоровья{(result.ArmorRestored > 0f ? $", +{result.ArmorRestored:F0} физ. защиты" : string.Empty)}{(result.BacklashDamage > 0f ? $", Расплата −{result.BacklashDamage:F0} здоровья" : string.Empty)}. Осталось рационов: {campManager.RationsRemaining}.");
 

@@ -117,6 +117,10 @@ public static class BuildingCatalog
         return bonus;
     }
 
+    // Таверна ур.5 (D03b): после каждого привала — случайный бонус на 3 комнаты в отдельном
+    // слоте, складывающийся с эффектом блюда. См. RestBonusCatalog.
+    public static bool TavernGrantsRestBonus(int tavernLevel) => tavernLevel >= 5;
+
     // Таверна ур.2/4: +10/+20% восстановления здоровья на привале (складывается с базовыми 50%,
     // итого +30% на ур.4+) — процентные пункты, см. CampManager.RestAtCamp.
     public static float TavernCampHealBonusPercent(int tavernLevel)

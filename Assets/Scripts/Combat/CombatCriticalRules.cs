@@ -22,7 +22,7 @@ public static class CombatCriticalRules
 
         float chance = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems -
             attacker.CritChanceDebuffPercent + EyeForAnEyeBonus(attacker.SkillEyeForAnEyeLevel) +
-            attacker.FoodCritChancePoints;
+            attacker.TotalCritChanceBonusPoints;
         return BalanceClamps.ClampCritChancePercent(Mathf.Max(0f, chance));
     }
 }

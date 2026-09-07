@@ -151,6 +151,11 @@ public class VeteranBuildSnapshot
         runtime.ActiveFoodBuff = null;
         runtime.FoodReceivedHealingPercent = 0f;
         runtime.RunReceivedHealingPercent = 0f;
+        // Бонус привала (Таверна ур.5) — временный эффект забега, а не часть сборки.
+        runtime.RestBonusDamagePercent = 0f;
+        runtime.RestBonusAttackSpeedPercent = 0f;
+        runtime.RestBonusReceivedHealingPercent = 0f;
+        runtime.RestBonusCritChancePoints = 0f;
         runtime.FoodDamagePercent = 0f;
         runtime.FoodPhysicalDamagePercent = 0f;
         runtime.FoodBossDamagePercent = 0f;

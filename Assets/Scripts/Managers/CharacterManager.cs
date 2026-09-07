@@ -28,6 +28,7 @@ public class CharacterManager : MonoBehaviour
     public int Level => Progress != null ? Progress.Level : 1;
     public ActiveFoodBuff FoodBuff { get; private set; } = new ActiveFoodBuff();
     public ActiveRunRoomDebuff RunRoomDebuff { get; private set; } = new ActiveRunRoomDebuff();
+    public ActiveRestBonus RestBonus { get; private set; } = new ActiveRestBonus();
     bool pendingExplorerIngredientRoll;
 
     // 8.1 (ФИКС): уровни зданий на момент старта забега — здания не меняются посреди забега,
@@ -53,6 +54,7 @@ public class CharacterManager : MonoBehaviour
         RoomsClearedThisRun = 0;
         FoodBuff = new ActiveFoodBuff();
         RunRoomDebuff = new ActiveRunRoomDebuff();
+        RestBonus = new ActiveRestBonus();
         pendingExplorerIngredientRoll = false;
         tavernLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Tavern) : 0;
         forgeLevelThisRun = saveManager != null ? saveManager.GetBuildingLevel(BuildingType.Forge) : 0;
@@ -178,6 +180,7 @@ public class CharacterManager : MonoBehaviour
         RoomsClearedOnCurrentFloor++;
         pendingExplorerIngredientRoll |= FoodBuff.CompleteRoom(Combatant, new UnityRewardRandom());
         RunRoomDebuff.CompleteRoom();
+        RestBonus.CompleteRoom();
     }
 
     public void BeginRoom() => FoodBuff.BeginRoom();
@@ -190,6 +193,17 @@ public class CharacterManager : MonoBehaviour
     }
 
     public void ActivateFood(FoodRecipeData recipe) => FoodBuff.Activate(recipe, Combatant);
+
+    // Таверна ур.5 (D03b): вызывается после привала. Возвращает выданный бонус, чтобы UI и журнал
+    // могли назвать его игроку — невидимый бонус неотличим от его отсутствия. Уровень Таверны
+    // читается из снимка на старт забега: здания посреди забега не меняются.
+    public RestBonusDefinition TryGrantRestBonus(IRewardRandom random = null)
+    {
+        if (!BuildingCatalog.TavernGrantsRestBonus(tavernLevelThisRun)) return default;
+        var bonus = RestBonusCatalog.Roll(random ?? new UnityRewardRandom());
+        RestBonus.Activate(bonus, Combatant);
+        return bonus;
+    }
 
     public void ApplyMushroomPoison(RareRoomConfig config) =>
         RunRoomDebuff.ApplyMushroomPoison(config, Combatant);
@@ -214,6 +228,7 @@ public class CharacterManager : MonoBehaviour
         BindRuntimeServicesAndCurses();
         FoodBuff.Bind(Combatant);
         RunRoomDebuff.Bind(Combatant);
+        RestBonus.Bind(Combatant);
     }
 
     void BindRuntimeServicesAndCurses()
