@@ -10,7 +10,8 @@ export const foldTail = (channels: ReadonlyArray<Float32Array>, loopLength: numb
         for (let offset = loopLength; offset < input.length; offset += loopLength) {
             const count = Math.min(loopLength, input.length - offset)
             for (let index = 0; index < count; index++) {
-                out[index] += input[offset + index]!
+                const val = out[index]!
+                out[index] = val + input[offset + index]!
             }
         }
         return out
