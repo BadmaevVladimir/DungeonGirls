@@ -57,12 +57,14 @@ export const createServer = (options: Options): McpServer => {
             const issues = validateDevices(doc, catalog)
             // Отказ до касания проекта: наполовину построенная аранжировка звучит молча неправильно.
             if (issues.length > 0) {throw new DocumentError(issues)}
+            const flat = expand(doc)
+            const result = await (await host()).call("build", flat)
+            // Кэши обновляются только после успешной сборки: если build упал, документ не стал живым.
             tempo = doc.tempo
             signature = doc.signature
-            const flat = expand(doc)
             documentLoop = flat.loop
             documentEnd = flat.end
-            return (await host()).call("build", flat)
+            return result
         }))
 
     server.registerTool("inspect_project",
@@ -150,7 +152,7 @@ export const createServer = (options: Options): McpServer => {
             }
             const bytes = Array.from(await readFile(file))
             // __odaw.importAsset(name, kind, bytes) берёт три позиционных аргумента, не объект.
-            return (await host()).call("importAsset", [name ?? basename(file, extension), kind, bytes])
+            return (await host()).callPositional("importAsset", [name ?? basename(file, extension), kind, bytes])
         }))
 
     server.registerTool("list_assets",

@@ -88,4 +88,29 @@ describe("MCP-сервер", () => {
         await expect(call("render", {target: "mix", loop: true, name: "no-loop"}))
             .rejects.toThrow()
     })
+
+    it("не подхватывает tempo/signature/loop, если сборка на стороне хоста упала", async () => {
+        // Документ валиден по схеме и по каталогу устройств (Nano — настоящий инструмент),
+        // но ссылается на неимпортированный сэмпл: падает уже внутри host build.
+        const good = {...document, loop: {start: "1.1", end: "5.1"}}
+        await call("build_arrangement", {document: good})
+        const before = await call("render", {target: "mix", loop: true, name: "before-fail"})
+        expect(before.files[0]!.seconds).toBeCloseTo(8, 2)
+
+        const broken = {
+            name: "Broken", tempo: 200, signature: "3/4", end: "3.1",
+            patterns: {riff: {length: "1b", notes: [{p: "C3", at: "1.1", d: "1/4"}]}},
+            tracks: [{name: "Ghost", instrument: {device: "Nano", sample: "ghost-not-imported.wav"}, stem: "ghost",
+                      place: [{pattern: "riff", at: "1.1", repeat: 1}]}]
+        }
+        await expect(call("build_arrangement", {document: broken})).rejects.toThrow(/не импортирован/)
+
+        // Кэш должен остаться от последней УСПЕШНОЙ сборки (tempo 120, конец документа = 8с),
+        // а не от упавшей (tempo 200, другой конец). Несовпадающий range даёт ошибку ДО обращения
+        // к хосту — её текст считается по кэшированным tempo/documentEnd и пригоден как проверка,
+        // даже если сама упавшая сборка успела стереть проект хоста.
+        await expect(call("render", {
+            target: "mix", loop: true, name: "after-fail", range: {start: "1.1", end: "3.1"}
+        })).rejects.toThrow(/8\.00 с/)
+    })
 })

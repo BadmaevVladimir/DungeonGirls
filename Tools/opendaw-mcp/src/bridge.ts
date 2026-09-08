@@ -73,7 +73,19 @@ export class HostBridge {
         this.#port = port
     }
 
+    // Один аргумент (или ни одного) передаётся примитиву как есть — без угадывания
+    // по типу значения. Массив-как-один-аргумент проходит здесь без разворачивания.
     async call<T>(name: string, argument?: unknown): Promise<T> {
+        return this.#invoke<T>(name, argument === undefined ? [] : [argument])
+    }
+
+    // Явный позиционный вызов для примитивов вроде importAsset(name, kind, bytes):
+    // элементы args разворачиваются в отдельные параметры функции.
+    async callPositional<T>(name: string, args: readonly unknown[]): Promise<T> {
+        return this.#invoke<T>(name, args)
+    }
+
+    async #invoke<T>(name: string, args: readonly unknown[]): Promise<T> {
         if (this.#page.isClosed()) {
             // Страница уже умерла до этого вызова: поднимаем заново, но этот call обязан
             // сообщить о потере состояния, а не тихо выполниться на пустом проекте.
@@ -81,15 +93,12 @@ export class HostBridge {
             throw new HostLostError(LOST_MESSAGE)
         }
         try {
-            return await this.#page.evaluate(([method, arg]) => {
+            return await this.#page.evaluate(([method, callArgs]) => {
                 const api = (window as never as {__odaw: Record<string, (...args: unknown[]) => unknown>}).__odaw
                 const fn = api[method as string]
                 if (fn === undefined) {throw new Error(`нет примитива "${method}"`)}
-                // Большинство примитивов __odaw берут один аргумент, но importAsset(name, kind, bytes)
-                // позиционный: массив здесь разворачивается в отдельные параметры.
-                const args = Array.isArray(arg) ? arg : arg === undefined ? [] : [arg]
-                return Promise.resolve(fn(...args)) as Promise<unknown>
-            }, [name, argument] as const) as T
+                return Promise.resolve(fn(...(callArgs as unknown[]))) as Promise<unknown>
+            }, [name, args] as const) as T
         } catch (error) {
             // Упавшую страницу поднимаем, но молчать нельзя: проект жил в её памяти.
             if (this.#page.isClosed() || !this.#browser.isConnected()) {
