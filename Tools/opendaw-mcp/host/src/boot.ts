@@ -6,6 +6,7 @@ import {
     AudioWorklets, GlobalSampleLoaderManager, GlobalSoundfontLoaderManager, Workers
 } from "@opendaw/studio-core"
 import {WasmEngine} from "@opendaw/studio-core-wasm"
+import {retryableOnce} from "../../src/retryable-once"
 
 export type BootResult = {
     context: AudioContext
@@ -14,8 +15,6 @@ export type BootResult = {
     sampleManager: GlobalSampleLoaderManager
     soundfontManager: GlobalSoundfontLoaderManager
 }
-
-let booted: Promise<BootResult> | undefined
 
 // Провайдер, отдающий только то, что импортировали через import_asset; сеть не трогаем.
 const makeProvider = (store: Map<string, {uuid: Uint8Array, data: unknown}>) => ({
@@ -32,7 +31,7 @@ const makeProvider = (store: Map<string, {uuid: Uint8Array, data: unknown}>) => 
 
 export const assetStore = new Map<string, {uuid: Uint8Array, data: unknown, kind: "sample" | "soundfont"}>()
 
-export const bootOpenDAW = (): Promise<BootResult> => booted ??= (async () => {
+export const bootOpenDAW = retryableOnce(async (): Promise<BootResult> => {
     await Workers.install(workersUrl)
     AudioWorklets.install(workletsUrl)
     const context = new AudioContext({sampleRate: 48000, latencyHint: 0})
@@ -52,4 +51,4 @@ export const bootOpenDAW = (): Promise<BootResult> => booted ??= (async () => {
         sampleService: provider, soundfontService: provider
     }
     return {context, env, wasmReady, sampleManager, soundfontManager}
-})()
+})
