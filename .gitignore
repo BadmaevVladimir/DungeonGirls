@@ -134,3 +134,6 @@ InitTestScene*.unity*
 /Audio/**/*.mp3
 /Audio/**/*.ogg
 /Audio/**/*.odb
+
+# Исключение: /Audio/SFX — маленькие исходники эффектов, они уже под версионностью.
+!/Audio/SFX/**
