@@ -1,7 +1,7 @@
 import {createServer, type Server} from "node:http"
 import {createReadStream} from "node:fs"
 import {stat} from "node:fs/promises"
-import {extname, join, normalize, resolve} from "node:path"
+import {extname, join, normalize, resolve, sep} from "node:path"
 import {chromium, type Browser, type Page} from "playwright"
 
 export class HostLostError extends Error {}
@@ -13,9 +13,17 @@ const TYPES: Record<string, string> = {
     ".css": "text/css", ".json": "application/json", ".wasm": "application/wasm"
 }
 
+// startsWith(rootResolved) admits a sibling with a shared name prefix (".../dist-evil/secret"
+// passes a check against ".../dist"); requiring the separator (or exact equality) closes that
+// hole. Экспортируется отдельно, чтобы тест бил точно по границе, а не только через HTTP.
+export const isWithinRoot = (file: string, rootResolved: string): boolean =>
+    file === rootResolved || file.startsWith(rootResolved + sep)
+
 // COOP/COEP обязательны: движку нужен SharedArrayBuffer, а он есть только на
 // cross-origin isolated странице.
-const serveStatic = (root: string): Promise<{server: Server, port: number}> => new Promise(done => {
+// Экспортируется ради теста guard'а обхода пути: полноценный HTTP-запрос честнее, чем
+// проверка одной функции в изоляции.
+export const serveStatic = (root: string): Promise<{server: Server, port: number}> => new Promise(done => {
     const rootResolved = resolve(root)
     const server = createServer(async (req, res) => {
         const requested = decodeURIComponent((req.url ?? "/").split("?")[0]!)
@@ -24,7 +32,7 @@ const serveStatic = (root: string): Promise<{server: Server, port: number}> => n
         res.setHeader("Cross-Origin-Opener-Policy", "same-origin")
         res.setHeader("Cross-Origin-Embedder-Policy", "require-corp")
         res.setHeader("Cross-Origin-Resource-Policy", "cross-origin")
-        if (!file.startsWith(rootResolved)) {res.writeHead(403).end(); return}
+        if (!isWithinRoot(file, rootResolved)) {res.writeHead(403).end(); return}
         const info = await stat(file).catch(() => null)
         if (info === null || !info.isFile()) {res.writeHead(404).end(); return}
         res.setHeader("Content-Type", TYPES[extname(file)] ?? "application/octet-stream")

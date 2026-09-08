@@ -21,6 +21,7 @@ export type BuildSummary = {
 let project: Project | undefined
 let summary: BuildSummary | undefined
 let stems: Array<{uuid: string, fileName: string}> = []
+let documentName: string | undefined
 
 export const currentProject = (): Project => {
     if (project === undefined) {throw new Error("проект не собран: сначала вызовите build_arrangement")}
@@ -28,12 +29,16 @@ export const currentProject = (): Project => {
 }
 export const currentSummary = (): BuildSummary | null => summary ?? null
 export const stemUnits = (): ReadonlyArray<{uuid: string, fileName: string}> => stems
+// Имя последнего собранного документа — дефолт для export_bundle, чтобы бандл не назывался
+// вечным "openDAW MCP", если вызывающий не передал своё имя явно.
+export const currentDocumentName = (): string | undefined => documentName
 
 export const resetProject = (): void => {
     project?.terminate()
     project = undefined
     summary = undefined
     stems = []
+    documentName = undefined
 }
 
 // Метка перечисления ищется перебором по целочисленному диапазону параметра: у StringMapping
@@ -62,10 +67,38 @@ const applyParams = (adapter: Record<string, unknown>,
 
 export const buildProject = async (flat: FlatArrangement): Promise<BuildSummary> => {
     const {env} = await bootOpenDAW()
-    resetProject()
+    // Старый project остаётся живым и подключённым, пока новый не соберётся целиком:
+    // упавшая на середине сборка (неизвестный ассет, битый слот Playfield) не должна
+    // стереть последний рабочий проект — resetProject() зовём только после успеха.
     const created = Project.new(env as never)
     const nextStems: Array<{uuid: string, fileName: string}> = []
     const playfieldNotes: number[] = []
+    try {
+        buildInto(created, flat, nextStems, playfieldNotes)
+    } catch (error) {
+        created.terminate()
+        throw error
+    }
+    resetProject()
+    project = created
+    stems = nextStems
+    documentName = flat.name
+    summary = {
+        tracks: flat.tracks.length,
+        buses: flat.buses.length,
+        regions: flat.regions.length,
+        notes: flat.regions.reduce((total, region) => total + region.notes.length, 0),
+        bars: Math.ceil(flat.end / barTicks(flat.signature)),
+        seconds: ticksToSeconds(flat.end, flat.tempo),
+        warnings: flat.warnings,
+        stems: nextStems.map(stem => ({unit: stem.uuid, fileName: stem.fileName})),
+        playfieldNotes
+    }
+    return summary
+}
+
+const buildInto = (created: Project, flat: FlatArrangement,
+                   nextStems: Array<{uuid: string, fileName: string}>, playfieldNotes: number[]): void => {
     created.editing.modify(() => {
         created.api.setBpm(flat.tempo)
         // Шины сначала: дорожки при маршрутизации ссылаются на их AudioBusBox.
@@ -164,18 +197,4 @@ export const buildProject = async (flat: FlatArrangement): Promise<BuildSummary>
             }
         }
     })
-    project = created
-    stems = nextStems
-    summary = {
-        tracks: flat.tracks.length,
-        buses: flat.buses.length,
-        regions: flat.regions.length,
-        notes: flat.regions.reduce((total, region) => total + region.notes.length, 0),
-        bars: Math.ceil(flat.end / barTicks(flat.signature)),
-        seconds: ticksToSeconds(flat.end, flat.tempo),
-        warnings: flat.warnings,
-        stems: nextStems.map(stem => ({unit: stem.uuid, fileName: stem.fileName})),
-        playfieldNotes
-    }
-    return summary
 }

@@ -91,6 +91,17 @@ describe("ассеты", () => {
             .rejects.toThrow(/не импортирован/)
     })
 
+    it("упавшая на середине сборка не стирает предыдущий рабочий проект", async () => {
+        // Хороший проект собран и виден в inspect.
+        const good = await page.evaluate(input => window.__odaw.build(input), flat())
+        expect(await page.evaluate(() => window.__odaw.inspect())).toMatchObject(good)
+        // Сборка, падающая внутри браузера (ссылка на неимпортированный ассет) не должна
+        // тронуть уже стоящий проект — раньше resetProject() рвал его раньше времени.
+        await expect(page.evaluate(input => window.__odaw.build(input), flatWithMissingSample()))
+            .rejects.toThrow(/не импортирован/)
+        expect(await page.evaluate(() => window.__odaw.inspect())).toMatchObject(good)
+    })
+
     it("экспортирует .odb с сигнатурой zip-архива (PK\\x03\\x04)", async () => {
         await page.evaluate(input => window.__odaw.build(input), flat())
         const bytes = await page.evaluate(() => window.__odaw.bundle())
