@@ -1,4 +1,4 @@
-import {readFile, writeFile, mkdir} from "node:fs/promises"
+import {writeFile, mkdir} from "node:fs/promises"
 import {basename, extname, join, resolve} from "node:path"
 import {McpServer} from "@modelcontextprotocol/sdk/server/mcp.js"
 import {z} from "zod"
@@ -150,9 +150,11 @@ export const createServer = (options: Options): McpServer => {
             if (![".wav", ".mp3", ".flac", ".sf2"].includes(extension)) {
                 throw new DocumentError([{path: "path", message: `неподдерживаемое расширение "${extension}"`}])
             }
-            const bytes = Array.from(await readFile(file))
-            // __odaw.importAsset(name, kind, bytes) берёт три позиционных аргумента, не объект.
-            return (await host()).callPositional("importAsset", [name ?? basename(file, extension), kind, bytes])
+            // Файл не читаем в память Node: страница сама фетчит его по HTTP через bridge.serveFile,
+            // иначе десятки МБ soundfont'а валят Node ещё до того, как страница их увидит.
+            const url = (await host()).serveFile(file)
+            // __odaw.importAsset(name, kind, url) берёт три позиционных аргумента, не объект.
+            return (await host()).callPositional("importAsset", [name ?? basename(file, extension), kind, url])
         }))
 
     server.registerTool("list_assets",

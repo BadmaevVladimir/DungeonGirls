@@ -14,7 +14,7 @@ const api = {
     inspect: () => currentSummary(),
     reset: () => {resetProject()},
     render: (request: RenderRequest) => renderProject(request),
-    importAsset: (name: string, kind: "sample" | "soundfont", bytes: number[]) => importAsset(name, kind, bytes),
+    importAsset: (name: string, kind: "sample" | "soundfont", url: string) => importAsset(name, kind, url),
     listAssets: () => listAssets(),
     bundle: (name?: string) => exportBundle(name ?? currentDocumentName() ?? "openDAW MCP")
 }

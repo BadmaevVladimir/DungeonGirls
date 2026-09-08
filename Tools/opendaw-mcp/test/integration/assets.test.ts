@@ -64,7 +64,10 @@ afterAll(async () => {
 
 describe("ассеты", () => {
     it("импортирует сэмпл и возвращает его в списке по имени", async () => {
-        await page.evaluate(bytes => window.__odaw.importAsset("test_tone", "sample", bytes), sampleBytes())
+        await page.evaluate(bytes => {
+            const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)]))
+            return window.__odaw.importAsset("test_tone", "sample", url)
+        }, sampleBytes())
         const assets = await page.evaluate(() => window.__odaw.listAssets())
         const entry = assets.find(asset => asset.name === "test_tone")!
         expect(entry.kind).toBe("sample")
@@ -72,13 +75,19 @@ describe("ассеты", () => {
     })
 
     it("собирает проект с инструментом Nano, ссылающимся на сэмпл по имени", async () => {
-        await page.evaluate(bytes => window.__odaw.importAsset("test_tone", "sample", bytes), sampleBytes())
+        await page.evaluate(bytes => {
+            const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)]))
+            return window.__odaw.importAsset("test_tone", "sample", url)
+        }, sampleBytes())
         const summary = await page.evaluate(input => window.__odaw.build(input), flatWithNano())
         expect(summary.tracks).toBe(1)
     })
 
     it("собирает Playfield со слотом по имени ноты и кладёт его на правильный MIDI-номер", async () => {
-        await page.evaluate(bytes => window.__odaw.importAsset("test_tone", "sample", bytes), sampleBytes())
+        await page.evaluate(bytes => {
+            const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)]))
+            return window.__odaw.importAsset("test_tone", "sample", url)
+        }, sampleBytes())
         const summary = await page.evaluate(input => window.__odaw.build(input), flatWithPlayfield())
         expect(summary.tracks).toBe(1)
         // Соглашение openDAW: 60 = C3, значит C1 = 36. Number("C1") дал бы NaN.
@@ -111,7 +120,10 @@ describe("ассеты", () => {
 
     it("bundle() реально дёргает провайдер сэмплов (Nano ссылается на AudioFileBox)", async () => {
         await page.evaluate(() => window.__odaw.reset())
-        await page.evaluate(bytes => window.__odaw.importAsset("test_tone", "sample", bytes), sampleBytes())
+        await page.evaluate(bytes => {
+            const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)]))
+            return window.__odaw.importAsset("test_tone", "sample", url)
+        }, sampleBytes())
         await page.evaluate(input => window.__odaw.build(input), flatWithNano())
         const bytes = await page.evaluate(() => window.__odaw.bundle())
         expect(bytes.slice(0, 4)).toEqual([0x50, 0x4b, 0x03, 0x04])

@@ -1,6 +1,7 @@
 import {createServer, type Server} from "node:http"
 import {createReadStream} from "node:fs"
 import {stat} from "node:fs/promises"
+import {randomUUID} from "node:crypto"
 import {extname, join, normalize, resolve, sep} from "node:path"
 import {chromium, type Browser, type Page} from "playwright"
 
@@ -19,19 +20,34 @@ const TYPES: Record<string, string> = {
 export const isWithinRoot = (file: string, rootResolved: string): boolean =>
     file === rootResolved || file.startsWith(rootResolved + sep)
 
+const ASSET_PREFIX = "/__asset/"
+
 // COOP/COEP обязательны: движку нужен SharedArrayBuffer, а он есть только на
 // cross-origin isolated странице.
 // Экспортируется ради теста guard'а обхода пути: полноценный HTTP-запрос честнее, чем
 // проверка одной функции в изоляции.
-export const serveStatic = (root: string): Promise<{server: Server, port: number}> => new Promise(done => {
+// registeredFiles — id -> абсолютный путь, наполняется извне через HostBridge#serveFile;
+// отдаём только зарегистрированные id, путь из запроса никогда не участвует в построении FS-пути.
+export const serveStatic = (root: string, registeredFiles: Map<string, string> = new Map()):
+    Promise<{server: Server, port: number}> => new Promise(done => {
     const rootResolved = resolve(root)
     const server = createServer(async (req, res) => {
         const requested = decodeURIComponent((req.url ?? "/").split("?")[0]!)
-        const relative = normalize(requested === "/" ? "/index.html" : requested).replace(/^([/\\])+/, "")
-        const file = resolve(rootResolved, relative)
         res.setHeader("Cross-Origin-Opener-Policy", "same-origin")
         res.setHeader("Cross-Origin-Embedder-Policy", "require-corp")
         res.setHeader("Cross-Origin-Resource-Policy", "cross-origin")
+        if (requested.startsWith(ASSET_PREFIX)) {
+            const id = requested.slice(ASSET_PREFIX.length)
+            const file = registeredFiles.get(id)
+            if (file === undefined) {res.writeHead(404).end(); return}
+            const info = await stat(file).catch(() => null)
+            if (info === null || !info.isFile()) {res.writeHead(404).end(); return}
+            res.setHeader("Content-Type", TYPES[extname(file)] ?? "application/octet-stream")
+            createReadStream(file).pipe(res)
+            return
+        }
+        const relative = normalize(requested === "/" ? "/index.html" : requested).replace(/^([/\\])+/, "")
+        const file = resolve(rootResolved, relative)
         if (!isWithinRoot(file, rootResolved)) {res.writeHead(403).end(); return}
         const info = await stat(file).catch(() => null)
         if (info === null || !info.isFile()) {res.writeHead(404).end(); return}
@@ -55,13 +71,14 @@ export class HostBridge {
         await stat(join(root, "index.html")).catch(() => {
             throw new Error(`страница не собрана: нет ${join(root, "index.html")}, выполните npm run build:host`)
         })
-        const {server, port} = await serveStatic(root)
+        const registeredFiles = new Map<string, string>()
+        const {server, port} = await serveStatic(root, registeredFiles)
         // Если launch или загрузка страницы упадут, сервер (и, может, браузер) не должны утечь.
         let browser: Browser | undefined
         try {
             browser = await chromium.launch({args: ["--autoplay-policy=no-user-gesture-required"]})
             const page = await openPage(browser, port)
-            return new HostBridge(server, browser, page, port)
+            return new HostBridge(server, browser, page, port, registeredFiles)
         } catch (error) {
             await browser?.close().catch(() => {})
             await new Promise<void>(done => server.close(() => done()))
@@ -72,13 +89,25 @@ export class HostBridge {
     readonly #server: Server
     readonly #browser: Browser
     readonly #port: number
+    readonly #registeredFiles: Map<string, string>
     #page: Page
 
-    private constructor(server: Server, browser: Browser, page: Page, port: number) {
+    private constructor(server: Server, browser: Browser, page: Page, port: number,
+                        registeredFiles: Map<string, string>) {
         this.#server = server
         this.#browser = browser
         this.#page = page
         this.#port = port
+        this.#registeredFiles = registeredFiles
+    }
+
+    // Отдаёт большой файл странице по HTTP вместо перекладки его байтов через page.evaluate:
+    // JSON-массив в десятки миллионов чисел валит Node по памяти ещё до того, как страница
+    // его увидит. Регистрации копятся на сессию — это несколько записей в Map, не течь.
+    serveFile(absolutePath: string): string {
+        const id = randomUUID()
+        this.#registeredFiles.set(id, absolutePath)
+        return `http://127.0.0.1:${this.#port}/__asset/${id}`
     }
 
     // Один аргумент (или ни одного) передаётся примитиву как есть — без угадывания

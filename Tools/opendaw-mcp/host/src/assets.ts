@@ -18,9 +18,12 @@ const infos = new Map<string, AssetInfo>()
 
 export const importAsset = async (name: string,
                                   kind: "sample" | "soundfont",
-                                  bytes: ReadonlyArray<number>): Promise<AssetInfo> => {
+                                  url: string): Promise<AssetInfo> => {
     const {context} = await bootOpenDAW()
-    const buffer = Uint8Array.from(bytes)
+    // Файл фетчится страницей напрямую с диска через bridge.serveFile — байты никогда
+    // не проходят через page.evaluate как JSON-массив чисел (десятки МБ роняют Node).
+    const response = await fetch(url)
+    const buffer = new Uint8Array(await response.arrayBuffer())
     const uuid = UUID.generate()
     if (kind === "sample") {
         // decodeAudioData отсоединяет буфер, поэтому копируем перед вызовом.
