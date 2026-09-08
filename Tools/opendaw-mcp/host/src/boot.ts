@@ -17,8 +17,10 @@ export type BootResult = {
 }
 
 // Провайдер, отдающий только то, что импортировали через import_asset; сеть не трогаем.
+// SampleProvider.fetch / SoundfontProvider.fetch оба принимают (uuid, progress) и возвращают
+// кортеж [данные, метаданные] — assetStore.data хранит его уже в этой форме.
 const makeProvider = (store: Map<string, {uuid: Uint8Array, data: unknown}>) => ({
-    fetch: (uuid: Uint8Array) => {
+    fetch: (uuid: Uint8Array, _progress: (value: number) => void) => {
         for (const entry of store.values()) {
             if (entry.uuid.every((byte, index) => byte === uuid[index])) {
                 return Promise.resolve(entry.data as never)
@@ -29,7 +31,8 @@ const makeProvider = (store: Map<string, {uuid: Uint8Array, data: unknown}>) => 
     invalidate: () => {}
 })
 
-export const assetStore = new Map<string, {uuid: Uint8Array, data: unknown, kind: "sample" | "soundfont"}>()
+export type AssetEntry = {uuid: Uint8Array, data: unknown, kind: "sample" | "soundfont", seconds?: number}
+export const assetStore = new Map<string, AssetEntry>()
 
 export const bootOpenDAW = retryableOnce(async (): Promise<BootResult> => {
     await Workers.install(workersUrl)

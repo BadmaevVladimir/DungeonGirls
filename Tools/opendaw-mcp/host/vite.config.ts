@@ -31,7 +31,10 @@ export default defineConfig({
     server: {port: 5199, headers: COI},
     preview: {headers: COI},
     worker: {format: "es"},
-    optimizeDeps: {exclude: OPENDAW},
+    // jszip: openDAW импортирует его динамически из своего (исключённого из скана) dist-бандла,
+    // поэтому esbuild-сканер его не находит сам; без явного include первый вызов exportBundle()
+    // триггерит дооптимизацию на лету и перезагрузку страницы посреди теста.
+    optimizeDeps: {exclude: OPENDAW, include: ["jszip"]},
     resolve: {dedupe: OPENDAW},
     plugins: [{
         name: "wasm-engine-assets",

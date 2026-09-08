@@ -1,11 +1,14 @@
 import {EffectFactories, Project} from "@opendaw/studio-core"
 import {AudioBusFactory, ColorCodes, Devices, InstrumentFactories} from "@opendaw/studio-adapters"
-import {AudioUnitBox} from "@opendaw/studio-boxes"
+import {AudioFileBox, AudioUnitBox, SoundfontDeviceBox, SoundfontFileBox} from "@opendaw/studio-boxes"
 import {AudioUnitType, IconSymbol} from "@opendaw/studio-enums"
 import {asInstanceOf, UUID} from "@opendaw/lib-std"
 import {bootOpenDAW} from "./boot"
+import {lookupAsset} from "./assets"
 import {barTicks, ticksToSeconds} from "../../src/time"
 import type {FlatArrangement} from "../../src/expand"
+
+type FlatTrack = FlatArrangement["tracks"][number]
 
 export type BuildSummary = {
     tracks: number, buses: number, regions: number, notes: number,
@@ -84,11 +87,43 @@ export const buildProject = async (flat: FlatArrangement): Promise<BuildSummary>
                 nextStems.push({uuid: UUID.toString(busUnit.address.uuid), fileName: bus.stem})
             }
         }
+        // Nano ждёт AudioFileBox, Soundfont — SoundfontFileBox, Playfield — массив слотов
+        // с уже привязанными ассетами (сам заводит под них AudioFileBox через фабрику).
+        const attachmentFor = (instrument: FlatTrack["instrument"]): unknown => {
+            if (instrument.device === "Nano") {
+                const entry = lookupAsset(instrument.sample!, "sample")
+                return AudioFileBox.create(created.boxGraph, entry.uuid, box => {
+                    box.fileName.setValue(instrument.sample!)
+                    if (entry.seconds !== undefined) {box.endInSeconds.setValue(entry.seconds)}
+                })
+            }
+            if (instrument.device === "Soundfont") {
+                const entry = lookupAsset(instrument.soundfont!, "soundfont")
+                return SoundfontFileBox.create(created.boxGraph, entry.uuid,
+                    box => box.fileName.setValue(instrument.soundfont!))
+            }
+            if (instrument.device === "Playfield") {
+                return Object.entries(instrument.slots ?? {}).map(([pitch, sample]) => {
+                    const entry = lookupAsset(sample, "sample")
+                    return {
+                        note: Number(pitch),
+                        uuid: entry.uuid,
+                        name: sample,
+                        durationInSeconds: entry.seconds ?? 0,
+                        exclude: false
+                    }
+                })
+            }
+            return undefined
+        }
         const trackBoxes = new Map<string, ReturnType<typeof created.api.createInstrument>["trackBox"]>()
         for (const track of flat.tracks) {
             const factory = (InstrumentFactories.Named as never)[track.instrument.device]
             const {audioUnitBox, instrumentBox, trackBox} =
-                created.api.createInstrument(factory, {name: track.name})
+                created.api.createInstrument(factory, {name: track.name, attachment: attachmentFor(track.instrument)})
+            if (track.instrument.device === "Soundfont") {
+                asInstanceOf(instrumentBox, SoundfontDeviceBox).presetIndex.setValue(track.instrument.preset ?? 0)
+            }
             audioUnitBox.volume.setValue(track.mix.volume)
             audioUnitBox.panning.setValue(track.mix.pan)
             applyParams(created.boxAdapters.adapterFor(instrumentBox, Devices.isAny) as never, track.instrument.params)
