@@ -113,9 +113,10 @@ describe("ассеты", () => {
 
     it("экспортирует .odb с сигнатурой zip-архива (PK\\x03\\x04)", async () => {
         await page.evaluate(input => window.__odaw.build(input), flat())
-        const bytes = await page.evaluate(() => window.__odaw.bundle())
+        const base64 = await page.evaluate(() => window.__odaw.bundle())
+        const bytes = Buffer.from(base64, "base64")
         expect(bytes.length).toBeGreaterThan(100)
-        expect(bytes.slice(0, 4)).toEqual([0x50, 0x4b, 0x03, 0x04])
+        expect(Array.from(bytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04])
     })
 
     it("bundle() реально дёргает провайдер сэмплов (Nano ссылается на AudioFileBox)", async () => {
@@ -125,7 +126,8 @@ describe("ассеты", () => {
             return window.__odaw.importAsset("test_tone", "sample", url)
         }, sampleBytes())
         await page.evaluate(input => window.__odaw.build(input), flatWithNano())
-        const bytes = await page.evaluate(() => window.__odaw.bundle())
-        expect(bytes.slice(0, 4)).toEqual([0x50, 0x4b, 0x03, 0x04])
+        const base64 = await page.evaluate(() => window.__odaw.bundle())
+        const bytes = Buffer.from(base64, "base64")
+        expect(Array.from(bytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04])
     })
 })

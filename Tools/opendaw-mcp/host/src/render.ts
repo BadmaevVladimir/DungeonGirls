@@ -2,6 +2,7 @@ import {OfflineEngineRenderer} from "@opendaw/studio-core"
 import {ExportConfiguration} from "@opendaw/studio-adapters"
 import {DefaultObservableValue, Option} from "@opendaw/lib-std"
 import {currentProject, stemUnits} from "./build"
+import {bytesToBase64} from "./base64"
 
 export type RenderRequest = {target: "mix" | "stems", range?: {start: number, end: number}}
 export type RenderResult = {
@@ -10,17 +11,8 @@ export type RenderResult = {
     names: ReadonlyArray<string>
 }
 
-// Bridges browser -> Node via page.evaluate/JSON, so PCM travels as base64 rather than number[][]:
-// a few minutes of real audio would otherwise blow up into gigabytes of JSON text.
-const CHUNK = 0x8000
-const toBase64 = (frames: Float32Array): string => {
-    const bytes = new Uint8Array(frames.buffer, frames.byteOffset, frames.byteLength)
-    let binary = ""
-    for (let offset = 0; offset < bytes.length; offset += CHUNK) {
-        binary += String.fromCharCode(...bytes.subarray(offset, offset + CHUNK))
-    }
-    return btoa(binary)
-}
+const toBase64 = (frames: Float32Array): string =>
+    bytesToBase64(new Uint8Array(frames.buffer, frames.byteOffset, frames.byteLength))
 
 export const renderProject = async ({target, range}: RenderRequest): Promise<RenderResult> => {
     const project = currentProject()

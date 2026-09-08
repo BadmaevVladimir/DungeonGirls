@@ -8,7 +8,7 @@ import {validateDevices, type Catalog} from "./validate-devices"
 import {expand} from "./expand"
 import {foldTail} from "./loop"
 import {writeWav, type WavFormat} from "./wav"
-import {decodeChannel} from "./pcm"
+import {decodeBundle, decodeChannel} from "./pcm"
 import {parsePosition, parseSignature, ticksToSeconds} from "./time"
 
 type Options = {hostDir: string, outputDir: string}
@@ -166,10 +166,11 @@ export const createServer = (options: Options): McpServer => {
         {description: "Сохранить .odb для ручных правок в UI openDAW.",
          inputSchema: {path: z.string().min(1)}},
         ({path}) => guard(async () => {
-            const bytes = await (await host()).call<number[]>("bundle")
+            const base64 = await (await host()).call<string>("bundle")
+            const bytes = decodeBundle(base64)
             const target = resolve(path)
             await mkdir(join(target, ".."), {recursive: true})
-            await writeFile(target, Uint8Array.from(bytes))
+            await writeFile(target, bytes)
             return {path: target, bytes: bytes.length}
         }))
 

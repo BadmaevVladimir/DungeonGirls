@@ -5,6 +5,7 @@ import type {SampleMetaData, SoundfontMetaData} from "@opendaw/studio-adapters"
 import {SoundFont2} from "soundfont2"
 import {assetStore, bootOpenDAW, type AssetEntry} from "./boot"
 import {currentProject} from "./build"
+import {bytesToBase64} from "./base64"
 
 export type AssetInfo = {
     name: string
@@ -67,8 +68,8 @@ export const lookupAsset = (name: string, kind: "sample" | "soundfont"): AssetEn
     return entry
 }
 
-export const exportBundle = async (name: string): Promise<number[]> => {
+export const exportBundle = async (name: string): Promise<string> => {
     const profile = new ProjectProfile(UUID.generate(), currentProject(), ProjectMeta.init(name), Option.None)
     const encoded = await ProjectBundle.encode(profile, Progress.Empty)
-    return Array.from(new Uint8Array(encoded))
+    return bytesToBase64(new Uint8Array(encoded))
 }
