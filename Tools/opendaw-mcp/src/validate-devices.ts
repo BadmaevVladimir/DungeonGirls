@@ -28,7 +28,7 @@ const checkDevice = (catalog: Catalog,
     for (const [name, value] of Object.entries(device.params ?? {})) {
         const param = spec.params.find(entry => entry.name === name)
         if (param === undefined) {
-            const available = spec.params.map(entry => entry.name).slice(0, 12).join(", ")
+            const available = spec.params.map(entry => entry.name).join(", ")
             issues.push({
                 path: `${path}.params.${name}`,
                 message: `у "${device.device}" нет параметра "${name}"; есть: ${available}`
