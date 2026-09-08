@@ -121,3 +121,16 @@ InitTestScene*.unity*
 
 # Superpowers subagent-driven-development scratch workspace (ledgers, briefs, review packages)
 /.superpowers/
+
+# Музыкальная мастерская в корневом /Audio: рабочий каталог, не игровые ассеты.
+# Готовое аудио попадает в игру через Assets/Resources/Music и Assets/Audio/SFX —
+# они отслеживаются. Здесь же лежат промежуточные рендеры, библиотеки сэмплов
+# и бандлы openDAW, которые весят десятки мегабайт и восстанавливаются заново.
+# Правила якорятся от корня, поэтому Assets/Audio они не затрагивают.
+/Audio/Samples/
+/Audio/Music/Backups/
+/Audio/**/*.wav
+/Audio/**/*.flac
+/Audio/**/*.mp3
+/Audio/**/*.ogg
+/Audio/**/*.odb
