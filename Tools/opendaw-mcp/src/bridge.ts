@@ -48,8 +48,17 @@ export class HostBridge {
             throw new Error(`страница не собрана: нет ${join(root, "index.html")}, выполните npm run build:host`)
         })
         const {server, port} = await serveStatic(root)
-        const browser = await chromium.launch({args: ["--autoplay-policy=no-user-gesture-required"]})
-        return new HostBridge(server, browser, await openPage(browser, port), port)
+        // Если launch или загрузка страницы упадут, сервер (и, может, браузер) не должны утечь.
+        let browser: Browser | undefined
+        try {
+            browser = await chromium.launch({args: ["--autoplay-policy=no-user-gesture-required"]})
+            const page = await openPage(browser, port)
+            return new HostBridge(server, browser, page, port)
+        } catch (error) {
+            await browser?.close().catch(() => {})
+            await new Promise<void>(done => server.close(() => done()))
+            throw error
+        }
     }
 
     readonly #server: Server
@@ -73,10 +82,13 @@ export class HostBridge {
         }
         try {
             return await this.#page.evaluate(([method, arg]) => {
-                const api = (window as never as {__odaw: Record<string, (value?: unknown) => unknown>}).__odaw
+                const api = (window as never as {__odaw: Record<string, (...args: unknown[]) => unknown>}).__odaw
                 const fn = api[method as string]
                 if (fn === undefined) {throw new Error(`нет примитива "${method}"`)}
-                return Promise.resolve(fn(arg)) as Promise<unknown>
+                // Большинство примитивов __odaw берут один аргумент, но importAsset(name, kind, bytes)
+                // позиционный: массив здесь разворачивается в отдельные параметры.
+                const args = Array.isArray(arg) ? arg : arg === undefined ? [] : [arg]
+                return Promise.resolve(fn(...args)) as Promise<unknown>
             }, [name, argument] as const) as T
         } catch (error) {
             // Упавшую страницу поднимаем, но молчать нельзя: проект жил в её памяти.

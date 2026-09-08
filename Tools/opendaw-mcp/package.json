@@ -12,7 +12,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "typecheck": "tsc --noEmit",
     "build:host": "vite build --config host/vite.config.ts",
-    "build": "npm run build:host && tsc -p tsconfig.build.json"
+    "build": "npm run build:host && tsc -p tsconfig.build.json && node scripts/fix-dist-esm.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
