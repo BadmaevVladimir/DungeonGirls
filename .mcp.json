@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "opendaw": {
+      "command": "node",
+      "args": ["Tools/opendaw-mcp/dist/index.js"],
+      "env": {"OPENDAW_OUTPUT_DIR": "Audio/Music"}
+    }
+  }
+}
