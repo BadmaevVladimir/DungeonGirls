@@ -1,0 +1,38 @@
+{
+  "name": "opendaw-mcp",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "bin": {
+    "opendaw-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "pretest:integration": "npm run build",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "typecheck": "tsc --noEmit",
+    "build:host": "vite build --config host/vite.config.ts",
+    "build": "npm run build:host && tsc -p tsconfig.build.json && node scripts/fix-dist-esm.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "playwright": "1.63.0",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@opendaw/studio-core": "0.2.4",
+    "@opendaw/studio-core-wasm": "0.0.15",
+    "@opendaw/studio-adapters": "0.3.2",
+    "@opendaw/lib-std": "0.0.84",
+    "@opendaw/lib-dsp": "0.0.92",
+    "@types/node": "24.10.1",
+    "soundfont2": "0.5.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.6",
+    "vitest": "4.1.11"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
