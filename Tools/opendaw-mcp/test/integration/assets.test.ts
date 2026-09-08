@@ -29,6 +29,15 @@ const flatWithNano = () => expand(parseDocument({
     }]
 }))
 
+const flatWithPlayfield = () => expand(parseDocument({
+    name: "Test", tempo: 120, end: "2.1",
+    patterns: {r: {length: "1b", notes: [{p: "C3", at: "1.1", d: "1/4"}]}},
+    tracks: [{
+        name: "Drums", instrument: {device: "Playfield", slots: {C1: "test_tone"}},
+        place: [{pattern: "r", at: "1.1"}]
+    }]
+}))
+
 const flatWithMissingSample = () => expand(parseDocument({
     name: "Test", tempo: 120, end: "2.1",
     patterns: {r: {length: "1b", notes: [{p: "C3", at: "1.1", d: "1/4"}]}},
@@ -68,15 +77,32 @@ describe("ассеты", () => {
         expect(summary.tracks).toBe(1)
     })
 
+    it("собирает Playfield со слотом по имени ноты и кладёт его на правильный MIDI-номер", async () => {
+        await page.evaluate(bytes => window.__odaw.importAsset("test_tone", "sample", bytes), sampleBytes())
+        const summary = await page.evaluate(input => window.__odaw.build(input), flatWithPlayfield())
+        expect(summary.tracks).toBe(1)
+        // Соглашение openDAW: 60 = C3, значит C1 = 36. Number("C1") дал бы NaN.
+        expect(summary.playfieldNotes).toEqual([36])
+    })
+
     it("отказывает на ссылке в несуществующий ассет", async () => {
         await page.evaluate(() => window.__odaw.reset())
         await expect(page.evaluate(input => window.__odaw.build(input), flatWithMissingSample()))
             .rejects.toThrow(/не импортирован/)
     })
 
-    it("экспортирует непустой .odb", async () => {
+    it("экспортирует .odb с сигнатурой zip-архива (PK\\x03\\x04)", async () => {
         await page.evaluate(input => window.__odaw.build(input), flat())
         const bytes = await page.evaluate(() => window.__odaw.bundle())
         expect(bytes.length).toBeGreaterThan(100)
+        expect(bytes.slice(0, 4)).toEqual([0x50, 0x4b, 0x03, 0x04])
+    })
+
+    it("bundle() реально дёргает провайдер сэмплов (Nano ссылается на AudioFileBox)", async () => {
+        await page.evaluate(() => window.__odaw.reset())
+        await page.evaluate(bytes => window.__odaw.importAsset("test_tone", "sample", bytes), sampleBytes())
+        await page.evaluate(input => window.__odaw.build(input), flatWithNano())
+        const bytes = await page.evaluate(() => window.__odaw.bundle())
+        expect(bytes.slice(0, 4)).toEqual([0x50, 0x4b, 0x03, 0x04])
     })
 })

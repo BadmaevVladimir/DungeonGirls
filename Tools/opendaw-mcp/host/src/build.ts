@@ -7,13 +7,15 @@ import {bootOpenDAW} from "./boot"
 import {lookupAsset} from "./assets"
 import {barTicks, ticksToSeconds} from "../../src/time"
 import type {FlatArrangement} from "../../src/expand"
+import {toMidi} from "../../src/pitch"
 
 type FlatTrack = FlatArrangement["tracks"][number]
 
 export type BuildSummary = {
     tracks: number, buses: number, regions: number, notes: number,
     bars: number, seconds: number, warnings: ReadonlyArray<string>,
-    stems: ReadonlyArray<{unit: string, fileName: string}>
+    stems: ReadonlyArray<{unit: string, fileName: string}>,
+    playfieldNotes: ReadonlyArray<number>
 }
 
 let project: Project | undefined
@@ -63,6 +65,7 @@ export const buildProject = async (flat: FlatArrangement): Promise<BuildSummary>
     resetProject()
     const created = Project.new(env as never)
     const nextStems: Array<{uuid: string, fileName: string}> = []
+    const playfieldNotes: number[] = []
     created.editing.modify(() => {
         created.api.setBpm(flat.tempo)
         // Шины сначала: дорожки при маршрутизации ссылаются на их AudioBusBox.
@@ -105,8 +108,10 @@ export const buildProject = async (flat: FlatArrangement): Promise<BuildSummary>
             if (instrument.device === "Playfield") {
                 return Object.entries(instrument.slots ?? {}).map(([pitch, sample]) => {
                     const entry = lookupAsset(sample, "sample")
+                    const note = toMidi(pitch)
+                    playfieldNotes.push(note)
                     return {
-                        note: Number(pitch),
+                        note,
                         uuid: entry.uuid,
                         name: sample,
                         durationInSeconds: entry.seconds ?? 0,
@@ -169,7 +174,8 @@ export const buildProject = async (flat: FlatArrangement): Promise<BuildSummary>
         bars: Math.ceil(flat.end / barTicks(flat.signature)),
         seconds: ticksToSeconds(flat.end, flat.tempo),
         warnings: flat.warnings,
-        stems: nextStems.map(stem => ({unit: stem.uuid, fileName: stem.fileName}))
+        stems: nextStems.map(stem => ({unit: stem.uuid, fileName: stem.fileName})),
+        playfieldNotes
     }
     return summary
 }
