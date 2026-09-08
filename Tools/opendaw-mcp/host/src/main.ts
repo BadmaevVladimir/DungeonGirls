@@ -1,6 +1,7 @@
 import {bootOpenDAW} from "./boot"
 import {describeDevices} from "./describe"
 import {buildProject, currentSummary, resetProject} from "./build"
+import {renderProject, type RenderRequest} from "./render"
 
 const api = {
     status: async () => {
@@ -10,7 +11,8 @@ const api = {
     describe: () => describeDevices(),
     build: (flat: Parameters<typeof buildProject>[0]) => buildProject(flat),
     inspect: () => currentSummary(),
-    reset: () => {resetProject()}
+    reset: () => {resetProject()},
+    render: (request: RenderRequest) => renderProject(request)
 }
 
 declare global {

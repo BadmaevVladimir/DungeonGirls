@@ -4,7 +4,7 @@ import {AudioUnitBox} from "@opendaw/studio-boxes"
 import {AudioUnitType, IconSymbol} from "@opendaw/studio-enums"
 import {asInstanceOf, UUID} from "@opendaw/lib-std"
 import {bootOpenDAW} from "./boot"
-import {barTicks} from "../../src/time"
+import {barTicks, ticksToSeconds} from "../../src/time"
 import type {FlatArrangement} from "../../src/expand"
 
 export type BuildSummary = {
@@ -132,7 +132,7 @@ export const buildProject = async (flat: FlatArrangement): Promise<BuildSummary>
         regions: flat.regions.length,
         notes: flat.regions.reduce((total, region) => total + region.notes.length, 0),
         bars: Math.ceil(flat.end / barTicks(flat.signature)),
-        seconds: (flat.end * 60) / 960 / flat.tempo,
+        seconds: ticksToSeconds(flat.end, flat.tempo),
         warnings: flat.warnings,
         stems: nextStems.map(stem => ({unit: stem.uuid, fileName: stem.fileName}))
     }
