@@ -9,6 +9,12 @@ public partial class RunFlowController
 
     IEnumerator TrapRoomFlow(FloorMapNode roomNode)
     {
+        if (string.Equals(roomNode.ContentKey, HarpyNestContent.ContentKey, System.StringComparison.Ordinal))
+        {
+            yield return HarpyNestRoomFlow(roomNode);
+            yield break;
+        }
+
         var trap = GetResolvedTrap(roomNode);
         trapPopupTitle.text = "Ловушка";
         yield return ShowChancePopupAndWait(trap.DescriptionText, trap.Level, trap.SuccessText, trap.FailText, "Попытаться пройти ловушку", "Пойти дальше");
@@ -67,10 +73,60 @@ public partial class RunFlowController
         }
     }
 
+    IEnumerator HarpyNestRoomFlow(FloorMapNode roomNode)
+    {
+        ResourceAmount successReward = default;
+        trapPopupTitle.text = HarpyNestContent.Title;
+        yield return ShowChancePopupAndWait(
+            HarpyNestContent.Description,
+            RareRoomConfig.harpyNestChallengeLevel,
+            string.Empty,
+            HarpyNestContent.Failure,
+            HarpyNestContent.AttemptButton,
+            HarpyNestContent.SkipButton,
+            HarpyNestContent.Skip,
+            TutorialContent.RiskRoom,
+            succeeded =>
+            {
+                if (!succeeded) return HarpyNestContent.Failure;
+                successReward = RareRoomRewardHooks.ResolveHarpyNestSuccess(RareRoomConfig, new UnityRewardRandom());
+                return HarpyNestContent.Success(successReward.amount);
+            });
+        trapPopupTitle.text = "Ловушка";
+
+        if (!chanceAttempted) yield break;
+        if (chanceSucceeded)
+        {
+            pendingSuccessfulEventOrTrapXp = true;
+            saveManager.AddResources(new[] { successReward });
+            LogEvent($"[Гнездо гарпий] {PersistentResourceDisplay.Name(successReward.resourceId)} +{successReward.amount}.");
+            yield break;
+        }
+
+        yield return CombatRoomFlow(false, roomNode);
+        if (!characterManager.IsAlive) yield break;
+
+        ResourceAmount victoryReward = RareRoomRewardHooks.ResolveHarpyNestFailureCombatVictory(RareRoomConfig);
+        saveManager.AddResources(new[] { victoryReward });
+        LogEvent($"[Гнездо гарпий] {PersistentResourceDisplay.Name(victoryReward.resourceId)} +{victoryReward.amount} после победы.");
+        yield return ShowHarpyNestVictory(victoryReward.amount);
+    }
+
+    IEnumerator ShowHarpyNestVictory(int amount)
+    {
+        ShowOnly(eventPopup);
+        eventChoicesContainer.Clear();
+        eventDescriptionLabel.text = HarpyNestContent.Victory(amount);
+        var continueButton = new Button { text = "Продолжить" };
+        continueButton.AddToClassList("button-primary");
+        eventChoicesContainer.Add(continueButton);
+        yield return WaitForClick(continueButton);
+    }
+
     // hintId: тот же попап обслуживает и ловушки, и события с проверкой шанса — подсказка должна
     // соответствовать тому, что игрок видит в заголовке, а не всегда говорить про ловушку.
     IEnumerator ShowChancePopupAndWait(string description, int level, string successText, string failText, string attemptLabel, string skipLabel, string skipOutcome = null,
-        string hintId = TutorialContent.RiskRoom)
+        string hintId = TutorialContent.RiskRoom, System.Func<bool, string> attemptedOutcome = null)
     {
         ShowOnly(trapPopup);
         tutorialManager?.QueueOnce(hintId);
@@ -101,7 +157,7 @@ public partial class RunFlowController
         else
         {
             chanceSucceeded = Random.value * 100f < chance;
-            outcome = chanceSucceeded ? successText : failText;
+            outcome = attemptedOutcome != null ? attemptedOutcome(chanceSucceeded) : chanceSucceeded ? successText : failText;
         }
 
         LogEvent($"[{trapPopupTitle.text}] {outcome}");
@@ -244,7 +300,8 @@ public partial class RunFlowController
 
                     if (rewardFound)
                     {
-                        questReward = rewardManager.CreateItemAtExactLevel(baseReward, characterManager.Level);
+                        questReward = rewardManager.CreateItemAtExactLevel(baseReward, characterManager.Level,
+                            RewardManager.RollItemRank(dungeonManager.CurrentFloorNumber, UnityEngine.Random.value));
                     }
 
                     if (questReward != null)

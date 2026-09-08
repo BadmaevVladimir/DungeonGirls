@@ -733,6 +733,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 85ff6a2292584db9a4a26c5b7c3e2e8f, type: 2}
   bossData: {fileID: 11400000, guid: 5e45ae67fea08194381c1bc1e639783e, type: 2}
   rareRoomConfig: {fileID: 11400000, guid: b2000000000000000000000000000002, type: 2}
+  veteranAttestationConfig: {fileID: 0}
   combatBackgroundSprite: {fileID: 21300000, guid: 0f340ba3eb52ee046b097e82847c0c5b, type: 3}
   dungeonManager: {fileID: 6340608}
   floorManager: {fileID: 6340607}

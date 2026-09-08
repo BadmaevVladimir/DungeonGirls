@@ -3,16 +3,44 @@ using NUnit.Framework;
 public class StatScalingTests
 {
     [Test]
-    public void ItemEffectRank_Level1To3_ReturnsRank1()
+    public void ItemEffectRank_IsIndependentFromItemLevel()
     {
-        Assert.AreEqual(1, StatScaling.ItemEffectRank(1));
-        Assert.AreEqual(1, StatScaling.ItemEffectRank(3));
+        var item = UnityEngine.ScriptableObject.CreateInstance<ItemData>();
+        item.itemLevel = 15;
+        item.itemRank = 2;
+        Assert.AreEqual(2, item.EffectRank);
+        Assert.AreEqual(2f, StatScaling.ScaleItemEffect(1f, item.EffectRank));
+        UnityEngine.Object.DestroyImmediate(item);
     }
 
     [Test]
-    public void ItemEffectRank_HighLevel_ClampsToRank5()
+    public void LegacyZeroItemRank_FallsBackToRankOne()
     {
-        Assert.AreEqual(5, StatScaling.ItemEffectRank(999));
+        var item = UnityEngine.ScriptableObject.CreateInstance<ItemData>();
+        item.itemLevel = 15;
+        item.itemRank = 0;
+        Assert.AreEqual(1, item.EffectRank);
+        UnityEngine.Object.DestroyImmediate(item);
+    }
+
+    [TestCase(1, .99f, 1)]
+    [TestCase(3, .349f, 1)]
+    [TestCase(3, .35f, 2)]
+    [TestCase(5, .149f, 1)]
+    [TestCase(5, .15f, 2)]
+    [TestCase(5, .45f, 3)]
+    [TestCase(7, .099f, 1)]
+    [TestCase(7, .10f, 2)]
+    [TestCase(7, .25f, 3)]
+    [TestCase(7, .55f, 4)]
+    [TestCase(9, .049f, 1)]
+    [TestCase(9, .05f, 2)]
+    [TestCase(9, .15f, 3)]
+    [TestCase(9, .30f, 4)]
+    [TestCase(9, .55f, 5)]
+    public void ItemRankRoll_UsesTemporaryFloorWeights(int floor, float roll, int expected)
+    {
+        Assert.AreEqual(expected, RewardManager.RollItemRank(floor, roll));
     }
 
     [Test]

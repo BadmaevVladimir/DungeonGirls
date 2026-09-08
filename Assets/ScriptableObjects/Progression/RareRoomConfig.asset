@@ -18,6 +18,7 @@ MonoBehaviour:
   harpyNestChance: 0.1
   harpyNestMinimumFloor: 2
   harpyNestPerFloorLimit: 1
+  harpyNestChallengeLevel: 5
   abandonedForgeChance: 0.08
   abandonedForgeMinimumFloor: 3
   abandonedForgePerFloorLimit: 1

@@ -5,17 +5,9 @@ using UnityEngine;
 // ФинальныйСтат = БазовыйСтат + МАКС(1, ОКРУГЛ(БазовыйСтат × 0.1)) × (Уровень − 1).
 public static class StatScaling
 {
-    // Поздние предметы могут иметь уровень выше 5, но их вторичные эффекты не должны
-    // бесконечно расти вместе с уровнем лута. Ранг эффекта растёт плавно: 1-3 -> 1,
-    // 4-6 -> 2, ... и останавливается на 5.
-    public static int ItemEffectRank(int itemLevel)
+    public static float ScaleItemEffect(float baseValue, int itemRank)
     {
-        return Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(itemLevel, 1) / 3f), 1, 5);
-    }
-
-    public static float ScaleItemEffect(float baseValue, int itemLevel)
-    {
-        return baseValue * ItemEffectRank(itemLevel);
+        return baseValue * Mathf.Clamp(itemRank, 1, 5);
     }
 
     public static float ApplyLevelBonus(float baseStat, int level)
@@ -39,7 +31,7 @@ public static class StatScaling
     }
 }
 
-// Единый баланс вторичных эффектов предметов. Ранг всегда 1–5 (ItemEffectRank),
+// Единый баланс вторичных эффектов предметов. Ранг всегда 1–5 и хранится в ItemData.itemRank,
 // поэтому значения остаются стабильными и не растут бесконечно вместе с уровнем лута.
 public static class ItemEffectBalance
 {
@@ -60,8 +52,8 @@ public static class ItemEffectBalance
 
     // Броня от универсальных украшений намеренно растёт медленнее старой линейной формулы.
     // baseValue в данных теперь означает шаг: кольцо 2 -> 4/6/8/10/12, амулет 3 -> 6/9/12/15/18.
-    public static float ArmorAccessoryMaxDefense(float baseValue, int itemLevel) =>
-        baseValue * (StatScaling.ItemEffectRank(itemLevel) + 1);
+    public static float ArmorAccessoryMaxDefense(float baseValue, int itemRank) =>
+        baseValue * (Mathf.Clamp(itemRank, 1, 5) + 1);
 
     public const float SecondArmorRingMultiplier = 0.5f;
 }

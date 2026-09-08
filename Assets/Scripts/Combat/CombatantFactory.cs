@@ -383,7 +383,7 @@ public static class CombatantFactory
         {
             if (item != null && item.bonusStat != null && item.bonusStat.type == BonusStatType.WeaponDamageFlat)
             {
-                weaponDamageFlatBonus += StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel);
+                weaponDamageFlatBonus += StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.EffectRank);
             }
         }
 
@@ -439,7 +439,7 @@ public static class CombatantFactory
             // 3.10 (ФИКС): BonusStatType.ArmorPenetrationFlat ("Пробивание", Топор/Молот редкого+
             // тира) раньше молча игнорировался — привязан к конкретному оружию, не суммируется.
             float armorPenetrationFlat = item.bonusStat != null && item.bonusStat.type == BonusStatType.ArmorPenetrationFlat
-                ? StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel)
+                ? StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.EffectRank)
                 : 0f;
             // 3.11 (Плут, Клинок): BonusStatType.ArmorIgnorePercent ("Зазубренный клинок"/"Моменто
             // Мори", Редкий+/Эпик тир Клинка) — ранее не имел ветки здесь вовсе и молча
@@ -448,7 +448,7 @@ public static class CombatantFactory
             // потребление в CombatManager/DamageCalculator уже существуют с Task 1/2 — здесь
             // единственное недостающее звено, заполняющее поле из данных предмета.
             float armorIgnorePercent = item.bonusStat != null && item.bonusStat.type == BonusStatType.ArmorIgnorePercent
-                ? StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel)
+                ? StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.EffectRank)
                 : 0f;
             var weaponState = new WeaponAttackState
             {
@@ -463,13 +463,13 @@ public static class CombatantFactory
                 DamageMax = damageMax,
                 DamageType = item.damageType,
                 AttackSpeed = item.attackSpeed,
-                VampirismLevel = passiveId == SkillId.Vampirism ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
-                ArmorBreakLevel = passiveId == SkillId.ArmorBreak ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
-                PiercingLevel = passiveId == SkillId.Piercing ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
+                VampirismLevel = passiveId == SkillId.Vampirism ? item.EffectRank : 0,
+                ArmorBreakLevel = passiveId == SkillId.ArmorBreak ? item.EffectRank : 0,
+                PiercingLevel = passiveId == SkillId.Piercing ? item.EffectRank : 0,
                 ArmorPenetrationFlat = armorPenetrationFlat,
                 ArmorIgnorePercent = armorIgnorePercent,
-                ExecutionLevel = passiveId == SkillId.Execution ? StatScaling.ItemEffectRank(item.itemLevel) : 0,
-                GiantSlayerLevel = passiveId == SkillId.GiantSlayer ? StatScaling.ItemEffectRank(item.itemLevel) : 0
+                ExecutionLevel = passiveId == SkillId.Execution ? item.EffectRank : 0,
+                GiantSlayerLevel = passiveId == SkillId.GiantSlayer ? item.EffectRank : 0
             };
             weapons.Add(weaponState);
             if (item.isPairedWeapon)
@@ -492,7 +492,7 @@ public static class CombatantFactory
 
             if (passiveId == SkillId.Repair)
             {
-                repairLevel += StatScaling.ItemEffectRank(item.itemLevel);
+                repairLevel += item.EffectRank;
             }
         }
 
@@ -519,14 +519,14 @@ public static class CombatantFactory
             magicShield += item.MagicShieldEffective;
 
             // 3.11 (Варвар) — Пояс: hpBonus как ОСНОВНОЙ стат предмета (аналогично magicShield выше),
-            // масштабируется через StatScaling (HpBonusEffective). rageBonusFlatPercent (Пояс титана)
-            // НЕ идёт через StatScaling — по ГДД это флэт-линейный бонус, просто ×itemLevel.
+            // масштабируется через StatScaling (HpBonusEffective). rageBonusFlatPercent — отдельный
+            // эффект и потому масштабируется сохранённым рангом, а не itemLevel.
             hpBonusSum += item.HpBonusEffective;
-            rageBonusFlatPercentSum += StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.itemLevel);
+            rageBonusFlatPercentSum += StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.EffectRank);
 
             if (item.bonusStat != null)
             {
-                float scaledBonus = StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel);
+                float scaledBonus = StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.EffectRank);
                 switch (item.bonusStat.type)
                 {
                     case BonusStatType.MagicShieldFlat:
@@ -539,7 +539,7 @@ public static class CombatantFactory
                     // игнорировались — затрагивает почти все кольца/аксессуары и часть Редких/
                     // Эпических шлемов/сапог/оружия (см. Assets/ScriptableObjects/Items).
                     case BonusStatType.MaxPhysicalDefenseFlat: // Кольцо брони / Амулет стойкости
-                        float accessoryArmor = ItemEffectBalance.ArmorAccessoryMaxDefense(item.bonusStat.baseValue, item.itemLevel);
+                        float accessoryArmor = ItemEffectBalance.ArmorAccessoryMaxDefense(item.bonusStat.baseValue, item.EffectRank);
                         if (item.slot == EquipmentSlot.Ring)
                         {
                             if (armorRingsSeen > 0)
@@ -568,27 +568,27 @@ public static class CombatantFactory
             SkillId passiveId = item.passiveSkill != null ? item.passiveSkill.skillId : SkillId.None;
             if (passiveId == SkillId.Elusiveness)
             {
-                elusivenessLevel += StatScaling.ItemEffectRank(item.itemLevel);
+                elusivenessLevel += item.EffectRank;
             }
             else if (passiveId == SkillId.GoldenTouch)
             {
-                goldenTouchLevel += StatScaling.ItemEffectRank(item.itemLevel);
+                goldenTouchLevel += item.EffectRank;
             }
             else if (passiveId == SkillId.ToughSole)
             {
-                toughSoleLevel += StatScaling.ItemEffectRank(item.itemLevel);
+                toughSoleLevel += item.EffectRank;
             }
             else if (passiveId == SkillId.Riposte)
             {
-                riposteLevel += StatScaling.ItemEffectRank(item.itemLevel);
+                riposteLevel += item.EffectRank;
             }
             else if (passiveId == SkillId.EmbraceOfNight)
             {
-                embraceOfNightLevel += StatScaling.ItemEffectRank(item.itemLevel);
+                embraceOfNightLevel += item.EffectRank;
             }
             else if (passiveId == SkillId.JustAScratch)
             {
-                justAScratchLevel += StatScaling.ItemEffectRank(item.itemLevel);
+                justAScratchLevel += item.EffectRank;
             }
         }
     }

@@ -9,7 +9,6 @@ public partial class RunFlowController
     const string PersonalRestContentKey = "special:personal-rest";
     const string MushroomCaveContentKey = "special:mushroom-cave";
     const string AbandonedForgeContentKey = "special:abandoned-forge";
-    const string HarpyNestContentKey = "trap:harpy-nest";
 
     void ResolveGeneratedFloorMapContent()
     {
@@ -50,10 +49,7 @@ public partial class RunFlowController
                 node.ContentKey = $"boss:{bossData.monsterName}";
                 break;
             case RoomType.Trap:
-                // Harpy Nest has a fully resolved backend/content ID, but live selection remains
-                // disabled until its missing success-check difficulty is approved.
-                var trap = TrapCatalog.All[UnityEngine.Random.Range(0, TrapCatalog.All.Length)];
-                node.ContentKey = $"trap:{trap.Name}";
+                ResolveTrapContent(node, rareState);
                 break;
             case RoomType.Special:
                 ResolveSpecialContent(node, rareState, oneShotState);
@@ -64,6 +60,23 @@ public partial class RunFlowController
             default:
                 throw new ArgumentOutOfRangeException(nameof(node.RoomType), node.RoomType, "Unknown room type.");
         }
+    }
+
+    void ResolveTrapContent(FloorMapNode node, RareRoomFloorState rareState)
+    {
+        var rare = RareRoomContentResolver.Resolve(RoomType.Trap, dungeonManager.CurrentFloorNumber,
+            RareRoomConfig, rareState, new UnityRewardRandom());
+        if (rare == RareRoomContentId.HarpyNest && HarpyNestContent.HasHarpy(regularMonsterPool))
+        {
+            HarpyNestContent.ConfigureNode(node);
+            return;
+        }
+
+        if (rare == RareRoomContentId.HarpyNest)
+            Debug.LogWarning("[Rooms] Гнездо гарпий выпало при генерации, но Гарпия отсутствует в пуле монстров — использована обычная ловушка.");
+
+        var trap = TrapCatalog.All[UnityEngine.Random.Range(0, TrapCatalog.All.Length)];
+        node.ContentKey = $"trap:{trap.Name}";
     }
 
     void ResolveCombatContent(FloorMapNode node)
@@ -131,7 +144,8 @@ public partial class RunFlowController
 
     void ResolveMerchantContent(FloorMapNode node)
     {
-        var offers = rewardManager.GenerateMerchantOffers(characterManager.Level, characterManager.Character.characterClass);
+        var offers = rewardManager.GenerateMerchantOffers(characterManager.Level,
+            characterManager.Character.characterClass, dungeonManager.CurrentFloorNumber);
         foreach (var offer in offers)
         {
             var item = offer.Item;
@@ -141,6 +155,7 @@ public partial class RunFlowController
                 ItemTier = item != null ? item.tier : default,
                 WeaponSubtype = item != null ? item.weaponSubtype : WeaponSubtype.None,
                 ItemLevel = item != null ? item.itemLevel : 0,
+                ItemRank = item != null ? item.EffectRank : 0,
                 OriginalPrice = offer.OriginalPrice,
                 Price = offer.Price,
                 HasDiscount = offer.HasDiscount
@@ -190,7 +205,7 @@ public partial class RunFlowController
                 if (rewardManager.itemCatalog == null || !rewardManager.itemCatalog.TryGetItem(
                     state.ItemName, state.ItemTier, state.WeaponSubtype, characterManager.Character.characterClass, out var baseItem))
                     throw new InvalidOperationException($"Resolved merchant item '{state.ItemName}' is missing for node {node.Id}.");
-                item = rewardManager.CreateItemAtExactLevel(baseItem, state.ItemLevel);
+                item = rewardManager.CreateItemAtExactLevel(baseItem, state.ItemLevel, state.ItemRank <= 0 ? 1 : state.ItemRank);
             }
             result.Add(new MerchantOffer
             {

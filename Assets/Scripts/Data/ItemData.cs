@@ -22,8 +22,9 @@ public class ItemData : ScriptableObject
     public bool isTwoHanded;
     public ItemTier tier;
     public int itemLevel = 1;
-    // Отдельный, сохранённый ранг специальных Cursed-эффектов. Старые предметы оставляют 0 и
-    // продолжают выводить ранг пассивки из itemLevel через StatScaling.ItemEffectRank.
+    // Отдельный, сохранённый ранг особого эффекта любого предмета. Он не зависит от itemLevel:
+    // уровень усиливает основные характеристики, ранг — бонусы, пассивку и Cursed-эффекты.
+    // У legacy-ассетов/сохранений 0 безопасно трактуется как ранг I.
     [Range(0, 5)] public int itemRank;
     public CharacterClass[] allowedClasses;
 
@@ -65,9 +66,9 @@ public class ItemData : ScriptableObject
     // них остаются свои проценты (см. CombatantFactory).
     // Тир уже запечён в баланс-ассете (baseDamage/physicalDefense каждого тира авторизован с
     // учётом множителя тира, см. 3.10) — поэтому здесь достаточно взять сохранённое поле как есть.
-    public int EffectRank => cursedEffect != CursedEffectId.None
-        ? Mathf.Clamp(itemRank <= 0 ? 1 : itemRank, 1, 5)
-        : StatScaling.ItemEffectRank(itemLevel);
+    public int EffectRank => Mathf.Clamp(itemRank <= 0 ? 1 : itemRank, 1, 5);
+    public bool HasRankedEffect => cursedEffect != CursedEffectId.None || passiveSkill != null ||
+        bonusStat != null || rageBonusFlatPercent > 0f;
 
     // Старые ассеты уже хранят умноженную на тир базу. Cursed хранит базу архетипа и применяет
     // явно утверждённый ×2.2, а level-инкремент считает именно от базы до множителя.

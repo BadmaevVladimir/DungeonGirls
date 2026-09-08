@@ -243,4 +243,52 @@ public class RoomRewardTests
         Assert.AreEqual(RoomType.Special, mapNode.RoomType, "Rare content must not alter map room type.");
         Object.DestroyImmediate(config);
     }
+
+    [Test]
+    public void HarpyNest_UsesApprovedTestDifficultyChanceAndRewards()
+    {
+        var config = ScriptableObject.CreateInstance<RareRoomConfig>();
+        Assert.AreEqual(5, config.harpyNestChallengeLevel);
+        Assert.AreEqual(.10f, config.harpyNestChance);
+        Assert.AreEqual(2, config.harpyNestMinimumFloor);
+        Assert.AreEqual(1, config.harpyNestPerFloorLimit);
+
+        var state = new RareRoomFloorState();
+        Assert.AreEqual(RareRoomContentId.HarpyNest, RareRoomContentResolver.Resolve(
+            RoomType.Trap, 2, config, state, new SequenceRandom(.099f)));
+        Assert.AreEqual(RareRoomContentId.None, RareRoomContentResolver.Resolve(
+            RoomType.Trap, 2, config, new RareRoomFloorState(), new SequenceRandom(.10f)));
+
+        Assert.AreEqual(2, RareRoomRewardHooks.ResolveHarpyNestSuccess(config, new SequenceRandom(0f)).amount);
+        Assert.AreEqual(3, config.harpySuccessMaxEggs);
+        Assert.AreEqual(1, RareRoomRewardHooks.ResolveHarpyNestFailureCombatVictory(config).amount);
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void HarpyNest_UsesApprovedPlayerFacingText()
+    {
+        Assert.AreEqual("Гнездо гарпий", HarpyNestContent.Title);
+        Assert.AreEqual("Украсть яйца", HarpyNestContent.AttemptButton);
+        Assert.AreEqual("Не тревожить гнездо", HarpyNestContent.SkipButton);
+        StringAssert.Contains("хозяйка скоро вернётся", HarpyNestContent.Description);
+        StringAssert.Contains("Приготовьтесь к бою", HarpyNestContent.Failure);
+        StringAssert.Contains("×3", HarpyNestContent.Success(3));
+        StringAssert.Contains("×1", HarpyNestContent.Victory(1));
+    }
+
+    [Test]
+    public void HarpyNest_ConfiguresSpecificHarpyEncounterAndStandardCheck()
+    {
+        var harpy = ScriptableObject.CreateInstance<MonsterData>();
+        harpy.monsterName = HarpyNestContent.MonsterName;
+        Assert.IsTrue(HarpyNestContent.HasHarpy(new[] { harpy }));
+
+        var node = new FloorMapNode { RoomType = RoomType.Trap };
+        HarpyNestContent.ConfigureNode(node);
+        Assert.AreEqual(HarpyNestContent.ContentKey, node.ContentKey);
+        CollectionAssert.AreEqual(new[] { HarpyNestContent.MonsterName }, node.ResolvedMonsterIds);
+        Assert.AreEqual(50f, SuccessChanceCalculator.CalculateSuccessChancePercent(5, 5, 0f));
+        Object.DestroyImmediate(harpy);
+    }
 }

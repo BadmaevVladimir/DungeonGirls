@@ -58,8 +58,8 @@ public static class DisplayFormat
         }
 
         float value = bonusStat.type == BonusStatType.MaxPhysicalDefenseFlat
-            ? ItemEffectBalance.ArmorAccessoryMaxDefense(bonusStat.baseValue, item.itemLevel)
-            : StatScaling.ScaleItemEffect(bonusStat.baseValue, item.itemLevel);
+            ? ItemEffectBalance.ArmorAccessoryMaxDefense(bonusStat.baseValue, item.EffectRank)
+            : StatScaling.ScaleItemEffect(bonusStat.baseValue, item.EffectRank);
         switch (bonusStat.type)
         {
             case BonusStatType.CritChancePercent: return $"+шанс критического удара: {SkillDescriptionFormatter.Value($"{value:F1}%")}";
@@ -84,7 +84,7 @@ public static class DisplayFormat
         }
 
         var lines = new List<string> { $"{SlotLabel(item)}, {RarityLabel(item.tier)}, уровень {SkillDescriptionFormatter.Value(item.itemLevel.ToString())}" };
-        if (item.tier == ItemTier.Cursed) lines.Add($"Ранг эффекта: {SkillDescriptionFormatter.Value(RankLabel(item.EffectRank))} из V");
+        if (item.HasRankedEffect) lines.Add($"Ранг эффекта: {SkillDescriptionFormatter.Value(RankLabel(item.EffectRank))} из V");
 
         if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
         {
@@ -118,13 +118,13 @@ public static class DisplayFormat
 
         if (item.rageBonusFlatPercent > 0f)
         {
-            lines.Add($"+Ярость: {SkillDescriptionFormatter.Value($"{StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.itemLevel):F1}%")}");
+            lines.Add($"+Ярость: {SkillDescriptionFormatter.Value($"{StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.EffectRank):F1}%")}");
         }
 
         string bonusText = BonusStatText(item);
         if (!string.IsNullOrWhiteSpace(bonusText))
         {
-            lines.Add(bonusText + $" (ранг {SkillDescriptionFormatter.Value(StatScaling.ItemEffectRank(item.itemLevel).ToString())} из V)");
+            lines.Add(bonusText);
             if (item.slot == EquipmentSlot.Ring && item.bonusStat.type == BonusStatType.MaxPhysicalDefenseFlat)
             {
                 lines.Add("Если надеть второе такое кольцо, оно даст половину этого бонуса.");

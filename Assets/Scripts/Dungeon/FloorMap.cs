@@ -39,6 +39,7 @@ public sealed class FloorMerchantOfferState
     public ItemTier ItemTier;
     public WeaponSubtype WeaponSubtype;
     public int ItemLevel;
+    public int ItemRank;
     public int OriginalPrice;
     public int Price;
     public bool HasDiscount;

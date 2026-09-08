@@ -294,9 +294,10 @@ public static class PlayModeSmokeTest
         Check(twoHandedMultiplierRuntime.Weapons.Count == 1 && twoHandedMultiplierRuntime.Weapons[0].DamageMin == 10f && twoHandedMultiplierRuntime.Weapons[0].DamageMax == 16f,
             $"Баланс Саши: двуручное оружие получает +30% после плоских бонусов (диапазон {(twoHandedMultiplierRuntime.Weapons.Count > 0 ? $"{twoHandedMultiplierRuntime.Weapons[0].DamageMin}-{twoHandedMultiplierRuntime.Weapons[0].DamageMax}" : "нет оружия")}, ожидалось 10-16)");
         UnityEngine.Object.DestroyImmediate(twoHandedMultiplierTest);
-        Check(StatScaling.ItemEffectRank(1) == 1 && StatScaling.ItemEffectRank(3) == 1 && StatScaling.ItemEffectRank(4) == 2 && StatScaling.ItemEffectRank(16) == 5 &&
-            Mathf.Approximately(StatScaling.ScaleItemEffect(8f, 16), 40f),
-            "8.6 вторичные эффекты предметов растут по рангу 1-5, а не линейно до уровня лута");
+        Check(RewardManager.RollItemRank(1, .99f) == 1 && RewardManager.RollItemRank(3, .35f) == 2 &&
+            RewardManager.RollItemRank(7, .55f) == 4 && RewardManager.RollItemRank(9, .55f) == 5 &&
+            Mathf.Approximately(StatScaling.ScaleItemEffect(8f, 5), 40f),
+            "D06: вторичные эффекты используют отдельный ранг I-V с тестовыми весами по этажам");
         Check(
             ItemEffectBalance.ToughSoleTrapReductionPercent(0) == 0f && ItemEffectBalance.ToughSoleTrapReductionPercent(1) == 10f && ItemEffectBalance.ToughSoleTrapReductionPercent(5) == 30f &&
             ItemEffectBalance.GoldenTouchCurrencyBonusPercent(0) == 0f && ItemEffectBalance.GoldenTouchCurrencyBonusPercent(1) == 10f && ItemEffectBalance.GoldenTouchCurrencyBonusPercent(5) == 30f &&

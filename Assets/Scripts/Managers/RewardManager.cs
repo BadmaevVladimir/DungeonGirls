@@ -126,21 +126,39 @@ public class RewardManager : MonoBehaviour
     // 1 уровня, разница между уровнями предмета была незаметна). ItemData — общий
     // ScriptableObject-ассет каталога, поэтому уровень выставляется на runtime-клоне, а не на
     // самом ассете (иначе он "утёк" бы во все последующие роллы), см. также EquipmentManager.
-    ItemData RollItemLevel(ItemData baseItem, int characterLevel)
+    ItemData RollItemLevelAndRank(ItemData baseItem, int characterLevel, int floorNumber)
     {
         if (baseItem == null) return null;
 
-        return CreateItemAtExactLevel(baseItem, Random.Range(characterLevel, characterLevel + 3)); // [char; char+2] включительно
+        return CreateItemAtExactLevel(baseItem, Random.Range(characterLevel, characterLevel + 3),
+            RollItemRank(floorNumber, Random.value)); // уровень [char; char+2] включительно
+    }
+
+    // D06, тестовый баланс: поздние этажи не запрещают низкие ранги, но постепенно уменьшают
+    // их вероятность. Таблица временная и должна быть пересмотрена после плейтеста.
+    public static int RollItemRank(int floorNumber, float roll)
+    {
+        float value = Mathf.Clamp01(roll);
+        int floor = Mathf.Clamp(floorNumber, 1, DungeonManager.TotalFloors);
+        if (floor <= 2) return 1;
+        if (floor <= 4) return value < .35f ? 1 : 2;
+        if (floor <= 6) return value < .15f ? 1 : value < .45f ? 2 : 3;
+        if (floor <= 8) return value < .10f ? 1 : value < .25f ? 2 : value < .55f ? 3 : 4;
+        return value < .05f ? 1 : value < .15f ? 2 : value < .30f ? 3 : value < .55f ? 4 : 5;
     }
 
     // Квестовые/гарантированные награды задают точный уровень. Всегда клонируем общий ассет,
     // чтобы изменение itemLevel не утекло в каталог, стартовое снаряжение или будущие роллы.
     public ItemData CreateItemAtExactLevel(ItemData baseItem, int itemLevel)
+        => CreateItemAtExactLevel(baseItem, itemLevel, baseItem != null ? baseItem.EffectRank : 1);
+
+    public ItemData CreateItemAtExactLevel(ItemData baseItem, int itemLevel, int itemRank)
     {
         if (baseItem == null) return null;
 
         var clone = Instantiate(baseItem);
         clone.itemLevel = Mathf.Max(1, itemLevel);
+        clone.itemRank = Mathf.Clamp(itemRank, 1, 5);
         return clone;
     }
 
@@ -176,10 +194,13 @@ public class RewardManager : MonoBehaviour
     // получит скидку (роллится один раз на весь визит, не по каждому предмету).
     public List<MerchantOffer> GenerateMerchantOffers(int characterLevel)
     {
-        return GenerateMerchantOffers(characterLevel, null);
+        return GenerateMerchantOffers(characterLevel, null, 1);
     }
 
     public List<MerchantOffer> GenerateMerchantOffers(int characterLevel, CharacterClass? characterClass)
+        => GenerateMerchantOffers(characterLevel, characterClass, 1);
+
+    public List<MerchantOffer> GenerateMerchantOffers(int characterLevel, CharacterClass? characterClass, int floorNumber)
     {
         var offers = new List<MerchantOffer>();
         for (int i = 0; i < 5; i++)
@@ -188,7 +209,7 @@ public class RewardManager : MonoBehaviour
             ItemData item = null;
             if (itemCatalog != null && itemCatalog.TryGetRandomItem(tier, characterClass, IsItemInLootPool, out var baseItem))
             {
-                item = RollItemLevel(baseItem, characterLevel);
+                item = RollItemLevelAndRank(baseItem, characterLevel, floorNumber);
             }
 
             int price = item != null ? MerchantPrice(item) : 0;
@@ -211,10 +232,10 @@ public class RewardManager : MonoBehaviour
 
     // Reusable flow для будущих special-room definitions: контент комнаты задаёт stable effect id,
     // а общий каталог/классовая фильтрация и runtime-клон остаются теми же, что у сундуков.
-    public ItemData CreateGuaranteedCursedReward(CursedEffectId effect, CharacterClass characterClass, int itemLevel)
+    public ItemData CreateGuaranteedCursedReward(CursedEffectId effect, CharacterClass characterClass, int itemLevel, int floorNumber = 1)
     {
         if (itemCatalog == null || !itemCatalog.TryGetGuaranteedCursedItem(effect, characterClass, out var baseItem)) return null;
-        return CreateItemAtExactLevel(baseItem, itemLevel);
+        return CreateItemAtExactLevel(baseItem, itemLevel, RollItemRank(floorNumber, Random.value));
     }
 
     // currencyBonus/noCurrency — модификаторы от квестов (5.4: "Загадка сфинкса" даёт +200
@@ -228,7 +249,7 @@ public class RewardManager : MonoBehaviour
         ItemData rolledItem = null;
         if (itemCatalog != null && itemCatalog.TryGetRandomItem(itemRarity, characterClass, IsItemInLootPool, out var baseItem))
         {
-            rolledItem = RollItemLevel(baseItem, characterLevel);
+            rolledItem = RollItemLevelAndRank(baseItem, characterLevel, floorNumber);
         }
 
         var reward = new ChestReward(currency, itemRarity, rolledItem, RollBonusReward(luckSkillLevel));
@@ -259,7 +280,7 @@ public class RewardManager : MonoBehaviour
         if (materialDrop.HasValue) materials.Add(materialDrop.Value);
 
         ChestReward chest = hasChest
-            ? CalculateChestReward(isBoss, characterLevel, luckSkillLevel, characterClass)
+            ? CalculateChestReward(floorNumber, isBoss, characterLevel, luckSkillLevel, characterClass)
             : null;
         return new RoomRewardResult(currency, ingredients, hasChest,
             isBoss ? RewardRoomContext.Boss : RewardRoomContext.Combat, chest, materials);
@@ -363,13 +384,13 @@ public class RewardManager : MonoBehaviour
     }
 
     // Формулы редкости/уровня предмета и boss-minimum остаются прежними; валюта теперь room reward.
-    ChestReward CalculateChestReward(bool isBoss, int characterLevel, int luckSkillLevel,
+    ChestReward CalculateChestReward(int floorNumber, bool isBoss, int characterLevel, int luckSkillLevel,
         CharacterClass? characterClass)
     {
         ItemTier itemRarity = RollItemRarity(isBoss);
         ItemData rolledItem = null;
         if (itemCatalog != null && itemCatalog.TryGetRandomItem(itemRarity, characterClass, IsItemInLootPool, out var baseItem))
-            rolledItem = RollItemLevel(baseItem, characterLevel);
+            rolledItem = RollItemLevelAndRank(baseItem, characterLevel, floorNumber);
         return new ChestReward(0, itemRarity, rolledItem, RollBonusReward(luckSkillLevel));
     }
 

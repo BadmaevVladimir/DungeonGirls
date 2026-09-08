@@ -18,6 +18,7 @@ public class RareRoomConfig : ScriptableObject
     [Range(0f, 1f)] public float harpyNestChance = 0.10f;
     [Min(1)] public int harpyNestMinimumFloor = 2;
     [Min(1)] public int harpyNestPerFloorLimit = 1;
+    [Min(1)] public int harpyNestChallengeLevel = 5;
     [Range(0f, 1f)] public float abandonedForgeChance = 0.08f;
     [Min(1)] public int abandonedForgeMinimumFloor = 3;
     [Min(1)] public int abandonedForgePerFloorLimit = 1;

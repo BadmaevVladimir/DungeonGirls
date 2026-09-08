@@ -270,7 +270,7 @@ public partial class RunFlowController
         }
 
         var lines = new List<string> { $"{DisplayFormat.SlotLabel(item)}, {DisplayFormat.RarityLabel(item.tier)}, ур. {item.itemLevel}" };
-        if (item.tier == ItemTier.Cursed) lines.Add($"ранг эффекта {DisplayFormat.RankLabel(item.EffectRank)} из V");
+        if (item.HasRankedEffect) lines.Add($"ранг эффекта {DisplayFormat.RankLabel(item.EffectRank)} из V");
 
         var mainStats = new List<string>();
         if (item.slot == EquipmentSlot.Weapon && item.weaponSubtype != WeaponSubtype.None && item.weaponSubtype != WeaponSubtype.Shield)
@@ -305,7 +305,7 @@ public partial class RunFlowController
         }
         if (item.rageBonusFlatPercent > 0f)
         {
-            mainStats.Add($"Ярость +{StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.itemLevel):F1}%");
+            mainStats.Add($"Ярость +{StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.EffectRank):F1}%");
         }
         if (mainStats.Count > 0)
         {
@@ -468,15 +468,15 @@ public partial class RunFlowController
     static float? HpBonusValue(ItemData item) => item != null && item.HpBonusEffective > 0f ? item.HpBonusEffective : (float?)null;
 
     static float? RageBonusValue(ItemData item) =>
-        item != null && item.rageBonusFlatPercent > 0f ? StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.itemLevel) : (float?)null;
+        item != null && item.rageBonusFlatPercent > 0f ? StatScaling.ScaleItemEffect(item.rageBonusFlatPercent, item.EffectRank) : (float?)null;
 
     static (string Label, float? Value) BonusStatValue(ItemData item)
     {
         if (item?.bonusStat == null || item.bonusStat.type == BonusStatType.None || Mathf.Approximately(item.bonusStat.baseValue, 0f))
             return (null, null);
         float value = item.bonusStat.type == BonusStatType.MaxPhysicalDefenseFlat
-            ? ItemEffectBalance.ArmorAccessoryMaxDefense(item.bonusStat.baseValue, item.itemLevel)
-            : StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.itemLevel);
+            ? ItemEffectBalance.ArmorAccessoryMaxDefense(item.bonusStat.baseValue, item.EffectRank)
+            : StatScaling.ScaleItemEffect(item.bonusStat.baseValue, item.EffectRank);
         string label = BonusStatLabel(item.bonusStat.type);
         return string.IsNullOrEmpty(label) ? (null, null) : (label, value);
     }
