@@ -9,18 +9,25 @@ using UnityEngine.UIElements;
 // (SampleScene), хаб и забег живут в ней как экраны, так что отдельного переживания загрузки
 // сцены не требуется.
 //
-// Правила подбора трека вынесены в MusicCatalog (чистая логика, покрыта EditMode-тестами).
-// Здесь остаётся только работа с Unity: загрузка клипа, один AudioSource, отсутствие наложения.
-public class MusicPlayer : MonoBehaviour
+// Разделение обязанностей:
+//   MusicCatalog  — какие файлы играть под контекст (чистая логика);
+//   MusicLayerMix — какая громкость у слоя при данном напряжении (чистая логика);
+//   MusicMixer    — жизненный цикл: контексты, интенсивность, override (чистая логика);
+//   MusicPlayer   — всё, что требует Unity: клипы, AudioSource, dspTime.
+//
+// Здесь MusicPlayer реализует IMusicOutput, поэтому весь жизненный цикл покрыт EditMode-тестами
+// на подставном выходе, а этот класс остаётся тонким.
+public class MusicPlayer : MonoBehaviour, IMusicOutput
 {
     public static MusicPlayer Instance { get; private set; }
 
-    AudioSource source;
+    readonly MusicMixer mixer = new MusicMixer();
+    public MusicMixer Mixer => mixer;
 
-    // Имя ИГРАЮЩЕГО сейчас трека (null = тишина). Сравнение с ним не даёт перезапускать музыку на
-    // каждом обновлении экрана — именно перезапуск слышен как рывок и наложение.
-    string currentTrackName;
-    public string CurrentTrackName => currentTrackName;
+    // По источнику на слой. Источники не пересоздаются между контекстами: лишний AddComponent на
+    // каждом бою — мусор в сцене и лишняя работа для аудиосистемы.
+    readonly List<AudioSource> layerSources = new List<AudioSource>();
+    AudioSource overrideSource;
 
     // Об отсутствующем треке сообщаем один раз на имя: пока дизайнер не написал Hub.wav, каждый
     // заход в деревню иначе засорял бы лог одинаковыми предупреждениями.
@@ -28,6 +35,8 @@ public class MusicPlayer : MonoBehaviour
 
     // Кэш загруженных клипов: Resources.Load дешёвый, но повторный поиск на каждом бою не нужен.
     readonly Dictionary<string, AudioClip> loaded = new Dictionary<string, AudioClip>();
+
+    bool attached;
 
     public static MusicPlayer GetOrCreate(UIDocument document)
     {
@@ -37,58 +46,152 @@ public class MusicPlayer : MonoBehaviour
             Instance = document.GetComponent<MusicPlayer>();
             if (Instance == null) Instance = document.gameObject.AddComponent<MusicPlayer>();
         }
-        Instance.EnsureSource();
+        Instance.EnsureAttached();
         return Instance;
     }
 
-    void EnsureSource()
+    void EnsureAttached()
     {
-        if (source != null) return;
-        source = gameObject.AddComponent<AudioSource>();
-        source.playOnAwake = false;
-        source.loop = true;
-        source.spatialBlend = 0f; // музыка не позиционная
+        if (attached) return;
+        mixer.Attach(this, HasTrack);
+        mixer.SetCategoryVolume(AudioSettingsManager.GetCategoryVolume(AudioCategory.Music));
+        attached = true;
     }
+
+    void Awake() => EnsureAttached();
 
     void OnDestroy()
     {
         if (Instance == this) Instance = null;
     }
 
-    public void PlayHub() => Play(MusicRequest.Hub());
+    // Музыка не должна замирать на паузе и в замедлении: unscaled.
+    void Update() => mixer.Tick(Time.unscaledDeltaTime);
 
-    public void PlayCombat(string characterId, bool isBoss) => Play(MusicRequest.Combat(characterId, isBoss));
+    // ==================== Публичный контракт для игрового кода ====================
 
-    public void StopMusic() => Play(MusicRequest.Silent());
+    public void PlayHub() => mixer.PlayContext(MusicRequest.Hub());
 
-    public void Play(MusicRequest request)
+    // Начало забега/выбор героини: тема героини запускается один раз и играет непрерывно.
+    public void PlayRun(string characterId)
     {
-        EnsureSource();
-        string nextTrack = MusicCatalog.ResolveTrackName(request, HasTrack);
-        if (!MusicCatalog.ShouldSwitch(currentTrackName, nextTrack)) return;
+        mixer.PlayContext(MusicRequest.Run(characterId));
+        mixer.ExitCombat(); // на карте слышен только базовый слой
+    }
 
-        currentTrackName = nextTrack;
-        if (nextTrack == null)
+    // Вход в бой. Для обычного боя контекст совпадает с контекстом забега — трек НЕ
+    // перезапускается, поднимается только интенсивность. Бой босса — намеренная смена контекста.
+    public void PlayCombat(string characterId, bool isBoss, float encounterBaseIntensity)
+    {
+        mixer.PlayContext(MusicRequest.Combat(characterId, isBoss));
+        mixer.EnterCombat(encounterBaseIntensity);
+    }
+
+    public void PlayCombat(string characterId, bool isBoss) =>
+        PlayCombat(characterId, isBoss, CombatMusicIntensity.BaseForEncounter(isBoss, false));
+
+    public void SetCombatIntensity(float intensity) => mixer.SetIntensity(intensity);
+
+    // Выход из боя: музыка продолжает играть, слои возвращаются к базовому. Именно это заменило
+    // прежний StopMusic() после боя.
+    public void ExitCombat() => mixer.ExitCombat();
+
+    // Намеренная тишина (например, экран результатов). Не используется при выходе из боя.
+    public void StopMusic() => mixer.PlayContext(MusicRequest.Silent());
+
+    public int BeginOverride(MusicRequest? track = null,
+                             float fadeSeconds = MusicMixer.DefaultOverrideFadeSeconds) =>
+        mixer.BeginOverride(track, fadeSeconds);
+
+    public void EndOverride(int token) => mixer.EndOverride(token);
+
+    public void ClearOverrides() => mixer.ClearOverrides();
+
+    // Громкость меняется в настройках во время игры — переприменяем её к уже играющим слоям,
+    // не трогая ни клипы, ни позицию.
+    public void RefreshVolume() =>
+        mixer.SetCategoryVolume(AudioSettingsManager.GetCategoryVolume(AudioCategory.Music));
+
+    // Прежнее имя свойства: сейчас это ключ контекста, он же базовое имя трека.
+    public string CurrentTrackName => mixer.CurrentContextKey;
+
+    // ==================== IMusicOutput ====================
+
+    public double DspTime => AudioSettings.dspTime;
+
+    public bool PrepareLayers(IReadOnlyList<string> trackNames)
+    {
+        if (trackNames == null || trackNames.Count == 0) return false;
+
+        // Смена контекста — единственное место, где звук рвётся намеренно.
+        StopAllLayers();
+
+        while (layerSources.Count < trackNames.Count) layerSources.Add(CreateSource());
+
+        for (int i = 0; i < trackNames.Count; i++)
         {
-            source.Stop();
-            source.clip = null;
-            return;
+            var clip = LoadClip(trackNames[i]);
+            if (clip == null) return false;
+            layerSources[i].clip = clip;
+            layerSources[i].volume = 0f; // до первого ApplyVolumes слой не должен хлопнуть
         }
 
-        // Останавливаем явно перед сменой: без этого смена клипа у играющего источника даёт
-        // слышимый стык, а при быстрых переходах — наложение хвоста предыдущего трека.
-        source.Stop();
-        TaggedAudio.Play(source, loaded[nextTrack], AudioCategory.Music);
-        source.loop = true;
+        // Лишние источники прошлого набора остаются в списке, но без клипа и остановленными.
+        for (int i = trackNames.Count; i < layerSources.Count; i++) layerSources[i].clip = null;
+        return true;
     }
 
-    // Громкость меняется в настройках во время игры, а Play() уже отыграл — переприменяем
-    // категорийную громкость к текущему треку.
-    public void RefreshVolume()
+    public void ScheduleLayer(int index, double dspStartTime)
     {
-        if (source == null || currentTrackName == null) return;
-        source.volume = AudioSettingsManager.GetCategoryVolume(AudioCategory.Music);
+        if (index < 0 || index >= layerSources.Count) return;
+        layerSources[index].PlayScheduled(dspStartTime);
     }
+
+    public void SetLayerVolume(int index, float volume)
+    {
+        if (index < 0 || index >= layerSources.Count) return;
+        layerSources[index].volume = Mathf.Clamp01(volume);
+    }
+
+    public void StopAllLayers()
+    {
+        for (int i = 0; i < layerSources.Count; i++) layerSources[i].Stop();
+    }
+
+    public void PlayOverrideTrack(string trackName)
+    {
+        var clip = LoadClip(trackName);
+        if (clip == null) return;
+        if (overrideSource == null) overrideSource = CreateSource();
+        overrideSource.clip = clip;
+        overrideSource.volume = 0f;
+        overrideSource.time = 0f;
+        overrideSource.Play();
+    }
+
+    public void StopOverrideTrack()
+    {
+        if (overrideSource != null) overrideSource.Stop();
+    }
+
+    public void SetOverrideVolume(float volume)
+    {
+        if (overrideSource != null) overrideSource.volume = Mathf.Clamp01(volume);
+    }
+
+    // ==================== Загрузка ====================
+
+    AudioSource CreateSource()
+    {
+        var created = gameObject.AddComponent<AudioSource>();
+        created.playOnAwake = false;
+        created.loop = true;
+        created.spatialBlend = 0f; // музыка не позиционная
+        created.volume = 0f;
+        return created;
+    }
+
+    AudioClip LoadClip(string trackName) => HasTrack(trackName) ? loaded[trackName] : null;
 
     bool HasTrack(string trackName)
     {
@@ -100,6 +203,8 @@ public class MusicPlayer : MonoBehaviour
         if (clip == null && reportedMissing.Add(trackName))
         {
             // Не ошибка: трека может ещё не быть. Тишина — штатный исход, см. MusicCatalog.
+            // Отсутствие ОДНОГО слоя — тоже штатный исход: набор целиком отвергается, и играет
+            // контрольный микс (ГДД, «Отказоустойчивость»).
             Debug.Log($"[Music] Трек «{trackName}» не найден в Assets/Resources/{MusicCatalog.ResourceFolder}/ — этот контекст пока без музыки.");
         }
         return clip != null;

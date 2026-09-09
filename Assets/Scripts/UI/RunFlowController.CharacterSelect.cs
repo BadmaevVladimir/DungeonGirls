@@ -233,6 +233,9 @@ public partial class RunFlowController
             ? VeteranSystem.RollTransferredSkills(mentor, new System.Random(System.Environment.TickCount ^ mentor.GetHashCode()))
             : new List<string>();
         mentorSelectScreen.style.display = DisplayStyle.None;
+        // W11: тема героини запускается ОДИН раз на весь забег и дальше не прерывается. Бои
+        // только подмешивают к ней слои, а между боями звучит базовый слой.
+        MusicPlayer.Instance?.PlayRun(selectedCharacter != null ? selectedCharacter.characterId : null);
         StartCoroutine(RunLoop());
     }
 
