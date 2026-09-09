@@ -125,18 +125,26 @@ const buildInto = (created: Project, flat: FlatArrangement,
         }
         // Nano ждёт AudioFileBox, Soundfont — SoundfontFileBox, Playfield — массив слотов
         // с уже привязанными ассетами (сам заводит под них AudioFileBox через фабрику).
+        // File-box адресуется UUID самого ассета, поэтому на один ассет в графе может
+        // существовать ровно один box. Две дорожки на общий сэмпл или банк — обычный
+        // случай (струнные и медь из одного soundfont), и второй create ронял сборку:
+        // падал уже откат транзакции, пряча настоящую причину за "has outgoing edges".
+        const reuseOrCreate = <B>(uuid: Uint8Array, create: () => B): B =>
+            created.boxGraph.findBox(uuid).unwrapOrElse(create as never) as B
         const attachmentFor = (instrument: FlatTrack["instrument"]): unknown => {
             if (instrument.device === "Nano") {
                 const entry = lookupAsset(instrument.sample!, "sample")
-                return AudioFileBox.create(created.boxGraph, entry.uuid, box => {
-                    box.fileName.setValue(instrument.sample!)
-                    if (entry.seconds !== undefined) {box.endInSeconds.setValue(entry.seconds)}
-                })
+                return reuseOrCreate(entry.uuid, () =>
+                    AudioFileBox.create(created.boxGraph, entry.uuid, box => {
+                        box.fileName.setValue(instrument.sample!)
+                        if (entry.seconds !== undefined) {box.endInSeconds.setValue(entry.seconds)}
+                    }))
             }
             if (instrument.device === "Soundfont") {
                 const entry = lookupAsset(instrument.soundfont!, "soundfont")
-                return SoundfontFileBox.create(created.boxGraph, entry.uuid,
-                    box => box.fileName.setValue(instrument.soundfont!))
+                return reuseOrCreate(entry.uuid, () =>
+                    SoundfontFileBox.create(created.boxGraph, entry.uuid,
+                        box => box.fileName.setValue(instrument.soundfont!)))
             }
             if (instrument.device === "Playfield") {
                 return Object.entries(instrument.slots ?? {}).map(([pitch, sample]) => {
