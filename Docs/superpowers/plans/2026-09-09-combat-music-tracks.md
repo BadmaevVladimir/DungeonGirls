@@ -24,6 +24,7 @@
 - openDAW рендерит на **48000 Гц**, стерео.
 - `render` пишет в `Audio/Music/` (переменная `OPENDAW_OUTPUT_DIR` в `.mcp.json`) и складывает имя как `<name>_<стем>.wav`. Микс приезжает отдельным файлом с суффиксом имени стема микса — точное имя фиксируется в Task 2 и дальше используется как известное.
 - `list_assets` в новой сессии пуст: импорт сэмплов не переживает перезапуск сервера и входит в процедуру каждого сеанса.
+- **Индексы пресетов GeneralUser — не номера General MIDI.** Банк отдаёт свой порядок: под 48 там «Distortion Guitar», а не струнные. Номера в задачах ниже взяты из фактического ответа `import_asset` от 09.09.2026. Любой новый пресет сверять по этому ответу, а не по таблице GM.
 - Аудиоформаты в `/Audio` не версионируются (`.gitignore`), JSON — версионируется.
 - Комментарии и сообщения коммитов — по-русски, как во всём репозитории.
 
@@ -679,7 +680,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 Смена iv–V во второй половине даёт кругу движение к возвращению и не даёт шестнадцати тактам распасться на два одинаковых восьмитактия.
 
-Дорожка «Strings» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 48}` (String Ensemble). Выдержанные трезвучия в диапазоне D3–A4, целыми на такт, `v` около 0,6.
+Дорожка «Strings» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 68}` (Stereo Strings Slow). Выдержанные трезвучия в диапазоне D3–A4, целыми на такт, `v` около 0,6.
 
 Дорожка «Bass» — `{"device": "Vaporisateur", "params": {"voicingMode": "mono", "oscillators[0].waveform": "Sawtooth", "cutoff": 900, "attack": 0.005, "release": 0.15}}`. Ход четвертями с движением по квартам к следующему аккорду на четвёртой доле каждого второго такта.
 
@@ -708,7 +709,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 В паттерн кладутся выдержанные аккордовые тоны на такт — `Arpeggio` сам разворачивает их шестнадцатыми на две октавы. Аккорды те же, что в harmony.
 
-Дорожка «Horn» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 61}` (Brass Section). Геройский акцент: короткая восходящая фигура на границах фраз, то есть в тактах 8 и 16, и выдержанная квинта в тактах 1 и 9. Всего 6–8 нот на весь круг — акцент, а не вторая мелодия.
+Дорожка «Horn» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 23}` (Brass Section). Геройский акцент: короткая восходящая фигура на границах фраз, то есть в тактах 8 и 16, и выдержанная квинта в тактах 1 и 9. Всего 6–8 нот на весь круг — акцент, а не вторая мелодия.
 
 Критерий слоя: убрать `lead` — тональность и форма читаются полностью. Если без него тема разваливается, гармоническая функция утекла в `lead` и слой переписывается.
 
@@ -809,9 +810,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 | 13–14 | F (♭VI) | F1 |
 | 15–16 | E (V) | E1 |
 
-Дорожка «Pizz» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 45}` (Pizzicato Strings), восьмыми, синкопированно, короткие ноты.
+Дорожка «Pizz» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 233}` (Pizzicato Strings), восьмыми, синкопированно, короткие ноты.
 
-Дорожка «Upright» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 32}` (Acoustic Bass), ход четвертями с проходящими нотами лада, `v` около 0,7.
+Дорожка «Upright» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 141}` (Acoustic Bass), ход четвертями с проходящими нотами лада, `v` около 0,7.
 
 Pizzicato и контрабас вместо выдержанных струнных: у Вайолет гармония должна пульсировать, а не лежать ковром, иначе тема сольётся с темой Дженифер.
 
@@ -1015,9 +1016,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 Три дорожки:
 
-- «Harp» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 46}` (Orchestral Harp). Раскладка аккордов восьмыми, мягко, `v` около 0,5.
-- «Lute» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 24}` (Acoustic Guitar nylon). Простая мелодия четвертями и половинными, диапазон G3–D5.
-- «Strings» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 49}` (String Ensemble 2). Выдержанная подложка, `v` около 0,35.
+- «Harp» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 140}` (Orchestral Harp). Раскладка аккордов восьмыми, мягко, `v` около 0,5.
+- «Lute» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 217}` (Nylon Guitar). Простая мелодия четвертями и половинными, диапазон G3–D5.
+- «Strings» — `{"device": "Soundfont", "soundfont": "GeneralUser", "preset": 65}` (Mono Strings Slow). Выдержанная подложка, `v` около 0,35.
 
 Ударных нет.
 
