@@ -304,8 +304,13 @@ public partial class RunFlowController
             int monsterLevel = 1 + floorManager.RoomsCompletedOnFloor / 3;
             if (roomNode != null)
             {
+                bool suppressRandomModifiers = FloorDirectorEncounterPolicy.ShouldSuppressMonsterModifiers(roomNode, isBoss: false);
                 foreach (var data in GetResolvedMonsters(roomNode))
-                    enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber, monsterLevel));
+                    enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber,
+                        monsterLevel, suppressRandomModifiers));
+                if (suppressRandomModifiers)
+                    Debug.Log($"[FloorDirector][Relief] node={roomNode.Id} monsterModifiers=suppressed " +
+                        $"enemyCount={enemies.Count}");
             }
             else
             {
@@ -454,6 +459,7 @@ public partial class RunFlowController
         }
 
         UpdateCombatUI();
+        floorDirectorSession.RecordCombat(combatManager.LastCombatTelemetry);
 
         // (доп.): CombatManager.CheckCombatEnd() тикает СРАЗУ ПОСЛЕ TryActivateUniqueActiveSkill,
         // в том же кадре — если скилл убивает последнего врага, IsCombatActive гаснет мгновенно,

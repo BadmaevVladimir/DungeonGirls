@@ -205,4 +205,36 @@ public class CombatManagerTests
 
         Assert.IsTrue(cm.ActiveSkills[0].AutoMode);
     }
+
+    [Test]
+    public void EndCombat_ProducesDeterministicTelemetry()
+    {
+        var cm = NewGo("combat").AddComponent<CombatManager>();
+        var player = new CombatantRuntime
+        {
+            DisplayName = "Игрок", IsPlayer = true, MaxHP = 100f, CurrentHP = 100f,
+            Weapons = new List<WeaponAttackState>
+            {
+                new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, AttackSpeed = 0.01f, DamageType = DamageType.Physical }
+            }
+        };
+        var enemy = new CombatantRuntime
+        {
+            DisplayName = "Враг", MaxHP = 1000f, CurrentHP = 1000f,
+            Weapons = new List<WeaponAttackState>
+            {
+                new WeaponAttackState { DamageMin = 5f, DamageMax = 5f, AttackSpeed = 1f, DamageType = DamageType.Physical }
+            }
+        };
+
+        cm.StartCombat(player, new List<CombatantRuntime> { enemy });
+        cm.Tick(1f);
+        cm.EndCombat();
+
+        Assert.NotNull(cm.LastCombatTelemetry);
+        Assert.AreEqual(1f, cm.LastCombatTelemetry.DurationSeconds);
+        Assert.Greater(cm.LastCombatTelemetry.PlayerDamageTaken, 0f);
+        Assert.AreEqual(1, cm.LastCombatTelemetry.EnemyCount);
+        Assert.IsTrue(cm.LastCombatTelemetry.PlayerSurvived);
+    }
 }

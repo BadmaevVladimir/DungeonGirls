@@ -113,7 +113,10 @@ public static class CombatantFactory
     // отмасштабированных по этажу (2.6) значений — прирост считается от уже увеличенного этажом
     // числа. Босс уровня не получает (monsterLevel по умолчанию 1 = формула не меняет базу) —
     // гейт на босса держится отдельно (см. 2.2).
-    public static CombatantRuntime CreateMonsterCombatant(MonsterData monster, int floorNumber, int monsterLevel = 1)
+    // suppressRandomModifiers отключает только каталог 2.8. Масштабирование уровня/этажа и
+    // врождённая пассивка выше по-прежнему применяются — это контракт ветки Передышки.
+    public static CombatantRuntime CreateMonsterCombatant(MonsterData monster, int floorNumber,
+        int monsterLevel = 1, bool suppressRandomModifiers = false)
     {
         int floorIndex = Mathf.Max(floorNumber, 1);
         int level = Mathf.Max(monsterLevel, 1);
@@ -191,7 +194,9 @@ public static class CombatantFactory
         // умолчанию 1, а этаж-1 лимит = 0, так что для дефолтного вызова CreateMonsterCombatant(boss,
         // floor) без monsterLevel это естественно даёт 0 модификаторов даже без явной проверки isBoss).
         // Применяется ПОВЕРХ уже отмасштабированных по этажу (2.6) и уровню монстра (2.7) статов выше.
-        var rolledModifiers = MonsterModifierCatalog.RollModifiers(floorIndex, level);
+        var rolledModifiers = suppressRandomModifiers
+            ? new List<MonsterModifierType>()
+            : MonsterModifierCatalog.RollModifiers(floorIndex, level);
         foreach (var modifier in rolledModifiers)
         {
             MonsterModifierCatalog.ApplyToRuntime(runtime, modifier, floorIndex);

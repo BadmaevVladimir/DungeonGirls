@@ -6,16 +6,23 @@ public class FloorManager : MonoBehaviour
 {
     public FloorState CurrentFloorState { get; private set; }
     public FloorMap CurrentMap { get; private set; }
+    public FloorDirectorMapAdjustment LastDirectorAdjustment { get; private set; }
     public FloorMapNode CurrentNode => CurrentMap?.GetNode(CurrentMap.CurrentNodeId);
     public int RoomsCompletedOnFloor { get; private set; }
     public int TotalRoomsOnFloor => FloorMapGenerator.RoomsBeforeBoss + 1;
 
     public void SetFloorState(FloorState newState) => CurrentFloorState = newState;
 
-    public void GenerateFloorMap(int floorNumber, int? seed = null)
+    public void GenerateFloorMap(int floorNumber, int? seed = null, FloorDirectorPlan directorPlan = null)
     {
         int resolvedSeed = seed ?? UnityEngine.Random.Range(1, int.MaxValue);
         CurrentMap = FloorMapGenerator.Generate(floorNumber, resolvedSeed);
+        LastDirectorAdjustment = FloorDirectorMapPolicy.Apply(CurrentMap, directorPlan);
+        if (directorPlan != null && !directorPlan.ShadowMode)
+        {
+            Debug.Log($"[FloorDirector][{directorPlan.State}] floor={floorNumber} offered={LastDirectorAdjustment.OfferedNodeId} " +
+                $"changed={LastDirectorAdjustment.Applied} reason={LastDirectorAdjustment.Reason}");
+        }
         RoomsCompletedOnFloor = 0;
     }
 

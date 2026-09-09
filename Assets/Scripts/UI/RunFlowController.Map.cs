@@ -141,10 +141,15 @@ public partial class RunFlowController
         foreach (var node in nodes)
         {
             bool isReachable = reachableIds.Contains(node.Id);
-            var button = new Button { text = $"{RoomTypeIcon(node.RoomType)}\n{RoomTypeLabel(node.RoomType)}" };
+            string reliefLabel = node.IsReliefRoute ? "\nПередышка" : string.Empty;
+            var button = new Button { text = $"{RoomTypeIcon(node.RoomType)}\n{RoomTypeLabel(node.RoomType)}{reliefLabel}" };
             // Раньше здесь был служебный «Путь 1, глубина 3». Игроку нужно знать, что его ждёт в
             // комнате, а не её координаты в графе. Узлы пересобираются при каждом показе карты.
-            tutorialManager?.BindTransientTooltip(button, RoomTypeLabel(node.RoomType), TutorialContent.RoomTypeHint(node.RoomType));
+            string hint = TutorialContent.RoomTypeHint(node.RoomType);
+            if (node.IsReliefRoute)
+                hint += "\n\nВетка передышки: обычные монстры начинают бой без случайных модификаторов.";
+            tutorialManager?.BindTransientTooltip(button,
+                node.IsReliefRoute ? $"{RoomTypeLabel(node.RoomType)} — передышка" : RoomTypeLabel(node.RoomType), hint);
             button.AddToClassList("floor-map-node");
             button.EnableInClassList("floor-map-node-visited", node.Visited);
             button.EnableInClassList("floor-map-node-current", node.Id == floorManager.CurrentMap.CurrentNodeId);

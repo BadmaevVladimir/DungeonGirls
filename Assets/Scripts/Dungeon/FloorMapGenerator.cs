@@ -152,6 +152,16 @@ public static class FloorMapGenerator
     static string UnresolvedContentKey(RoomType type, int contentSeed) =>
         $"unresolved:{type.ToString().ToLowerInvariant()}-{contentSeed:x8}";
 
+    public static void ResetNodeContent(FloorMapNode node, RoomType roomType)
+    {
+        if (node == null) throw new ArgumentNullException(nameof(node));
+        node.RoomType = roomType;
+        node.ContentKey = UnresolvedContentKey(roomType, node.ContentSeed);
+        node.ContentResolved = false;
+        node.ResolvedMonsterIds.Clear();
+        node.ResolvedMerchantOffers.Clear();
+    }
+
     static void AddRequiredEdges(FloorMap map)
     {
         for (int path = 0; path < PathCount; path++)
