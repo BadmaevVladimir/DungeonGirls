@@ -591,52 +591,21 @@ public partial class RunFlowController
 
         PopulateStatusContainer(playerStatusContainer, player, hideStealth: true);
 
-        enemyListContainer.Clear();
-        foreach (var enemy in combatManager.Enemies)
+        // ФИКС 2026-09-11: карточки врагов больше не пересобираются каждый кадр — они построены
+        // один раз в BuildEnemyStageEntries и здесь только обновляются. Пересборка ломала выбор
+        // цели: ClickEvent требует PointerDown и PointerUp на ОДНОМ элементе, а элемент не
+        // доживал от нажатия до отпускания.
+        foreach (var entry in enemyStageEntries)
         {
-            var box = new VisualElement();
-            box.AddToClassList("combatant-box");
-            if (enemy == player.Target && enemy.IsAlive)
-            {
-                box.AddToClassList("combatant-box-target");
-            }
+            var enemy = entry.Combatant;
+            entry.Card.EnableInClassList("combatant-box-target", enemy == player.Target && enemy.IsAlive);
+            entry.CardNameLabel.text = enemy.IsAlive ? enemy.DisplayName : $"{enemy.DisplayName} (погиб)";
 
-            var nameLabel = new Label(enemy.IsAlive ? enemy.DisplayName : $"{enemy.DisplayName} (погиб)");
-            nameLabel.AddToClassList("combatant-name");
-            // Модификатор («Бронебойный», «Свирепый»…) виден только как прилагательное в имени —
-            // без расшифровки игрок не понимает, чем этот враг опаснее обычного.
-            tutorialManager?.BindTransientTooltip(nameLabel, enemy.DisplayName,
-                TutorialContent.ModifierTooltip(enemy.DisplayName, enemy.MonsterGuaranteedArmorDamage));
-            box.Add(nameLabel);
-
-            var hpBg = new VisualElement();
-            hpBg.AddToClassList("hp-bar-bg");
-            var hpFill = new VisualElement();
-            hpFill.AddToClassList("hp-bar-fill");
             float hpPercent = enemy.MaxHP > 0f ? Mathf.Clamp01(enemy.CurrentHP / enemy.MaxHP) * 100f : 0f;
-            hpFill.style.width = new Length(hpPercent, LengthUnit.Percent);
-            hpBg.Add(hpFill);
-            box.Add(hpBg);
-
-            var hpText = new Label($"{Mathf.Max(enemy.CurrentHP, 0f):F0}/{enemy.MaxHP:F0}");
-            hpText.AddToClassList("hp-text");
-            box.Add(hpText);
-
-            var statsText = new Label($"Защита: {Mathf.Max(enemy.PhysicalDefenseCurrent, 0f):F0}/{enemy.PhysicalDefenseMax:F0}  Щит: {Mathf.Max(enemy.MagicShieldCurrent, 0f):F0}/{enemy.MagicShieldMax:F0}");
-            statsText.AddToClassList("stat-text");
-            box.Add(statsText);
-
-            var enemyStatusContainer = new VisualElement();
-            enemyStatusContainer.AddToClassList("combat-status-container");
-            PopulateStatusContainer(enemyStatusContainer, enemy);
-            box.Add(enemyStatusContainer);
-
-            if (enemy.IsAlive)
-            {
-                box.RegisterCallback<ClickEvent>(_ => combatManager.SetPlayerTarget(enemy));
-            }
-
-            enemyListContainer.Add(box);
+            entry.CardHpFill.style.width = new Length(hpPercent, LengthUnit.Percent);
+            entry.CardHpText.text = $"{Mathf.Max(enemy.CurrentHP, 0f):F0}/{enemy.MaxHP:F0}";
+            entry.CardStatsText.text = $"Защита: {Mathf.Max(enemy.PhysicalDefenseCurrent, 0f):F0}/{enemy.PhysicalDefenseMax:F0}  Щит: {Mathf.Max(enemy.MagicShieldCurrent, 0f):F0}/{enemy.MagicShieldMax:F0}";
+            PopulateStatusContainer(entry.CardStatusContainer, enemy);
         }
 
         // 7.2/10.6: крупные спрайты на "земле" сцены боя, отдельно от карточек имени/HP выше.
@@ -879,6 +848,7 @@ public partial class RunFlowController
         }
 
         enemyStageRow.Clear();
+        enemyListContainer.Clear();
         enemyStageEntries.Clear();
 
         // Один фиксированный размер для всех обычных боёв (было: 384/260/190 в зависимости от числа
@@ -933,6 +903,47 @@ public partial class RunFlowController
             wrapper.Add(telegraphBarBg);
 
             enemyStageRow.Add(wrapper);
+
+            // Карточка врага строится ЗДЕСЬ, один раз на бой, а не в UpdateCombatUI каждый кадр —
+            // иначе клик по ней невозможен физически (см. комментарий у EnemyStageEntry.Card).
+            var card = new VisualElement();
+            card.AddToClassList("combatant-box");
+
+            var cardNameLabel = new Label();
+            cardNameLabel.AddToClassList("combatant-name");
+            card.Add(cardNameLabel);
+
+            var cardHpBg = new VisualElement();
+            cardHpBg.AddToClassList("hp-bar-bg");
+            var cardHpFill = new VisualElement();
+            cardHpFill.AddToClassList("hp-bar-fill");
+            cardHpBg.Add(cardHpFill);
+            card.Add(cardHpBg);
+
+            var cardHpText = new Label();
+            cardHpText.AddToClassList("hp-text");
+            card.Add(cardHpText);
+
+            var cardStatsText = new Label();
+            cardStatsText.AddToClassList("stat-text");
+            card.Add(cardStatsText);
+
+            var cardStatusContainer = new VisualElement();
+            cardStatusContainer.AddToClassList("combat-status-container");
+            card.Add(cardStatusContainer);
+
+            // Модификатор виден только как прилагательное в имени — без расшифровки игрок не
+            // понимает, чем этот враг опаснее обычного.
+            tutorialManager?.BindTransientTooltip(cardNameLabel, enemy.DisplayName,
+                TutorialContent.ModifierTooltip(enemy.DisplayName, enemy.MonsterGuaranteedArmorDamage));
+
+            // Целиться можно и по карточке, и по самому спрайту: крупный спрайт — то, во что игрок
+            // целится взглядом, и клик по нему обязан работать так же.
+            var clickTarget = enemy;
+            card.RegisterCallback<ClickEvent>(_ => combatManager.SetPlayerTarget(clickTarget));
+            wrapper.RegisterCallback<ClickEvent>(_ => combatManager.SetPlayerTarget(clickTarget));
+            enemyListContainer.Add(card);
+
             var entry = new EnemyStageEntry
             {
                 Combatant = enemy,
@@ -940,7 +951,13 @@ public partial class RunFlowController
                 Sprite = sprite,
                 StatusLabel = statusLabel,
                 TelegraphLabel = telegraphLabel,
-                TelegraphBarFill = telegraphBarFill
+                TelegraphBarFill = telegraphBarFill,
+                Card = card,
+                CardNameLabel = cardNameLabel,
+                CardHpFill = cardHpFill,
+                CardHpText = cardHpText,
+                CardStatsText = cardStatsText,
+                CardStatusContainer = cardStatusContainer
             };
             enemyStageEntries.Add(entry);
 

@@ -941,4 +941,90 @@ public class BossEncounterTests
         Assert.AreEqual(20f, boss.PhysicalDefenseCurrent, 0.01f, "множитель не должен применяться повторно каждый тик");
         Assert.AreEqual(1f, boss.Weapons[0].AttackSpeed, 0.01f);
     }
+
+    // ---- Процентный урон и потолок одиночного удара (2026-09-11) ----
+
+    static CombatantRuntime MakeHeavyBoss(float multiplier, float percentOfMaxHp, float weaponDamage)
+    {
+        var ability = new BossAbilityConfig
+        {
+            displayName = "Удар",
+            effectKind = BossAbilityEffectKind.HeavyAttack,
+            triggerKind = BossAbilityTriggerKind.Periodic,
+            cooldownSeconds = 100f,
+            initialDelaySeconds = 0f,
+            telegraphSeconds = 0f,
+            damageMultiplier = multiplier,
+            damagePercentOfTargetMaxHp = percentOfMaxHp
+        };
+        return new CombatantRuntime
+        {
+            DisplayName = "Тест-босс",
+            IsBoss = true,
+            MaxHP = 500f,
+            CurrentHP = 500f,
+            BossEncounter = new BossEncounterState(MakeKit(MakePhase("Фаза 1", 100f, ability))),
+            Weapons = { new WeaponAttackState { DamageMin = weaponDamage, DamageMax = weaponDamage, AttackSpeed = 0.001f, DamageType = DamageType.Physical } }
+        };
+    }
+
+    [Test]
+    public void HeavyAttack_WithPercentDamage_ScalesWithTargetMaxHpNotWeapon()
+    {
+        // Один и тот же босс против «толстой» и «тонкой» цели снимает одну и ту же ДОЛЮ здоровья —
+        // ради этого процентный урон и вводился.
+        var fat = MakePlayer(hp: 1000f);
+        var bossA = MakeHeavyBoss(multiplier: 1f, percentOfMaxHp: 20f, weaponDamage: 5f);
+        var cmA = CreateCombatManager();
+        cmA.StartCombat(fat, new System.Collections.Generic.List<CombatantRuntime> { bossA });
+        cmA.Tick(0.016f);
+        float fatLost = 1000f - fat.CurrentHP;
+
+        var thin = MakePlayer(hp: 100f);
+        var bossB = MakeHeavyBoss(multiplier: 1f, percentOfMaxHp: 20f, weaponDamage: 5f);
+        var cmB = CreateCombatManager();
+        cmB.StartCombat(thin, new System.Collections.Generic.List<CombatantRuntime> { bossB });
+        cmB.Tick(0.016f);
+        float thinLost = 100f - thin.CurrentHP;
+
+        Assert.AreEqual(200f, fatLost, 1f, "20% от 1000");
+        Assert.AreEqual(20f, thinLost, 1f, "20% от 100");
+    }
+
+    [Test]
+    public void HeavyAttack_NeverTakesMoreThanHalfOfTargetMaxHp_EvenWithAbsurdNumbers()
+    {
+        // Правило честности №3 живёт в коде: даже кривой ассет с множителем ×50 не снимает больше
+        // половины полоски. Без этого Вайолет с её 15 HP базы умирала бы с одного удара там, где
+        // Саша не замечает урона.
+        var player = MakePlayer(hp: 200f);
+        var boss = MakeHeavyBoss(multiplier: 50f, percentOfMaxHp: 0f, weaponDamage: 100f);
+        var cm = CreateCombatManager();
+        cm.StartCombat(player, new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+
+        float lost = 200f - player.CurrentHP;
+        Assert.LessOrEqual(lost, 100f + 0.5f,
+            $"одиночный удар снял {lost} из 200 максимального HP — потолок {CombatManager.MaxBossSingleHitPercentOfMaxHp}% пробит");
+        Assert.Greater(lost, 0f, "потолок не должен превращать удар в ноль");
+    }
+
+    [Test]
+    public void HeavyAttack_PercentDamage_StillGoesThroughArmor()
+    {
+        // Процентный урон не должен быть «чистым»: броня обязана продолжать работать, иначе
+        // вложение Дженифер в защиту обесценивается против всей роспиcи разом.
+        var armored = MakePlayer(hp: 1000f);
+        armored.PhysicalDefenseMax = 500f;
+        armored.PhysicalDefenseCurrent = 500f;
+        var boss = MakeHeavyBoss(multiplier: 1f, percentOfMaxHp: 20f, weaponDamage: 5f);
+        var cm = CreateCombatManager();
+        cm.StartCombat(armored, new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(1000f, armored.CurrentHP, 0.01f, "броня обязана поглотить процентный удар");
+        Assert.Less(armored.PhysicalDefenseCurrent, 500f, "и при этом износиться");
+    }
 }

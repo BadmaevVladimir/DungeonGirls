@@ -311,7 +311,7 @@ public static class PlayModeSmokeTest
             ItemEffectBalance.ExecutionMissingHealthPercent(1) == 3f && ItemEffectBalance.ExecutionMissingHealthPercent(5) == 15f &&
             ItemEffectBalance.RiposteDamageMultiplier(1) == 0.25f && ItemEffectBalance.RiposteDamageMultiplier(5) == 1.25f &&
             ItemEffectBalance.JustAScratchHealPercent(1) == 3f && ItemEffectBalance.JustAScratchHealPercent(5) == 15f &&
-            ItemEffectBalance.ArmorBreakExtraWearChancePercent(1) == 25f && ItemEffectBalance.ArmorBreakExtraWearChancePercent(4) == 100f,
+            ItemEffectBalance.ArmorBreakExtraWearChancePercent(1) == 20f && ItemEffectBalance.ArmorBreakExtraWearChancePercent(5) == 100f,
             "баланс предметных пассивок: новые пределы рангов и шанс «Разрушения брони» корректны");
         Check(BalanceClamps.ClampItemEvasionPercent(40f) == 30f && BalanceClamps.ClampEvasionChancePercent(120f) == 75f,
             "8.6 уклонение ограничено: предметы 30%, общий шанс 75%");
@@ -2048,7 +2048,7 @@ public static class PlayModeSmokeTest
 
         eliminationCombatManager.StartCombat(eliminationPlayer, new List<CombatantRuntime> { eliminationDummy });
         eliminationCombatManager.Tick(1.01f);
-        Check(Mathf.Approximately(eliminationDummy.CurrentHP, 1000f - 17.5f), $"3.11 «Устранение» ур.1 крит-множитель 175%: HP болвана = {eliminationDummy.CurrentHP} (ожидалось 982.5)");
+        Check(Mathf.Approximately(eliminationDummy.CurrentHP, 1000f - DamageCalculator.RoundPoints(17.5f)), $"3.11 «Устранение» ур.1 крит-множитель 175%: HP болвана = {eliminationDummy.CurrentHP} (ожидалось 1000-RoundPoints(17.5)=982)");
 
         UnityEngine.Object.DestroyImmediate(eliminationGO);
 
@@ -2258,7 +2258,7 @@ public static class PlayModeSmokeTest
         giantSlayerCombatManager.StartCombat(giantSlayerPlayer, new List<CombatantRuntime> { giantSlayerBigDummy });
         giantSlayerCombatManager.Tick(1.01f);
         // 10 × (1 + 5×0.05) = 10×1.25 = 12.5
-        Check(Mathf.Approximately(giantSlayerBigDummy.CurrentHP, 987.5f), $"3.11 «Убийца великанов» +25% против цели с большим MaxHP: HP болвана={giantSlayerBigDummy.CurrentHP} (ожидалось 987.5)");
+        Check(Mathf.Approximately(giantSlayerBigDummy.CurrentHP, 1000f - DamageCalculator.RoundPoints(12.5f)), $"3.11 «Убийца великанов» +25% против цели с большим MaxHP: HP болвана={giantSlayerBigDummy.CurrentHP} (ожидалось 1000-RoundPoints(12.5)=987)");
 
         UnityEngine.Object.DestroyImmediate(giantSlayerGO);
 
@@ -2294,12 +2294,12 @@ public static class PlayModeSmokeTest
         riposteDefender.RiposteArmed = true;
 
         riposteCombatManager.Tick(1.01f); // ранг V: +125% собственного урона, итого 22.5
-        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9967.5f), $"3.11 «Рипост» применяется РОВНО на следующей атаке (+125%): HP болвана={riposteEnemy.CurrentHP} (ожидалось 9967.5, т.е. 9990-22.5)");
+        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9990f - DamageCalculator.RoundPoints(22.5f)), $"3.11 «Рипост» применяется РОВНО на следующей атаке (+125%): HP болвана={riposteEnemy.CurrentHP} (ожидалось 9990-RoundPoints(22.5)=9967)");
 
         riposteDefender.RiposteArmed = false; // имитируем отсутствие нового уклонения (враг уже перевзвёл флаг своим ходом в этом же тике)
         riposteEnemyWeapon.AttackSpeed = 0.0001f; // враг больше не атакует в пределах теста -> новых уклонений не будет
         riposteCombatManager.Tick(1.01f);
-        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9957.5f), $"3.11 «Рипост» не бьёт повторно без свежего уклонения: HP болвана={riposteEnemy.CurrentHP} (ожидалось 9957.5, т.е. 9967.5-10 без бонуса)");
+        Check(Mathf.Approximately(riposteEnemy.CurrentHP, 9967f - 10f), $"3.11 «Рипост» не бьёт повторно без свежего уклонения: HP болвана={riposteEnemy.CurrentHP} (ожидалось 9967-10=9957 без бонуса)");
 
         UnityEngine.Object.DestroyImmediate(riposteGO);
 

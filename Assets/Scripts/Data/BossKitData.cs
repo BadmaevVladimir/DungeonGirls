@@ -96,6 +96,11 @@ public class BossAbilityConfig
 
     [Tooltip("SelfDamage: доля МАКСИМАЛЬНОГО HP босса, которую он снимает сам с себя (8 = 8%).")]
     public float selfDamagePercentOfMaxHp = 0f;
+
+    [Tooltip("HeavyAttack: урон в процентах от МАКСИМАЛЬНОГО HP цели вместо урона оружия босса " +
+        "(0 = обычный расчёт через damageMultiplier). Уклонение и броня продолжают работать. " +
+        "Числа в процентах не зависят от того, у кого 15 HP базы, а у кого 45.")]
+    public float damagePercentOfTargetMaxHp = 0f;
 }
 
 [System.Serializable]

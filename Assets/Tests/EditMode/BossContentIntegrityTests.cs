@@ -375,4 +375,23 @@ public class BossContentIntegrityTests
             }
         }
     }
+
+    [Test]
+    public void NoAbility_DeclaresPercentDamageAboveTheSingleHitCap()
+    {
+        foreach (var kit in LoadAllKits())
+        {
+            foreach (var phase in kit.phases)
+            {
+                foreach (var ability in phase.abilities)
+                {
+                    Assert.LessOrEqual(ability.damagePercentOfTargetMaxHp, CombatManager.MaxBossSingleHitPercentOfMaxHp,
+                        $"{kit.name} / «{phase.phaseName}» / «{ability.displayName}»: заявлено " +
+                        $"{ability.damagePercentOfTargetMaxHp}% от макс. HP при потолке " +
+                        $"{CombatManager.MaxBossSingleHitPercentOfMaxHp}%. Потолок всё равно срежет удар — " +
+                        "значит ассет врёт о своей силе, и подкрутить его числом уже нельзя");
+                }
+            }
+        }
+    }
 }

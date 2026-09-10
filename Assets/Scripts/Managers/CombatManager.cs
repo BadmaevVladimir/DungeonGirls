@@ -103,6 +103,12 @@ public class CombatManager : MonoBehaviour
     // превысить при авторинге контента.
     public const float MaxBossSkillDisruptSeconds = 8f;
 
+    // Правило честности №3: ни один одиночный удар босса не снимает больше половины максимального
+    // HP цели ДО брони. Вайолет с 15 HP базы против Саши с 45 — без этого потолка одни и те же
+    // числа для неё смертельны, а он их не замечает. Потолок в коде, а не в ассете, потому что это
+    // условие проходимости, а не настройка.
+    public const float MaxBossSingleHitPercentOfMaxHp = 50f;
+
     public static float ResolveActiveSkillAttackLockSeconds(CharacterClass characterClass) => characterClass switch
     {
         CharacterClass.Rogue => 0f,
@@ -715,7 +721,9 @@ public class CombatManager : MonoBehaviour
                 // телеграфа".
                 ActiveSkillActivated?.Invoke(boss, ability.displayName);
                 Log($"[Combat] {boss.DisplayName} завершает подготовку «{ability.displayName}» ({ability.damageMultiplier * 100f:F0}% урона).");
-                ResolveAttack(boss, boss.Weapons[0], ability.damageMultiplier, isRegularAttack: false);
+                ResolveAttack(boss, boss.Weapons[0], ability.damageMultiplier, isRegularAttack: false,
+                    damagePercentOfTargetMaxHp: ability.damagePercentOfTargetMaxHp,
+                    maxHpPercentCap: MaxBossSingleHitPercentOfMaxHp);
                 break;
 
             case BossAbilityEffectKind.ShieldPool:
@@ -984,7 +992,12 @@ public class CombatManager : MonoBehaviour
     // ударов (TickCombatant); TryActivateUniqueActiveSkill передаёт false для СВОИХ ударов, чтобы
     // гарантированные криты гранаты не расходовались/не применялись к ним самим (по ГДД гарантия
     // распространяется только на "обычные атаки оружием").
-    void ResolveAttack(CombatantRuntime attacker, WeaponAttackState weapon, float damageMultiplier = 1f, bool isRegularAttack = true)
+    // damagePercentOfTargetMaxHp/maxHpPercentCap (2026-09-11): урон способности босса в ДОЛЯХ
+    // максимального HP цели вместо урона оружия, и жёсткий потолок одиночного удара. Оба
+    // применяются ПОСЛЕ проверки уклонения и крита, но ДО брони и щитов — то есть уклонение и
+    // броня продолжают работать, а числа перестают зависеть от того, у кого 15 HP базы, а у кого 45.
+    void ResolveAttack(CombatantRuntime attacker, WeaponAttackState weapon, float damageMultiplier = 1f,
+        bool isRegularAttack = true, float damagePercentOfTargetMaxHp = 0f, float maxHpPercentCap = 0f)
     {
         CombatantRuntime target = attacker.IsPlayer ? GetPlayerTarget() : Player;
 
@@ -1212,6 +1225,24 @@ public class CombatManager : MonoBehaviour
         bool paranoiaCrash = target.CursedParanoiaStacks > 0 && CursedItemRules.IsCurseActive(target, CursedEffectId.ParanoiaBlades);
         float paranoiaMultiplier = paranoiaCrash ? CursedItemRules.ParanoiaIncomingMultiplier(target.CursedParanoiaStacks) : 1f;
         float magicShieldBeforeAttack = target.MagicShieldCurrent;
+        // Процентный урон и потолок одиночного удара (см. сигнатуру). Считаются от МАКСИМАЛЬНОГО
+        // HP цели, а не от текущего: иначе удар был бы тем слабее, чем хуже дела у игрока, и
+        // добивание работало бы наоборот.
+        if (damagePercentOfTargetMaxHp > 0f)
+        {
+            damage = target.MaxHP * damagePercentOfTargetMaxHp / 100f;
+            armorPenetrationDamage = 0f;
+        }
+
+        if (maxHpPercentCap > 0f)
+        {
+            float cap = target.MaxHP * maxHpPercentCap / 100f;
+            if (damage + armorPenetrationDamage > cap)
+            {
+                damage = Mathf.Max(0f, cap - armorPenetrationDamage);
+            }
+        }
+
         DamageCalculator.DamageResult result;
         if (weapon.PrototypeEffect == WeaponPrototypeEffectId.SpellEater)
         {

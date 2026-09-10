@@ -286,8 +286,18 @@ public class FoodAndPrototypeMechanicsTests
 
     static void InvokeAttack(CombatManager manager, CombatantRuntime player, WeaponAttackState weapon)
     {
-        typeof(CombatManager).GetMethod("ResolveAttack", BindingFlags.Instance | BindingFlags.NonPublic)
-            .Invoke(manager, new object[] { player, weapon, 1f, true });
+        // Reflection.Invoke не подставляет значения необязательных параметров сам — массив
+        // аргументов обязан быть полной длины. Добираем хвост значениями по умолчанию, чтобы
+        // добавление нового необязательного параметра в ResolveAttack не роняло эти тесты.
+        var resolveAttack = typeof(CombatManager).GetMethod("ResolveAttack", BindingFlags.Instance | BindingFlags.NonPublic);
+        var parameters = resolveAttack.GetParameters();
+        var args = new object[parameters.Length];
+        args[0] = player;
+        args[1] = weapon;
+        args[2] = 1f;
+        args[3] = true;
+        for (int i = 4; i < parameters.Length; i++) args[i] = parameters[i].DefaultValue;
+        resolveAttack.Invoke(manager, args);
     }
 
     sealed class FixedRewardRandom : IRewardRandom

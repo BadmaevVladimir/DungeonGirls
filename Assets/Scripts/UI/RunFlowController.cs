@@ -168,6 +168,18 @@ public partial class RunFlowController : MonoBehaviour
         // срабатывает (см. BossEncounterState.PendingTelegraph). Не привязано к The Warden — читает
         // CombatantRuntime.BossEncounter, так что работает для любого будущего босса без правок этого
         // класса. У обычных врагов (BossEncounter == null) всегда скрыт.
+        // Карточка врага в списке (имя/HP/статусы) и её изменяемые части. ФИКС 2026-09-11: раньше
+        // список карточек пересобирался в UpdateCombatUI каждый кадр, и клик по врагу не работал
+        // вообще — ClickEvent рождается только если PointerDown и PointerUp пришли в ОДИН И ТОТ ЖЕ
+        // элемент, а элемент успевал умереть между ними. Теперь карточка живёт весь бой, как и
+        // спрайт рядом, а каждый кадр обновляется только содержимое.
+        public VisualElement Card;
+        public Label CardNameLabel;
+        public VisualElement CardHpFill;
+        public Label CardHpText;
+        public Label CardStatsText;
+        public VisualElement CardStatusContainer;
+
         public Label TelegraphLabel;
         public VisualElement TelegraphBarFill;
 

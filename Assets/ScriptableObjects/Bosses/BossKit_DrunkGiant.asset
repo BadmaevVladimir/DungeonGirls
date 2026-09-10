@@ -44,6 +44,7 @@ MonoBehaviour:
       attackSpeedMultiplier: 1
       debuffSeconds: 0
       selfDamagePercentOfMaxHp: 0
+      damagePercentOfTargetMaxHp: 35
     - displayName: "\u041F\u043E\u0448\u0430\u0442\u043D\u0443\u043B\u0441\u044F"
       effectKind: 6
       triggerKind: 1
@@ -117,6 +118,7 @@ MonoBehaviour:
       attackSpeedMultiplier: 1
       debuffSeconds: 0
       selfDamagePercentOfMaxHp: 0
+      damagePercentOfTargetMaxHp: 35
     - displayName: "\u041E\u0442\u0440\u044B\u0436\u043A\u0430"
       effectKind: 5
       triggerKind: 1
