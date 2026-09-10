@@ -23,7 +23,7 @@ public static class CombatantFactory
         };
 
         int levelIndex = Mathf.Max(level, 1);
-        runtime.MaxHP = character.baseHealth + character.healthPerLevel * (levelIndex - 1);
+        runtime.MaxHP = DamageCalculator.RoundPoints(character.baseHealth + character.healthPerLevel * (levelIndex - 1));
         runtime.CurrentHP = runtime.MaxHP;
 
         int ambidexterityLevel = progress != null ? progress.GetSkillLevel(SkillId.Ambidexterity) : 0;
@@ -58,6 +58,7 @@ public static class CombatantFactory
 
         runtime.MaxHP += flatHPBonus; // 3.10 (ФИКС): BonusStatType.FlatHP (кольца/аксессуары/броня)
         runtime.MaxHP += hpBonusSum; // 3.11 (Варвар): Пояс — hpBonus как ОСНОВНОЙ стат предмета, отдельно от BonusStatType.FlatHP
+        runtime.MaxHP = DamageCalculator.RoundPoints(runtime.MaxHP);
         runtime.CurrentHP = runtime.MaxHP;
         runtime.RageFlatBonusPercent = rageBonusFlatPercentSum; // 3.11 (Пояс титана): флэт-линейный бонус к Ярости
 
@@ -137,11 +138,15 @@ public static class CombatantFactory
             IsBoss = monster.isBoss,
             BossHeavyAttackDamageMultiplier = BossHeavyAttackMultiplierForFloor(floorIndex),
             Sprite = monster.sprite,
-            MaxHP = hp,
+            MaxHP = DamageCalculator.RoundPoints(hp),
+            FrontlinePriority = monster.frontlinePriority,
             PhysicalDefenseMax = armor,
             PhysicalDefenseCurrent = armor,
-            MagicShieldMax = monster.magicDefense,
-            MagicShieldCurrent = monster.magicDefense
+            MagicShieldMax = DamageCalculator.RoundPoints(StatScaling.ApplyLevelBonus(monster.magicDefense * armorMultiplier, level)),
+            MagicShieldCurrent = DamageCalculator.RoundPoints(StatScaling.ApplyLevelBonus(monster.magicDefense * armorMultiplier, level)),
+            ShieldPoolMax = DamageCalculator.RoundPoints(StatScaling.ApplyLevelBonus(monster.universalShield * armorMultiplier, level)),
+            ShieldPoolCurrent = DamageCalculator.RoundPoints(StatScaling.ApplyLevelBonus(monster.universalShield * armorMultiplier, level)),
+            ShieldPoolExpireTimer = float.PositiveInfinity
         };
         runtime.CurrentHP = runtime.MaxHP;
 
@@ -204,7 +209,7 @@ public static class CombatantFactory
             : MonsterModifierCatalog.RollModifiers(floorIndex, level);
         foreach (var modifier in rolledModifiers)
         {
-            MonsterModifierCatalog.ApplyToRuntime(runtime, modifier, floorIndex);
+            MonsterModifierCatalog.ApplyToRuntime(runtime, modifier, floorIndex, level);
             runtime.DisplayName = $"{MonsterModifierCatalog.AdjectiveFor(modifier, monster.gender)} {runtime.DisplayName}";
         }
 

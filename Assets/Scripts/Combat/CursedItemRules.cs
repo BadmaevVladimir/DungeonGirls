@@ -39,7 +39,7 @@ public static class CursedItemRules
         damage *= 1f + owner.ItemDamageBonusPercent / 100f;
         float critMultiplier = owner.CritDamageMultiplierOverridePercent ?? 150f;
         if (owner.CritChanceReplacedByRage)
-            critMultiplier += (owner.SkillCriticalHitsLevel * 10f + owner.CritChanceBonusFromItems) * 2f;
+            critMultiplier += CombatCriticalRules.ConvertedCritDamageBonus(owner);
         return damage * critMultiplier / 100f;
     }
 

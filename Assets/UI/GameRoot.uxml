@@ -416,6 +416,7 @@
                         <ui:VisualElement class="item-card-text-column">
                             <ui:Label name="NewItemRarityLabel" text="Новый" class="item-card-header" />
                             <ui:Label name="NewItemName" text="" class="item-card-name" />
+                            <ui:VisualElement name="NewItemTags" class="item-tag-strip" />
                             <ui:Label name="NewItemStats" text="" class="body-label" />
                         </ui:VisualElement>
                     </ui:VisualElement>

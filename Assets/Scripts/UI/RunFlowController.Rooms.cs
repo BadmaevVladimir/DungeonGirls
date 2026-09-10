@@ -486,6 +486,8 @@ public partial class RunFlowController
                 SetRarityClass(nameLabel, offer.Item.tier);
                 card.Add(nameLabel);
 
+                card.Add(BuildItemTagStrip(offer.Item));
+
                 var statsLabel = new Label(DisplayFormat.ItemStatsText(offer.Item));
                 statsLabel.AddToClassList("body-label");
                 card.Add(statsLabel);

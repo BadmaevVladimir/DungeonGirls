@@ -259,7 +259,7 @@ public class CursedItemTests
         var enemy = Fighter(false); enemy.Weapons.Add(RuntimeWeapon(CursedEffectId.None, damage: 10f));
         var cm = NewGo("combat").AddComponent<CombatManager>(); cm.StartCombat(player, new List<CombatantRuntime> { enemy });
         cm.Tick(1.01f);
-        Assert.AreEqual(988.5f, player.CurrentHP, 0.001f);
+        Assert.AreEqual(988f, player.CurrentHP, 0.001f); // 11.5 damage rounds to 12.
         Assert.AreEqual(0, player.CursedParanoiaStacks);
     }
 

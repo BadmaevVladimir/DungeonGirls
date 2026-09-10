@@ -13,7 +13,7 @@ public static class CombatEvasionRules
             ItemEffectBalance.ElusivenessEvasionPercent(target.ItemElusivenessLevel) + target.ItemEvasionBonusPercent);
         float chance = target.SkillEvasionLevel * 5f + itemEvasionPercent + target.MonsterEvasionPercent;
 
-        float slipAwayBonus = target.SkillSlipAwayLevel switch { 1 => 1f, 2 => 2f, 3 => 3f, 4 => 4f, 5 => 5f, _ => 0f };
+        float slipAwayBonus = target.SkillSlipAwayLevel switch { 1 => 2f, 2 => 4f, 3 => 6f, 4 => 8f, 5 => 10f, _ => 0f };
         chance += slipAwayBonus;
 
         if (target.IsStealthed && target.UniqueShadowLevel > 0)

@@ -46,8 +46,7 @@ public class CampManager : MonoBehaviour
         if (oathbreaker != null && CursedItemRules.IsCurseActive(combatant, CursedEffectId.Oathbreaker))
         {
             result.BacklashDamage = CursedItemRules.CalculateNormalCritDamage(combatant, oathbreaker);
-            combatant.CurrentHP = Mathf.Max(0f, combatant.CurrentHP - result.BacklashDamage);
-            combatant.NotifyHpDamageResolved();
+            result.BacklashDamage = DamageCalculator.ApplyDirectDamage(combatant, result.BacklashDamage);
         }
         return result;
     }

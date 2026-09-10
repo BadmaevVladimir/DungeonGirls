@@ -207,6 +207,7 @@ public class FoodAndPrototypeMechanicsTests
         var player = Runtime(); player.IsPlayer = true;
         var weapon = player.Weapons[0];
         weapon.PrototypeEffect = WeaponPrototypeEffectId.SpellEater;
+        weapon.PrototypePrimaryValue = 1f;
         weapon.DamageType = DamageType.Physical;
         weapon.DamageMin = weapon.DamageMax = 5f;
         var enemy = Runtime();
@@ -215,9 +216,9 @@ public class FoodAndPrototypeMechanicsTests
         var manager = NewCombat(player, enemy);
         InvokeAttack(manager, player, weapon);
         Assert.AreEqual(3f, weapon.PrototypeAccumulatedDamage);
-        Assert.AreEqual(98f, enemy.CurrentHP);
+        Assert.AreEqual(95f, enemy.CurrentHP);
         InvokeAttack(manager, player, weapon);
-        Assert.AreEqual(90f, enemy.CurrentHP);
+        Assert.AreEqual(87f, enemy.CurrentHP);
     }
 
     [Test]

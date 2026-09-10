@@ -1,0 +1,93 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using UnityEditor;
+using UnityEngine;
+
+// Reproducible diagnostic only; no game assets or saves are modified.
+public static class CurrentBalanceAuditRunner
+{
+    [Serializable] public class Row
+    {
+        public string build, encounter;
+        public int rank, seed;
+        public bool win, timeout;
+        public float seconds, hp, maxHp, armor;
+    }
+    [Serializable] public class Output { public List<Row> rows = new List<Row>(); }
+    static IEnumerable<T> AssetsOf<T>() where T : UnityEngine.Object =>
+        AssetDatabase.FindAssets("t:" + typeof(T).Name).Select(g => AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(g)));
+
+    public static void Run()
+    {
+        var output = new Output();
+        var chars = AssetsOf<CharacterData>().Where(c => !string.IsNullOrWhiteSpace(c.characterId)).ToDictionary(c => c.characterId, StringComparer.OrdinalIgnoreCase);
+        var items = AssetsOf<ItemData>().ToDictionary(i => i.name, StringComparer.OrdinalIgnoreCase);
+        var skills = AssetsOf<PassiveSkillData>().Where(s => s.skillId != SkillId.None).GroupBy(s => s.skillId).ToDictionary(g => g.Key, g => g.First());
+        var monsters = AssetsOf<MonsterData>().ToDictionary(m => m.name);
+        var encounters = monsters.Values.Select(m => new[] {m}).ToList();
+        encounters.Add(Enumerable.Repeat(monsters["Monster_Bat"], 3).ToArray());
+        encounters.Add(Enumerable.Repeat(monsters["Monster_Warlock"], 3).ToArray());
+        encounters.Add(new[] {monsters["Monster_StoneGuardian"], monsters["Monster_DarkPriest"], monsters["Monster_Warlock"]});
+        var flags = BindingFlags.NonPublic | BindingFlags.Static;
+        var definitions = (IEnumerable)typeof(VeteranBalanceRunner).GetMethod("Definitions", flags).Invoke(null, null);
+        var create = typeof(VeteranBalanceRunner).GetMethod("CreateSnapshot", flags);
+        foreach (object definition in definitions)
+        {
+            var type = definition.GetType();
+            type.GetField("ItemLevel").SetValue(definition, 15);
+            string id = (string)type.GetField("Id").GetValue(definition);
+            foreach (int rank in new[] {1, 3, 5})
+            {
+                var rankedItems = items.ToDictionary(p => p.Key, p => UnityEngine.Object.Instantiate(p.Value), StringComparer.OrdinalIgnoreCase);
+                foreach (var item in rankedItems.Values) item.itemRank = rank;
+                object[] args = {definition, chars, rankedItems, skills, null, null, null};
+                var snapshot = (VeteranBuildSnapshot)create.Invoke(null, args);
+                foreach (var item in rankedItems.Values) UnityEngine.Object.DestroyImmediate(item);
+                foreach (var encounter in encounters)
+                for (int seed = 1; seed <= 5; seed++)
+                {
+                    var player = snapshot.CreateFreshRuntime();
+                    CursedItemRules.ApplyEquippedCurses(player);
+                    var enemies = encounter.Select(m => CombatantFactory.CreateMonsterCombatant(m, 10, m.isBoss ? 1 : 4, true)).ToList();
+                    var host = new GameObject("BalanceAudit") {hideFlags = HideFlags.HideAndDontSave};
+                    var combat = host.AddComponent<CombatManager>();
+                    ActiveSkillData active = null;
+                    try
+                    {
+                        combat.SetHeadlessSimulationMode(true);
+                        combat.SetRandomSource(new DeterministicCombatRandom(seed));
+                        if (snapshot.activeSkill != null)
+                        {
+                            var a = snapshot.activeSkill;
+                            active = ScriptableObject.CreateInstance<ActiveSkillData>();
+                            active.skillId = a.skillId; active.skillName = a.skillName;
+                            active.skillType = a.skillType; active.cooldownSeconds = a.cooldownSeconds;
+                            combat.ConfigureActiveSkills(new[] {new ActiveSkillConfigEntry(active, a.hitCount, a.damageMultiplierPerHit, true, a.attackLockSeconds)});
+                        }
+                        combat.StartCombat(player, enemies);
+                        if (active != null) combat.TryActivateSkill(0);
+                        int ticks = 0;
+                        while (combat.IsCombatActive && ticks < 6000) { combat.Tick(.02f); ticks++; }
+                        output.rows.Add(new Row {build=id, encounter=string.Join("+", encounter.Select(m=>m.name)), rank=rank, seed=seed,
+                            win=player.IsAlive && enemies.All(e=>!e.IsAlive), timeout=combat.IsCombatActive,
+                            seconds=ticks*.02f, hp=player.CurrentHP, maxHp=player.MaxHP, armor=player.PhysicalDefenseCurrent});
+                    }
+                    finally
+                    {
+                        combat.AbortCombat();
+                        UnityEngine.Object.DestroyImmediate(host);
+                        if (active != null) UnityEngine.Object.DestroyImmediate(active);
+                    }
+                }
+            }
+            Debug.Log("[CurrentBalanceAudit] " + id + " completed; rows=" + output.rows.Count);
+        }
+        Directory.CreateDirectory("Docs/Balance");
+        File.WriteAllText("Docs/Balance/2026-09-10-current-combat-matrix.json", JsonUtility.ToJson(output, true));
+        Debug.Log("[CurrentBalanceAudit] DONE " + output.rows.Count);
+    }
+}

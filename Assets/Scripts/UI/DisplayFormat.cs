@@ -206,7 +206,7 @@ public static class SkillDescriptionFormatter
                 return $"Физический урон по здоровью вызывает кровотечение: {Number(BleedRules.DamagePerSecond(currentLevel))} урона в секунду {duration}. Критический удар сразу наносит оставшийся урон кровотечения." +
                     (currentLevel >= 5 ? " Периодический урон кровотечения также может стать критическим." : string.Empty);
             case SkillId.Vampirism:
-                return $"Критический удар восстанавливает здоровье в размере {Percent(ItemEffectBalance.VampirismHealPercentOfCritDamage(currentLevel))} нанесённого урона.";
+                return $"Критический удар восстанавливает здоровье в размере {Percent(ItemEffectBalance.VampirismHealPercentOfCritDamage(currentLevel))} фактически снятого здоровья цели. Учитывает усиление и ослабление лечения.";
             case SkillId.ArmorBreak:
                 return $"Физический удар по здоровью имеет {Percent(ItemEffectBalance.ArmorBreakExtraWearChancePercent(currentLevel))} шанс дополнительно снизить физическую защиту цели на {Number(1f)}.";
             case SkillId.Piercing:
@@ -222,20 +222,20 @@ public static class SkillDescriptionFormatter
             case SkillId.EyeForAnEye:
                 return $"Повышает шанс критического удара на {Percent(CombatCriticalRules.EyeForAnEyeBonus(currentLevel))}. Критический удар даёт Скрытность на {Value("3 секунды")}.";
             case SkillId.PoisonedBlade:
-                return $"Физический удар по здоровью добавляет один заряд яда на {Value("3 секунды")}; каждый заряд наносит {Number(1f)} урона в секунду. Максимум — {Number(currentLevel)}. В Скрытности удар добавляет два заряда, а максимум удваивается.";
+                return $"Физический удар по здоровью добавляет один заряд яда на {Value("3 секунды")}; каждый заряд наносит в секунду {Number(1f)} + {Percent(2f)} среднего базового урона экипированного оружия. Максимум — {Number(currentLevel)}. В Скрытности удар добавляет два заряда, а максимум удваивается. После выхода лишние заряды спадают по одному в секунду; попадания сохраняют их, но не добавляют новые сверх текущего максимума.";
             case SkillId.ByAThread:
                 return $"После уклонения повышает скорость атаки на {Percent(currentLevel * 3f)} на {Value("3 секунды")}.";
             case SkillId.Elimination:
                 float criticalDamage = currentLevel switch { 1 => 175f, 2 => 180f, 3 => 185f, 4 => 190f, _ => 200f };
                 return $"Критический удар наносит {Percent(criticalDamage)} обычного урона.";
             case SkillId.SlipAway:
-                return $"Повышает шанс уклонения на {Percent(currentLevel)}. После уклонения даёт Скрытность на {Value("3 секунды")}.";
+                return $"Повышает шанс уклонения на {Percent(currentLevel * 2f)}. После уклонения даёт Скрытность на {Value("3 секунды")}.";
             case SkillId.Stubbornness:
                 return $"При Ярости выше {Percent(RageRules.StubbornnessThreshold(currentLevel))} новые отрицательные эффекты не действуют.";
             case SkillId.Frenzy:
                 return $"Повышает скорость атаки на величину, равную {Percent(RageRules.SkillMultiplier(currentLevel) * 100f)} текущей Ярости.";
             case SkillId.CombatRegen:
-                return $"После каждых {Number(BalanceClamps.CombatRegenHitsRequired(currentLevel))} полученных ударов восстанавливает {Percent(BalanceClamps.CombatRegenHealPercent)} максимального здоровья. Повторное срабатывание возможно через {Value($"{BalanceClamps.CombatRegenCooldownSeconds:0.#} секунды")}.";
+                return $"После каждых {Number(BalanceClamps.CombatRegenHitsRequired(currentLevel))} ударов по здоровью восстанавливает {Percent(BalanceClamps.CombatRegenHealPercent)} максимального здоровья. Учитывает усиление и ослабление лечения. Повторное срабатывание возможно через {Value($"{BalanceClamps.CombatRegenCooldownSeconds:0.#} секунды")}.";
             case SkillId.Intimidation:
                 return $"Критический удар на {Value("3 секунды")} снижает скорость атаки цели на величину, равную {Percent(RageRules.SkillMultiplier(currentLevel) * 100f)} текущей Ярости.";
             case SkillId.Superstition:
@@ -323,13 +323,13 @@ public static class ItemDescriptionFormatter
             case WeaponPrototypeEffectId.ResonanceScimitar:
                 return $"Каждый уникальный положительный эффект повышает урон на {P(item.prototypePrimaryValue)}, максимум — {P(item.prototypePrimaryValue * item.prototypeMaxStacks)}. Каждый уникальный отрицательный эффект повышает скорость атаки на {P(item.prototypeSecondaryValue)}, максимум — {P(item.prototypeSecondaryValue * item.prototypeMaxStacks)}.";
             case WeaponPrototypeEffectId.SpellEater:
-                return $"Физическая атака сначала наносит магическому щиту {P(100f)} своего урона. Если эта атака полностью уничтожает щит, каждая снятая единица щита добавляет {N(1f)} к урону оружия до конца боя.";
+                return $"Физическая атака дополнительно наносит магическому щиту {P(100f)} своего урона, не расходуя основной удар. Дополнительный урон не переносится на здоровье. При уничтожении щита каждая снятая этим ударом единица добавляет {N(item.prototypePrimaryValue)} к урону оружия до конца боя.";
             case WeaponPrototypeEffectId.LightningSpear:
                 return $"Каждая {N(item.prototypeMaxStacks)}-я успешная обычная атака дополнительно наносит магический урон в размере {P(item.prototypePrimaryValue)} урона атаки.";
             case WeaponPrototypeEffectId.Pendulum:
                 return $"За каждую полную секунду без атаки урон следующего удара повышается на {P(item.prototypePrimaryValue)}, максимум — {P(item.prototypeSecondaryValue)}.";
             case WeaponPrototypeEffectId.DayAndNight:
-                return $"Парные клинки: {P(item.prototypePrimaryValue)} урона наносится как физический, остальные {P(100f - item.prototypePrimaryValue)} — как магический.";
+                return $"Двуручное оружие с одной атакой: {P(item.prototypePrimaryValue)} урона наносится как физический, остальные {P(100f - item.prototypePrimaryValue)} — как магический.";
             case WeaponPrototypeEffectId.LastArgumentConversion:
                 return $"Положительные бонусы скорости атаки не ускоряют оружие. Каждый {P(1f)} такого бонуса вместо этого повышает урон на {P(item.prototypePrimaryValue)}.";
             default:

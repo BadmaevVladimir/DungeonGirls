@@ -349,7 +349,7 @@ public partial class RunFlowController
     // и ПОЛНАЯ таблица статов предмета — у каждой строки своё "было → стало", а не единственная
     // выбранная "главная" дельта. Иначе для колец/амулетов с непересекающимися бонусами часть
     // информации (например старое значение стата, которого нет у нового предмета) терялась.
-    static VisualElement BuildItemCompareCard(ItemData candidate, ItemData replacement)
+    VisualElement BuildItemCompareCard(ItemData candidate, ItemData replacement)
     {
         var card = new VisualElement();
 
@@ -373,12 +373,31 @@ public partial class RunFlowController
         }
         card.Add(header);
 
+        if (candidate != null) card.Add(BuildItemTagStrip(candidate));
+
         foreach (var row in GetComparableStatRows(candidate, replacement))
         {
             card.Add(BuildStatRow(row.Label, row.Old, row.New));
         }
 
         return card;
+    }
+
+    VisualElement BuildItemTagStrip(ItemData item, bool compact = false)
+    {
+        var strip = new VisualElement();
+        strip.AddToClassList("item-tag-strip");
+        if (compact) strip.AddToClassList("item-tag-strip-compact");
+        foreach (var tag in ItemMechanicTags.Get(item, compact ? 3 : 5))
+        {
+            var badge = new Label(tag.Label) { tooltip = tag.Tooltip };
+            badge.AddToClassList("item-mechanic-tag");
+            badge.AddToClassList(tag.StyleClass);
+            if (compact) badge.AddToClassList("item-mechanic-tag-compact");
+            tutorialManager?.BindTransientTooltip(badge, tag.Label, tag.Tooltip);
+            strip.Add(badge);
+        }
+        return strip;
     }
 
     static VisualElement BuildStatRow(string label, float? oldValue, float? newValue)
@@ -524,6 +543,15 @@ public partial class RunFlowController
         SetRarityClass(newItemRarityLabel, newItem.tier);
         SetRarityBorderClass(newItemCard, newItem.tier);
         newItemName.text = newItem.itemName;
+        newItemTags.Clear();
+        foreach (var tag in ItemMechanicTags.Get(newItem))
+        {
+            var badge = new Label(tag.Label) { tooltip = tag.Tooltip };
+            badge.AddToClassList("item-mechanic-tag");
+            badge.AddToClassList(tag.StyleClass);
+            tutorialManager?.BindTransientTooltip(badge, tag.Label, tag.Tooltip);
+            newItemTags.Add(badge);
+        }
         newItemStats.text = ItemComparisonSummary(newItem);
         newItemStats.tooltip = SkillDescriptionFormatter.Plain(DisplayFormat.ItemStatsText(newItem));
         tutorialManager?.QueueOnce(TutorialContent.Equipment);

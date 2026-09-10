@@ -48,7 +48,7 @@ public static class ItemEffectBalance
     public static float ExecutionMissingHealthPercent(int rank) => Value(rank, 3f);
     public static float RiposteDamageMultiplier(int rank) => Value(rank, 0.25f);
     public static float JustAScratchHealPercent(int rank) => Value(rank, 3f);
-    public static float ArmorBreakExtraWearChancePercent(int rank) => Mathf.Min(100f, Value(rank, 25f));
+    public static float ArmorBreakExtraWearChancePercent(int rank) => Value(rank, 20f);
 
     // Броня от универсальных украшений намеренно растёт медленнее старой линейной формулы.
     // baseValue в данных теперь означает шаг: кольцо 2 -> 4/6/8/10/12, амулет 3 -> 6/9/12/15/18.

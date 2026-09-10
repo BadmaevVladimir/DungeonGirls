@@ -139,12 +139,42 @@ public class CombatManager : MonoBehaviour
     }
 
     public bool IsSkillReady(int slotIndex) =>
-        Player != null && Player.IsAlive && slotIndex >= 0 && slotIndex < ActiveSkills.Count &&
+        Player != null && Player.IsAlive && !Player.IsFrozen && slotIndex >= 0 && slotIndex < ActiveSkills.Count &&
         ActiveSkills[slotIndex].Data.skillType == ActiveSkillType.Cooldown &&
         ActiveSkills[slotIndex].CooldownTimer <= 0f;
 
     public float SkillCooldownRemaining(int slotIndex) =>
-        slotIndex >= 0 && slotIndex < ActiveSkills.Count ? Mathf.Max(0f, ActiveSkills[slotIndex].CooldownTimer) : 0f;
+        slotIndex >= 0 && slotIndex < ActiveSkills.Count
+            ? Mathf.Max(0f, Mathf.Max(ActiveSkills[slotIndex].CooldownTimer, ActiveSkills[slotIndex].ForcedDisableRemaining)) : 0f;
+
+    public void DisruptPlayerActiveSkills(float seconds)
+    {
+        seconds = Mathf.Max(0f, seconds);
+        foreach (var slot in ActiveSkills)
+        {
+            if (slot.Data.skillType == ActiveSkillType.Cooldown) slot.CooldownTimer += seconds;
+            else
+            {
+                slot.ResumeToggleAfterDisable |= slot.IsToggleActive;
+                slot.ForcedDisableRemaining = Mathf.Max(slot.ForcedDisableRemaining, seconds);
+                slot.IsToggleActive = false;
+                if (slot.Data.skillId == SkillId.Berserk) Player.IsBerserkActive = false;
+            }
+        }
+    }
+
+    void TickDisabledSkills(float deltaTime)
+    {
+        foreach (var slot in ActiveSkills)
+        {
+            if (slot.ForcedDisableRemaining <= 0f) continue;
+            slot.ForcedDisableRemaining = Mathf.Max(0f, slot.ForcedDisableRemaining - deltaTime);
+            if (slot.ForcedDisableRemaining > 0f || !Player.IsAlive) continue;
+            slot.IsToggleActive = slot.ResumeToggleAfterDisable;
+            if (slot.Data.skillId == SkillId.Berserk) Player.IsBerserkActive = slot.IsToggleActive;
+            slot.ResumeToggleAfterDisable = false;
+        }
+    }
 
     public bool TryActivateSkill(int slotIndex)
     {
@@ -179,6 +209,7 @@ public class CombatManager : MonoBehaviour
         }
 
         bool activate = !slot.IsToggleActive;
+        if (activate && (Player.IsFrozen || slot.ForcedDisableRemaining > 0f)) return false;
 
         if (slot.Data.skillId == SkillId.Berserk)
         {
@@ -258,6 +289,17 @@ public class CombatManager : MonoBehaviour
     {
         Player = player;
         Enemies = enemies ?? new List<CombatantRuntime>();
+        // Stable ordering: front-line guardians shield the other enemies by being targeted first.
+        var orderedEnemies = Enemies.OrderByDescending(enemy => enemy.FrontlinePriority).ToList();
+        Enemies.Clear();
+        Enemies.AddRange(orderedEnemies);
+        Player.MaxHP = DamageCalculator.RoundPoints(Player.MaxHP);
+        Player.CurrentHP = DamageCalculator.RoundPoints(Player.CurrentHP);
+        foreach (var enemy in Enemies)
+        {
+            enemy.MaxHP = DamageCalculator.RoundPoints(enemy.MaxHP);
+            enemy.CurrentHP = DamageCalculator.RoundPoints(enemy.CurrentHP);
+        }
         IsCombatActive = true;
         LastCombatTelemetry = null;
         currentCombatDurationSeconds = 0f;
@@ -283,7 +325,7 @@ public class CombatManager : MonoBehaviour
         // только у игрока (у монстров предметов нет — ItemJustAScratchLevel всегда 0).
         if (Player.ItemJustAScratchLevel > 0)
         {
-            Player.CurrentHP = Mathf.Min(Player.MaxHP, Player.CurrentHP + Player.MaxHP * ItemEffectBalance.JustAScratchHealPercent(Player.ItemJustAScratchLevel) / 100f);
+            Player.Heal(Player.MaxHP * ItemEffectBalance.JustAScratchHealPercent(Player.ItemJustAScratchLevel) / 100f);
         }
 
         Log($"[Combat] Бой начался: {Player.DisplayName} (здоровье {Player.CurrentHP:F1}) против {Enemies.Count} противников.");
@@ -336,6 +378,7 @@ public class CombatManager : MonoBehaviour
         combatant.RoguePoisonStacksOnTarget = 0;
         combatant.RoguePoisonTimer = 0f;
         combatant.RoguePoisonTickAccumulator = 0f;
+        combatant.RoguePoisonSource = null;
         combatant.HasBleed = false;
         combatant.BleedDamagePerSecond = 0f;
         combatant.BleedTimer = 0f;
@@ -356,6 +399,7 @@ public class CombatManager : MonoBehaviour
         combatant.CombatRegenCooldownRemaining = 0f;
         combatant.IsBerserkActive = false;
         combatant.BerserkTickAccumulator = 0f;
+        // Boss framework: окно повышенного получаемого урона не должно протекать между боями.
         combatant.DamageTakenBonusPercent = 0f;
         combatant.DamageTakenBonusTimer = 0f;
         combatant.BossGroupDamageReductionPercent = 0f;
@@ -399,6 +443,7 @@ public class CombatManager : MonoBehaviour
         }
 
         currentCombatDurationSeconds += Mathf.Max(0f, deltaTime);
+        TickDisabledSkills(deltaTime);
 
         // 3.11 (Варвар) — "Суеверность"/"Берсерк" дают сопротивление, зависящее от ЖИВОЙ Ярости
         // (пересчитывается каждый тик, а не один раз при создании боевого юнита — см. комментарий
@@ -425,10 +470,8 @@ public class CombatManager : MonoBehaviour
                 Player.BerserkTickAccumulator -= 1f;
                 // [ПРЕДПОЛОЖЕНИЕ, см. Global Constraints] — урон от ТЕКУЩЕГО HP, не максимума; ГДД
                 // сам помечает точную базу как неподтверждённую.
-                float tickDamage = Mathf.Max(1f, Player.CurrentHP * 0.01f);
-                Player.CurrentHP = Mathf.Max(0f, Player.CurrentHP - tickDamage);
+                float tickDamage = DamageCalculator.ApplyDirectDamage(Player, Mathf.Max(1f, Player.CurrentHP * 0.01f));
                 currentCombatPlayerDamageTaken += tickDamage;
-                Player.NotifyHpDamageResolved();
                 Log($"[Combat] «Берсерк» наносит {tickDamage:F1} урона {Player.DisplayName} (здоровье {Player.CurrentHP:F1}/{Player.MaxHP:F1}).");
             }
         }
@@ -506,7 +549,7 @@ public class CombatManager : MonoBehaviour
 
             // Boss framework (минимальный слайс): боссы С BossKitData используют TickBossEncounters
             // вместо этого легаси-таймера — не бить дважды за один и тот же "тяжёлый удар".
-            if (!enemy.IsAlive || !enemy.IsBoss || enemy.Weapons.Count == 0 || enemy.BossEncounter != null)
+            if (!enemy.IsAlive || enemy.IsFrozen || !enemy.IsBoss || enemy.Weapons.Count == 0 || enemy.BossEncounter != null)
             {
                 continue;
             }
@@ -605,7 +648,7 @@ public class CombatManager : MonoBehaviour
                 return;
             }
 
-            if (!enemy.IsAlive || enemy.BossEncounter == null)
+            if (!enemy.IsAlive || enemy.IsFrozen || enemy.BossEncounter == null)
             {
                 continue;
             }
@@ -698,7 +741,6 @@ public class CombatManager : MonoBehaviour
                 ActiveSkillActivated?.Invoke(boss, ability.displayName);
                 Log($"[Combat] {boss.DisplayName} применяет «{ability.displayName}»: {revived.DisplayName} снова в строю.");
                 break;
-
         }
     }
 
@@ -861,8 +903,7 @@ public class CombatManager : MonoBehaviour
                 Log($"[Combat] Критический тик кровотечения детонирует ещё {detonationDamage:F1} урона и обновляет длительность.");
             }
 
-            target.CurrentHP -= tickDamage;
-            target.NotifyHpDamageResolved();
+            tickDamage = DamageCalculator.ApplyDirectDamage(target, tickDamage);
             EmitHitResolved(target, tickDamage, isCriticalTick, false);
             Log($"[Combat] {target.DisplayName} получает {tickDamage:F1} урона от кровотечения{(isCriticalTick ? " (критический урон)" : string.Empty)} (здоровье {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
@@ -1059,8 +1100,7 @@ public class CombatManager : MonoBehaviour
             // атаки" + бонус предметов — "В глаз"/крит-дебафф Гарпии сюда намеренно не входят, это
             // Rogue-специфика/дебафф шанса, а не источник шанса Варвара) конвертируются в крит-урон
             // по курсу 1%->+2% вместо суммирования в шанс.
-            float convertedSources = attacker.SkillCriticalHitsLevel * 10f + attacker.CritChanceBonusFromItems;
-            critMultiplier += convertedSources * 2f;
+            critMultiplier += CombatCriticalRules.ConvertedCritDamageBonus(attacker);
         }
 
         bool isCrit = critChancePercent > 0f && combatRandom.Value01() * 100f < critChancePercent;
@@ -1121,7 +1161,7 @@ public class CombatManager : MonoBehaviour
                 (damage + armorPenetrationDamage) * paranoiaMultiplier,
                 weapon.ArmorIgnorePercent, out float shieldRemoved);
             if (magicShieldBeforeAttack > 0f && target.MagicShieldCurrent <= 0f)
-                weapon.PrototypeAccumulatedDamage += shieldRemoved;
+                weapon.PrototypeAccumulatedDamage += shieldRemoved * Mathf.Max(0f, weapon.PrototypePrimaryValue);
         }
         else if (weapon.PrototypeEffect == WeaponPrototypeEffectId.DayAndNight)
         {
@@ -1131,11 +1171,13 @@ public class CombatManager : MonoBehaviour
             if (shareTotal <= 0f) { physicalShare = 0.5f; magicalShare = 0.5f; shareTotal = 1f; }
             physicalShare /= shareTotal;
             magicalShare /= shareTotal;
+            float splitTotal = DamageCalculator.RoundPoints(damage * paranoiaMultiplier);
+            float physicalPart = DamageCalculator.RoundPoints(splitTotal * physicalShare);
             var physical = DamageCalculator.ApplyDamage(target,
-                (damage * physicalShare + armorPenetrationDamage) * paranoiaMultiplier,
+                physicalPart + armorPenetrationDamage * paranoiaMultiplier,
                 DamageType.Physical, weapon.ArmorIgnorePercent);
             var magical = DamageCalculator.ApplyDamage(target,
-                damage * magicalShare * paranoiaMultiplier, DamageType.Magical);
+                splitTotal - physicalPart, DamageType.Magical);
             result = PrototypeWeaponRules.Combine(physical, magical);
         }
         else
@@ -1208,15 +1250,14 @@ public class CombatManager : MonoBehaviour
             EmitHitResolved(target, embraceResult.DamageToHP, false, embraceResult.WasBlocked);
         }
 
-        // "Вампиризм" (3.10, Кровавый меч): при крите восстанавливает атакующему часть урона крита здоровьем.
-        if (isCrit && weapon.VampirismLevel > 0)
+        // Вампиризм лечит от фактически снятого HP, с учётом всех модификаторов лечения.
+        if (isCrit && weapon.VampirismLevel > 0 && result.DamageToHP > 0f && attacker.IsAlive)
         {
-            float healAmount = damage * ItemEffectBalance.VampirismHealPercentOfCritDamage(weapon.VampirismLevel) / 100f;
-            attacker.CurrentHP = Mathf.Min(attacker.MaxHP, attacker.CurrentHP + healAmount);
+            float healAmount = attacker.Heal(result.DamageToHP * ItemEffectBalance.VampirismHealPercentOfCritDamage(weapon.VampirismLevel) / 100f);
             Log($"[Combat] «Вампиризм» восстанавливает {attacker.DisplayName} {healAmount:F1} здоровья.");
         }
 
-        // «Разрушение брони» (Рубило): после физического попадания есть 25/50/75/100/100% шанс
+        // «Разрушение брони» (Рубило): после физического попадания есть 20/40/60/80/100% шанс
         // снять ещё 1 ед. брони сверх обычной деградации DamageCalculator.
         if (!result.WasBlocked && weapon.DamageType == DamageType.Physical && weapon.ArmorBreakLevel > 0)
         {
@@ -1267,8 +1308,7 @@ public class CombatManager : MonoBehaviour
 
             if (reflectedDamage > 0f)
             {
-                attacker.CurrentHP -= reflectedDamage;
-                attacker.NotifyHpDamageResolved();
+                reflectedDamage = DamageCalculator.ApplyDirectDamage(attacker, reflectedDamage);
                 EmitHitResolved(attacker, reflectedDamage, false, false);
                 Log($"[Combat] Шипы {target.DisplayName} отражают {reflectedDamage:F1} урона по {attacker.DisplayName}.");
                 if (!attacker.IsAlive)
@@ -1307,12 +1347,11 @@ public class CombatManager : MonoBehaviour
             Log($"[Combat] {target.DisplayName} погибает.");
         }
 
-        // 3.11 "Боевая регенерация" (Варвар): каждый N-й ПОЛУЧЕННЫЙ удар (блокированный или нет —
-        // ГДД "каждые N полученных ударов", читаем как любую разрешённую атаку по цели, а не только
-        // прошедшую по HP; [ПРЕДПОЛОЖЕНИЕ] — если задумывалось иначе, это расхождение с ГДД, не
-        // угаданное молча) восстанавливает 6% MaxHP, если цель выжила. Урон -> потом восстановление
+        // 3.11 "Боевая регенерация" (Варвар): каждый N-й удар по здоровью.
+        // С 10.09.2026 засчитываются только удары, снявшие HP. Восстановление 6% MaxHP, если цель выжила.
+        // Урон -> потом восстановление
         // (ГДД: "сначала урон... затем, если персонаж выжил — восстановление").
-        if (target.SkillCombatRegenLevel > 0)
+        if (target.SkillCombatRegenLevel > 0 && result.DamageToHP > 0f)
         {
             target.HitsTakenSinceLastRegen++;
             int regenThreshold = BalanceClamps.CombatRegenHitsRequired(target.SkillCombatRegenLevel);
@@ -1320,7 +1359,7 @@ public class CombatManager : MonoBehaviour
             {
                 target.HitsTakenSinceLastRegen = 0;
                 float regenAmount = target.MaxHP * (BalanceClamps.CombatRegenHealPercent / 100f);
-                target.CurrentHP = Mathf.Min(target.MaxHP, target.CurrentHP + regenAmount);
+                regenAmount = target.Heal(regenAmount);
                 target.CombatRegenCooldownRemaining = BalanceClamps.CombatRegenCooldownSeconds;
                 Log($"[Combat] «Боевая регенерация» восстанавливает {target.DisplayName} {regenAmount:F1} здоровья (здоровье {target.CurrentHP:F1}/{target.MaxHP:F1}).");
             }
@@ -1348,7 +1387,8 @@ public class CombatManager : MonoBehaviour
             if (weapon.DamageType == DamageType.Physical && !target.FreezeImmune && !result.WasBlocked)
             {
                 float bonusMagicDamage = result.DamageToHP;
-                DamageCalculator.ApplyMagicalDamage(target, bonusMagicDamage);
+                var shatter = DamageCalculator.ApplyDamage(target, bonusMagicDamage, DamageType.Magical);
+                EmitHitResolved(target, shatter.DamageToHP, false, shatter.WasBlocked);
                 Log($"[Combat] Заморозка {target.DisplayName} разбивается! +{bonusMagicDamage:F1} доп. магического урона.");
 
                 target.IsFrozen = false;
@@ -1389,8 +1429,7 @@ public class CombatManager : MonoBehaviour
     void DetonateBleedFromCriticalHit(CombatantRuntime target)
     {
         float detonationDamage = BleedRules.DetonationDamage(target.BleedDamagePerSecond, target.BleedTimer);
-        target.CurrentHP -= detonationDamage;
-        target.NotifyHpDamageResolved();
+        detonationDamage = DamageCalculator.ApplyDirectDamage(target, detonationDamage);
         target.BleedTimer = target.AdjustNegativeStatusDuration(BleedRules.DurationForLevel(target.BleedLevel));
         EmitHitResolved(target, detonationDamage, true, false);
         Log($"[Combat] Критический удар детонирует кровотечение на {target.DisplayName}: {detonationDamage:F1} урона; длительность обновлена.");
@@ -1451,14 +1490,16 @@ public class CombatManager : MonoBehaviour
             stacksToAdd = 2;
         }
 
-        target.RoguePoisonStacksOnTarget = Mathf.Min(target.RoguePoisonStacksOnTarget + stacksToAdd, maxStacks);
+        if (target.RoguePoisonStacksOnTarget < maxStacks)
+            target.RoguePoisonStacksOnTarget = Mathf.Min(target.RoguePoisonStacksOnTarget + stacksToAdd, maxStacks);
+        target.RoguePoisonSource = attacker;
         target.RoguePoisonTimer = target.AdjustNegativeStatusDuration(3f);
         Log($"[Combat] «Отравленный клинок» накладывает яд на {target.DisplayName} ({target.RoguePoisonStacksOnTarget}/{maxStacks} зарядов).");
     }
 
-    // "Отравленный клинок": тикает раз в секунду, урон/сек = текущее число стаков (1:1, В ОТЛИЧИЕ
-    // от монстрового яда, где урон/сек = стаки×4 — см. TickPoison). Стаки истекают все разом по
-    // общему таймеру, зеркально TickPoison, но на отдельных Rogue*-полях.
+    // "Отравленный клинок": каждый заряд раз в секунду наносит 1 + 2% среднего урона оружия
+    // источника до критов и срабатываний. У парного оружия берётся среднее, а не сумма, чтобы
+    // второй таймер атаки не удваивал ещё и силу тика. Весь тик округляется один раз.
     void TickRoguePoison(CombatantRuntime target, float deltaTime)
     {
         if (target.RoguePoisonStacksOnTarget <= 0)
@@ -1469,12 +1510,17 @@ public class CombatManager : MonoBehaviour
         target.RoguePoisonTimer -= deltaTime;
         target.RoguePoisonTickAccumulator += deltaTime;
 
-        float damagePerSecond = target.RoguePoisonStacksOnTarget;
         while (target.RoguePoisonTickAccumulator >= 1f && target.RoguePoisonStacksOnTarget > 0 && target.IsAlive)
         {
             target.RoguePoisonTickAccumulator -= 1f;
-            target.CurrentHP -= damagePerSecond;
-            target.NotifyHpDamageResolved();
+            float damagePerStack = RoguePoisonDamagePerStack(target.RoguePoisonSource);
+            float damagePerSecond = DamageCalculator.ApplyDirectDamage(target, target.RoguePoisonStacksOnTarget * damagePerStack);
+            var source = target.RoguePoisonSource;
+            if (source != null)
+            {
+                int currentCap = source.SkillPoisonedBladeLevel * (source.IsStealthed ? 2 : 1);
+                if (target.RoguePoisonStacksOnTarget > currentCap) target.RoguePoisonStacksOnTarget--;
+            }
             EmitHitResolved(target, damagePerSecond, false, false);
             Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от «Отравленного клинка» (здоровье {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
@@ -1488,6 +1534,20 @@ public class CombatManager : MonoBehaviour
         {
             target.RoguePoisonStacksOnTarget = 0;
         }
+    }
+
+    public static float RoguePoisonDamagePerStack(CombatantRuntime source)
+    {
+        if (source == null || source.Weapons == null || source.Weapons.Count == 0) return 1f;
+        float totalAverageDamage = 0f;
+        int weaponCount = 0;
+        foreach (var weapon in source.Weapons)
+        {
+            if (weapon == null) continue;
+            totalAverageDamage += (weapon.DamageMin + weapon.DamageMax) * 0.5f;
+            weaponCount++;
+        }
+        return weaponCount > 0 ? 1f + totalAverageDamage / weaponCount * 0.02f : 1f;
     }
 
     // 2.4: пассивки монстров, срабатывающие ПРИ АТАКЕ (в отличие от периодических — см.
@@ -1506,7 +1566,7 @@ public class CombatManager : MonoBehaviour
                 // физическую защиту цели. Эффект не зависит от того, пробил ли сам удар броню.
                 // Яд прежнего паучка сохранён как вторая часть этой пассивки и, как раньше,
                 // накладывается только при попадании по HP.
-                float armorDamage = Mathf.Max(0f, attackDamage) * 0.15f;
+                float armorDamage = DamageCalculator.RoundPoints(attackDamage * 0.15f);
                 if (armorDamage > 0f)
                 {
                     float armorBefore = target.PhysicalDefenseCurrent;
@@ -1530,13 +1590,16 @@ public class CombatManager : MonoBehaviour
                 break;
 
             case SkillId.MonsterStunningScream:
-                // "15% шанс при атаке снизить шанс крита персонажа на 20% на 4 сек." — на атаке, не на попадании.
-                // 3.11 "Упёртость" (Варвар): при достаточной Ярости цель игнорирует крит-дебафф.
-                if (combatRandom.Value01() < 0.15f && !IgnoresDebuffs(target))
+                // Separate magical scream. Only damage to HP disrupts active skills.
+                if (combatRandom.Value01() < 0.15f && target.IsAlive)
                 {
-                    target.CritChanceDebuffPercent = 20f;
-                    target.CritChanceDebuffTimer = target.AdjustNegativeStatusDuration(4f);
-                    Log($"[Combat] Оглушающий крик {attacker.DisplayName} снижает шанс критического удара {target.DisplayName}.");
+                    var scream = DamageCalculator.ApplyDamage(target, attackDamage, DamageType.Magical);
+                    EmitHitResolved(target, scream.DamageToHP, false, scream.WasBlocked);
+                    if (scream.DamageToHP > 0f && target.IsAlive && !IgnoresDebuffs(target))
+                    {
+                        DisruptPlayerActiveSkills(target.AdjustNegativeStatusDuration(4f));
+                        Log($"[Combat] Оглушающий крик {attacker.DisplayName} задерживает активные навыки {target.DisplayName}.");
+                    }
                 }
                 break;
 
@@ -1567,7 +1630,7 @@ public class CombatManager : MonoBehaviour
     {
         foreach (var enemy in Enemies)
         {
-            if (!enemy.IsAlive || enemy.MonsterPassiveSkillId == SkillId.None)
+            if (!enemy.IsAlive || enemy.IsFrozen || enemy.MonsterPassiveSkillId == SkillId.None)
             {
                 continue;
             }
@@ -1582,7 +1645,7 @@ public class CombatManager : MonoBehaviour
                     if (healTarget != null)
                     {
                         float healAmount = healTarget.MaxHP * 0.10f;
-                        healTarget.CurrentHP = Mathf.Min(healTarget.MaxHP, healTarget.CurrentHP + healAmount);
+                        healAmount = healTarget.Heal(healAmount);
                         Log($"[Combat] Тёмное исцеление {enemy.DisplayName} восстанавливает {healTarget.DisplayName} {healAmount:F1} здоровья.");
                     }
                 }
@@ -1641,9 +1704,8 @@ public class CombatManager : MonoBehaviour
         while (target.PoisonTickAccumulator >= 1f && target.PoisonStacks > 0 && target.IsAlive)
         {
             target.PoisonTickAccumulator -= 1f;
-            target.CurrentHP -= damagePerSecond;
-            target.NotifyHpDamageResolved();
-            EmitHitResolved(target, damagePerSecond, false, false);
+            float dealt = DamageCalculator.ApplyDirectDamage(target, damagePerSecond);
+            EmitHitResolved(target, dealt, false, false);
             Log($"[Combat] {target.DisplayName} получает {damagePerSecond:F1} урона от яда (здоровье {Mathf.Max(target.CurrentHP, 0f):F1}/{target.MaxHP:F1}).");
 
             if (!target.IsAlive)

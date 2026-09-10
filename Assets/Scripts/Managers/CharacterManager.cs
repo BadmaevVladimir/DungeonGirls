@@ -285,7 +285,7 @@ public class CharacterManager : MonoBehaviour
 
         var rebuilt = CombatantFactory.CreatePlayerCombatant(Character, Progress.Level, Progress, EquippedItems, tavernLevelThisRun, forgeLevelThisRun, templeLevelThisRun);
 
-        rebuilt.CurrentHP = Mathf.Clamp(oldCurrentHP + (rebuilt.MaxHP - oldMaxHP), 0f, rebuilt.MaxHP);
+        rebuilt.CurrentHP = Mathf.Clamp(DamageCalculator.RoundPoints(oldCurrentHP + (rebuilt.MaxHP - oldMaxHP)), 0f, rebuilt.MaxHP);
         rebuilt.PhysicalDefenseCurrent = Mathf.Clamp(oldDefenseCurrent + (rebuilt.PhysicalDefenseMax - oldDefenseMax), 0f, rebuilt.PhysicalDefenseMax);
 
         Combatant = rebuilt;
@@ -306,8 +306,7 @@ public class CharacterManager : MonoBehaviour
 
     public void ApplyDirectDamage(float amount)
     {
-        Combatant.CurrentHP = Mathf.Max(0f, Combatant.CurrentHP - amount);
-        Combatant.NotifyHpDamageResolved();
+        DamageCalculator.ApplyDirectDamage(Combatant, amount);
     }
 
     public void ApplyDirectArmorLoss(float amount)

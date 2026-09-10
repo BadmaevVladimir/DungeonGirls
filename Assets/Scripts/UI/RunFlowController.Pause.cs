@@ -143,6 +143,7 @@ public partial class RunFlowController
                 icon.AddToClassList("equipment-slot-icon");
                 slot.Add(icon);
             }
+            slot.Add(BuildItemTagStrip(item, true));
             tutorialManager?.BindTooltip(slot, $"{DisplayFormat.SlotLabel(item)}: {item.itemName}", DisplayFormat.ItemStatsText(item));
         }
         return slot;

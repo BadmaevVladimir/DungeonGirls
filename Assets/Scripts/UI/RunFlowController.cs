@@ -292,6 +292,7 @@ public partial class RunFlowController : MonoBehaviour
     Label newItemRarityLabel;
     Label newItemName;
     Label newItemStats;
+    VisualElement newItemTags;
     VisualElement slotChoicesContainer;
     Button itemDiscardButton;
 
@@ -576,6 +577,7 @@ public partial class RunFlowController : MonoBehaviour
         newItemRarityLabel = root.Q<Label>("NewItemRarityLabel");
         newItemName = root.Q<Label>("NewItemName");
         newItemStats = root.Q<Label>("NewItemStats");
+        newItemTags = root.Q<VisualElement>("NewItemTags");
         slotChoicesContainer = root.Q<VisualElement>("SlotChoicesContainer");
         itemDiscardButton = root.Q<Button>("ItemDiscardButton");
     }

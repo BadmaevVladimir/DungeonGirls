@@ -137,7 +137,7 @@ Button {
 }
 
 .equipment-slot {
-    width: 58px;
+    width: 76px;
     height: 58px;
     background-color: rgb(20, 20, 25);
     border-width: 1px;
@@ -148,10 +148,68 @@ Button {
 }
 
 .equipment-slot-icon {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     -unity-background-scale-mode: scale-to-fit;
 }
+
+.item-tag-strip {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 3px;
+    margin-bottom: 5px;
+}
+
+.item-mechanic-tag {
+    color: rgb(248, 248, 252);
+    background-color: rgb(74, 72, 88);
+    border-width: 1px;
+    border-color: rgb(142, 139, 164);
+    border-radius: 8px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    margin-right: 4px;
+    margin-bottom: 3px;
+    font-size: 11px;
+    -unity-font-style: bold;
+}
+
+.item-tag-strip-compact {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    bottom: 0;
+    flex-wrap: nowrap;
+    justify-content: center;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.item-mechanic-tag-compact {
+    font-size: 7px;
+    border-radius: 4px;
+    padding-left: 2px;
+    padding-right: 2px;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-right: 1px;
+    margin-bottom: 1px;
+}
+
+.item-tag-damage { background-color: rgb(125, 69, 52); border-color: rgb(226, 137, 91); }
+.item-tag-magic { background-color: rgb(54, 75, 129); border-color: rgb(105, 159, 240); }
+.item-tag-danger { background-color: rgb(124, 48, 63); border-color: rgb(238, 91, 117); }
+.item-tag-defense { background-color: rgb(72, 92, 108); border-color: rgb(148, 187, 207); }
+.item-tag-health { background-color: rgb(56, 105, 72); border-color: rgb(106, 207, 133); }
+.item-tag-hand { background-color: rgb(91, 79, 55); border-color: rgb(212, 176, 94); }
+.item-tag-trigger { background-color: rgb(111, 75, 42); border-color: rgb(235, 166, 72); }
+.item-tag-stealth { background-color: rgb(72, 55, 111); border-color: rgb(157, 113, 222); }
+.item-tag-effect { background-color: rgb(49, 98, 101); border-color: rgb(91, 199, 194); }
+.item-tag-curse { background-color: rgb(105, 38, 64); border-color: rgb(231, 76, 129); }
 
 .equipment-portrait {
     width: 128px;

@@ -156,7 +156,7 @@ public sealed class ActiveFoodBuff
         };
         if (maxHpPercent > 0f)
         {
-            appliedMaxHp = runtime.MaxHP * maxHpPercent / 100f;
+            appliedMaxHp = DamageCalculator.RoundPoints(runtime.MaxHP * maxHpPercent / 100f);
             runtime.MaxHP += appliedMaxHp;
             runtime.CurrentHP += appliedMaxHp;
         }

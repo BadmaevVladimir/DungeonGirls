@@ -145,7 +145,7 @@ public class RestBonusTests
         healed.CurrentHP = 50f;
         var healSlot = new ActiveRestBonus();
         healSlot.Activate(RestBonusCatalog.Find(RestBonusId.ReceivedHealing), healed);
-        Assert.AreEqual(12.5f, healed.Heal(10f), 0.01f, "Получаемое лечение обязано учитывать бонус привала.");
+        Assert.AreEqual(13f, healed.Heal(10f), 0.01f, "Получаемое лечение учитывает бонус привала и округляется до целого HP.");
     }
 
     [Test]

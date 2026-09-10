@@ -1,0 +1,707 @@
+{
+  "method": "Asset arithmetic only: no crit, armour mitigation, bonuses, procs or random modifiers. Weapon damage before range rounding, without dual-wield penalties.",
+  "monsters": [
+    {
+      "monster": "Monster_Bat",
+      "floor": 1,
+      "monster_level": 4,
+      "hp": 26.0,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 20.9
+    },
+    {
+      "monster": "Monster_Bat",
+      "floor": 4,
+      "monster_level": 4,
+      "hp": 51.062,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 28.349
+    },
+    {
+      "monster": "Monster_Bat",
+      "floor": 7,
+      "monster_level": 4,
+      "hp": 100.294,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 42.977
+    },
+    {
+      "monster": "Monster_Bat",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 194.012,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 66.806
+    },
+    {
+      "monster": "Monster_Boss",
+      "floor": 1,
+      "monster_level": 1,
+      "hp": 150.0,
+      "armor": 12.0,
+      "shield": 0.0,
+      "raw_auto_dps": 21.0
+    },
+    {
+      "monster": "Monster_Boss",
+      "floor": 4,
+      "monster_level": 1,
+      "hp": 292.969,
+      "armor": 18.25,
+      "shield": 0.0,
+      "raw_auto_dps": 31.938
+    },
+    {
+      "monster": "Monster_Boss",
+      "floor": 7,
+      "monster_level": 1,
+      "hp": 572.205,
+      "armor": 27.757,
+      "shield": 0.0,
+      "raw_auto_dps": 48.574
+    },
+    {
+      "monster": "Monster_Boss",
+      "floor": 10,
+      "monster_level": 1,
+      "hp": 1117.587,
+      "armor": 42.215,
+      "shield": 0.0,
+      "raw_auto_dps": 73.875
+    },
+    {
+      "monster": "Monster_DarkKnight",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 871.552,
+      "armor": 54.215,
+      "shield": 10.0,
+      "raw_auto_dps": 84.581
+    },
+    {
+      "monster": "Monster_DarkPriest",
+      "floor": 7,
+      "monster_level": 4,
+      "hp": 172.514,
+      "armor": 0.0,
+      "shield": 15.0,
+      "raw_auto_dps": 32.772
+    },
+    {
+      "monster": "Monster_DarkPriest",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 338.77,
+      "armor": 0.0,
+      "shield": 15.0,
+      "raw_auto_dps": 51.726
+    },
+    {
+      "monster": "Monster_GoblinThief",
+      "floor": 1,
+      "monster_level": 4,
+      "hp": 47.0,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 15.6
+    },
+    {
+      "monster": "Monster_GoblinThief",
+      "floor": 4,
+      "monster_level": 4,
+      "hp": 89.359,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 23.65
+    },
+    {
+      "monster": "Monster_GoblinThief",
+      "floor": 7,
+      "monster_level": 4,
+      "hp": 172.514,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 36.757
+    },
+    {
+      "monster": "Monster_GoblinThief",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 338.77,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 54.815
+    },
+    {
+      "monster": "Monster_Harpy",
+      "floor": 7,
+      "monster_level": 4,
+      "hp": 147.441,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 49.359
+    },
+    {
+      "monster": "Monster_Harpy",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 289.517,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 78.0
+    },
+    {
+      "monster": "Monster_PoisonSpiderling",
+      "floor": 4,
+      "monster_level": 4,
+      "hp": 63.828,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 21.667
+    },
+    {
+      "monster": "Monster_PoisonSpiderling",
+      "floor": 7,
+      "monster_level": 4,
+      "hp": 125.367,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 29.906
+    },
+    {
+      "monster": "Monster_PoisonSpiderling",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 243.265,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 48.286
+    },
+    {
+      "monster": "Monster_Skeleton",
+      "floor": 1,
+      "monster_level": 4,
+      "hp": 52.0,
+      "armor": 11.0,
+      "shield": 0.0,
+      "raw_auto_dps": 17.0
+    },
+    {
+      "monster": "Monster_Skeleton",
+      "floor": 4,
+      "monster_level": 4,
+      "hp": 102.125,
+      "armor": 15.167,
+      "shield": 0.0,
+      "raw_auto_dps": 25.011
+    },
+    {
+      "monster": "Monster_Skeleton",
+      "floor": 7,
+      "monster_level": 4,
+      "hp": 197.588,
+      "armor": 24.504,
+      "shield": 0.0,
+      "raw_auto_dps": 36.413
+    },
+    {
+      "monster": "Monster_Skeleton",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 388.023,
+      "armor": 37.143,
+      "shield": 0.0,
+      "raw_auto_dps": 57.473
+    },
+    {
+      "monster": "Monster_Slime",
+      "floor": 1,
+      "monster_level": 4,
+      "hp": 65.0,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 9.1
+    },
+    {
+      "monster": "Monster_Slime",
+      "floor": 4,
+      "monster_level": 4,
+      "hp": 127.656,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 13.796
+    },
+    {
+      "monster": "Monster_Slime",
+      "floor": 7,
+      "monster_level": 4,
+      "hp": 247.735,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 21.441
+    },
+    {
+      "monster": "Monster_Slime",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 483.529,
+      "armor": 0.0,
+      "shield": 0.0,
+      "raw_auto_dps": 31.975
+    },
+    {
+      "monster": "Monster_StoneGuardian",
+      "floor": 4,
+      "monster_level": 4,
+      "hp": 178.719,
+      "armor": 28.813,
+      "shield": 0.0,
+      "raw_auto_dps": 18.188
+    },
+    {
+      "monster": "Monster_StoneGuardian",
+      "floor": 7,
+      "monster_level": 4,
+      "hp": 348.029,
+      "armor": 43.696,
+      "shield": 0.0,
+      "raw_auto_dps": 27.118
+    },
+    {
+      "monster": "Monster_StoneGuardian",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 677.541,
+      "armor": 67.768,
+      "shield": 0.0,
+      "raw_auto_dps": 40.661
+    },
+    {
+      "monster": "Monster_Warlock",
+      "floor": 4,
+      "monster_level": 4,
+      "hp": 76.594,
+      "armor": 0.0,
+      "shield": 20.0,
+      "raw_auto_dps": 32.594
+    },
+    {
+      "monster": "Monster_Warlock",
+      "floor": 7,
+      "monster_level": 4,
+      "hp": 147.441,
+      "armor": 0.0,
+      "shield": 20.0,
+      "raw_auto_dps": 50.166
+    },
+    {
+      "monster": "Monster_Warlock",
+      "floor": 10,
+      "monster_level": 4,
+      "hp": 289.517,
+      "armor": 0.0,
+      "shield": 20.0,
+      "raw_auto_dps": 76.045
+    }
+  ],
+  "weapons": [
+    {
+      "item": "Item_Blade_Common_Blade",
+      "level": 1,
+      "damage": 4.0,
+      "raw_auto_dps": 8.8
+    },
+    {
+      "item": "Item_Blade_Common_Blade",
+      "level": 15,
+      "damage": 18.0,
+      "raw_auto_dps": 39.6
+    },
+    {
+      "item": "Item_Blade_Epic_MomentoMori",
+      "level": 1,
+      "damage": 8.8,
+      "raw_auto_dps": 19.36
+    },
+    {
+      "item": "Item_Blade_Epic_MomentoMori",
+      "level": 15,
+      "damage": 22.8,
+      "raw_auto_dps": 50.16
+    },
+    {
+      "item": "Item_Blade_Rare_JaggedBlade",
+      "level": 1,
+      "damage": 6.0,
+      "raw_auto_dps": 13.2
+    },
+    {
+      "item": "Item_Blade_Rare_JaggedBlade",
+      "level": 15,
+      "damage": 20.0,
+      "raw_auto_dps": 44.0
+    },
+    {
+      "item": "Item_Cursed_BerserkerAxe",
+      "level": 1,
+      "damage": 22.0,
+      "raw_auto_dps": 22.0
+    },
+    {
+      "item": "Item_Cursed_BerserkerAxe",
+      "level": 15,
+      "damage": 36.0,
+      "raw_auto_dps": 36.0
+    },
+    {
+      "item": "Item_Cursed_BetrayerAndAccomplice",
+      "level": 1,
+      "damage": 8.8,
+      "raw_auto_dps": 38.72
+    },
+    {
+      "item": "Item_Cursed_BetrayerAndAccomplice",
+      "level": 15,
+      "damage": 22.8,
+      "raw_auto_dps": 100.32
+    },
+    {
+      "item": "Item_Cursed_Executioner",
+      "level": 1,
+      "damage": 22.0,
+      "raw_auto_dps": 22.0
+    },
+    {
+      "item": "Item_Cursed_Executioner",
+      "level": 15,
+      "damage": 36.0,
+      "raw_auto_dps": 36.0
+    },
+    {
+      "item": "Item_Cursed_LastArgument",
+      "level": 1,
+      "damage": 30.8,
+      "raw_auto_dps": 21.56
+    },
+    {
+      "item": "Item_Cursed_LastArgument",
+      "level": 15,
+      "damage": 44.8,
+      "raw_auto_dps": 31.36
+    },
+    {
+      "item": "Item_Cursed_Oathbreaker",
+      "level": 1,
+      "damage": 13.2,
+      "raw_auto_dps": 19.8
+    },
+    {
+      "item": "Item_Cursed_Oathbreaker",
+      "level": 15,
+      "damage": 27.2,
+      "raw_auto_dps": 40.8
+    },
+    {
+      "item": "Item_Cursed_ParanoiaBlades",
+      "level": 1,
+      "damage": 8.8,
+      "raw_auto_dps": 38.72
+    },
+    {
+      "item": "Item_Cursed_ParanoiaBlades",
+      "level": 15,
+      "damage": 22.8,
+      "raw_auto_dps": 100.32
+    },
+    {
+      "item": "Item_Cursed_RecklessCharge",
+      "level": 1,
+      "damage": 8.8,
+      "raw_auto_dps": 17.6
+    },
+    {
+      "item": "Item_Cursed_RecklessCharge",
+      "level": 15,
+      "damage": 22.8,
+      "raw_auto_dps": 45.6
+    },
+    {
+      "item": "Item_Cursed_ThornAxe",
+      "level": 1,
+      "damage": 44.0,
+      "raw_auto_dps": 30.8
+    },
+    {
+      "item": "Item_Cursed_ThornAxe",
+      "level": 15,
+      "damage": 72.0,
+      "raw_auto_dps": 50.4
+    },
+    {
+      "item": "Item_Prototype_DayAndNight",
+      "level": 1,
+      "damage": 8.8,
+      "raw_auto_dps": 38.72
+    },
+    {
+      "item": "Item_Prototype_DayAndNight",
+      "level": 15,
+      "damage": 22.8,
+      "raw_auto_dps": 100.32
+    },
+    {
+      "item": "Item_Prototype_LastArgument",
+      "level": 1,
+      "damage": 57.2,
+      "raw_auto_dps": 40.04
+    },
+    {
+      "item": "Item_Prototype_LastArgument",
+      "level": 15,
+      "damage": 130.0,
+      "raw_auto_dps": 91.0
+    },
+    {
+      "item": "Item_Prototype_LightningSpear",
+      "level": 1,
+      "damage": 8.8,
+      "raw_auto_dps": 17.6
+    },
+    {
+      "item": "Item_Prototype_LightningSpear",
+      "level": 15,
+      "damage": 22.8,
+      "raw_auto_dps": 45.6
+    },
+    {
+      "item": "Item_Prototype_Pendulum",
+      "level": 1,
+      "damage": 30.8,
+      "raw_auto_dps": 21.56
+    },
+    {
+      "item": "Item_Prototype_Pendulum",
+      "level": 15,
+      "damage": 72.8,
+      "raw_auto_dps": 50.96
+    },
+    {
+      "item": "Item_Prototype_ResonanceScimitar",
+      "level": 1,
+      "damage": 13.2,
+      "raw_auto_dps": 19.8
+    },
+    {
+      "item": "Item_Prototype_ResonanceScimitar",
+      "level": 15,
+      "damage": 27.2,
+      "raw_auto_dps": 40.8
+    },
+    {
+      "item": "Item_Prototype_SpellEater",
+      "level": 1,
+      "damage": 22.0,
+      "raw_auto_dps": 22.0
+    },
+    {
+      "item": "Item_Prototype_SpellEater",
+      "level": 15,
+      "damage": 50.0,
+      "raw_auto_dps": 50.0
+    },
+    {
+      "item": "Item_TwoHandedAxe_Common_GreatAxe",
+      "level": 1,
+      "damage": 26.0,
+      "raw_auto_dps": 18.2
+    },
+    {
+      "item": "Item_TwoHandedAxe_Common_GreatAxe",
+      "level": 15,
+      "damage": 62.4,
+      "raw_auto_dps": 43.68
+    },
+    {
+      "item": "Item_TwoHandedAxe_Epic_Headsplitter",
+      "level": 1,
+      "damage": 57.2,
+      "raw_auto_dps": 40.04
+    },
+    {
+      "item": "Item_TwoHandedAxe_Epic_Headsplitter",
+      "level": 15,
+      "damage": 130.0,
+      "raw_auto_dps": 91.0
+    },
+    {
+      "item": "Item_TwoHandedAxe_Rare_TemperedGreatAxe",
+      "level": 1,
+      "damage": 39.0,
+      "raw_auto_dps": 27.3
+    },
+    {
+      "item": "Item_TwoHandedAxe_Rare_TemperedGreatAxe",
+      "level": 15,
+      "damage": 93.6,
+      "raw_auto_dps": 65.52
+    },
+    {
+      "item": "Item_Axe_Common_IronAxe",
+      "level": 1,
+      "damage": 10.0,
+      "raw_auto_dps": 10.0
+    },
+    {
+      "item": "Item_Axe_Common_IronAxe",
+      "level": 15,
+      "damage": 24.0,
+      "raw_auto_dps": 24.0
+    },
+    {
+      "item": "Item_Axe_Epic_Rubilo",
+      "level": 1,
+      "damage": 22.0,
+      "raw_auto_dps": 22.0
+    },
+    {
+      "item": "Item_Axe_Epic_Rubilo",
+      "level": 15,
+      "damage": 50.0,
+      "raw_auto_dps": 50.0
+    },
+    {
+      "item": "Item_Axe_Rare_SteelAxe",
+      "level": 1,
+      "damage": 15.0,
+      "raw_auto_dps": 15.0
+    },
+    {
+      "item": "Item_Axe_Rare_SteelAxe",
+      "level": 15,
+      "damage": 43.0,
+      "raw_auto_dps": 43.0
+    },
+    {
+      "item": "Item_Hammer_Common_IronHammer",
+      "level": 1,
+      "damage": 14.0,
+      "raw_auto_dps": 9.8
+    },
+    {
+      "item": "Item_Hammer_Common_IronHammer",
+      "level": 15,
+      "damage": 28.0,
+      "raw_auto_dps": 19.6
+    },
+    {
+      "item": "Item_Hammer_Epic_SmithHammer",
+      "level": 1,
+      "damage": 30.8,
+      "raw_auto_dps": 21.56
+    },
+    {
+      "item": "Item_Hammer_Epic_SmithHammer",
+      "level": 15,
+      "damage": 72.8,
+      "raw_auto_dps": 50.96
+    },
+    {
+      "item": "Item_Hammer_Rare_SteelHammer",
+      "level": 1,
+      "damage": 21.0,
+      "raw_auto_dps": 14.7
+    },
+    {
+      "item": "Item_Hammer_Rare_SteelHammer",
+      "level": 15,
+      "damage": 49.0,
+      "raw_auto_dps": 34.3
+    },
+    {
+      "item": "Item_Spear_Common_IronSpear",
+      "level": 1,
+      "damage": 4.0,
+      "raw_auto_dps": 8.0
+    },
+    {
+      "item": "Item_Spear_Common_IronSpear",
+      "level": 15,
+      "damage": 18.0,
+      "raw_auto_dps": 36.0
+    },
+    {
+      "item": "Item_Spear_Epic_SwiftSpear",
+      "level": 1,
+      "damage": 8.8,
+      "raw_auto_dps": 17.6
+    },
+    {
+      "item": "Item_Spear_Epic_SwiftSpear",
+      "level": 15,
+      "damage": 22.8,
+      "raw_auto_dps": 45.6
+    },
+    {
+      "item": "Item_Spear_Rare_SteelSpear",
+      "level": 1,
+      "damage": 6.0,
+      "raw_auto_dps": 12.0
+    },
+    {
+      "item": "Item_Spear_Rare_SteelSpear",
+      "level": 15,
+      "damage": 20.0,
+      "raw_auto_dps": 40.0
+    },
+    {
+      "item": "Item_Sword_Common_IronSword",
+      "level": 1,
+      "damage": 6.0,
+      "raw_auto_dps": 9.0
+    },
+    {
+      "item": "Item_Sword_Common_IronSword",
+      "level": 15,
+      "damage": 20.0,
+      "raw_auto_dps": 30.0
+    },
+    {
+      "item": "Item_Sword_Epic_BloodSword",
+      "level": 1,
+      "damage": 13.2,
+      "raw_auto_dps": 19.8
+    },
+    {
+      "item": "Item_Sword_Epic_BloodSword",
+      "level": 15,
+      "damage": 27.2,
+      "raw_auto_dps": 40.8
+    },
+    {
+      "item": "Item_Sword_Rare_SteelGladius",
+      "level": 1,
+      "damage": 9.0,
+      "raw_auto_dps": 13.5
+    },
+    {
+      "item": "Item_Sword_Rare_SteelGladius",
+      "level": 15,
+      "damage": 23.0,
+      "raw_auto_dps": 34.5
+    }
+  ],
+  "examples": {
+    "bleed5_dps_at_2_connected_hits_per_second_75pct_crit": 155.0,
+    "rogue_poison5_max_dps": 10,
+    "oathbreaker_currency_at_1_5_hits_50pct_crit_per_second": 22.5,
+    "wall5_damage_from_level15_shield": 8.5,
+    "xp_for_level15": 2625,
+    "xp_10floors_7combats_2successes_per_floor": 2335,
+    "xp_10floors_8combats_1success_per_floor": 2475,
+    "chest_currency_10floors_7combats_per_floor": 4675.0
+  }
+}

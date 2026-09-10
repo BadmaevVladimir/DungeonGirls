@@ -142,10 +142,10 @@ public static class RogueBarbarianContentGenerator
 
         // ---- Классовые пулы навыков (PassiveSkillData, maxLevel = 5) ----
         CreatePassive("Skill_EyeForAnEye", SkillEffectMap.EyeForAnEye,
-            "Шанс критической атаки: 1ур=+2%, 2ур=+5%, 3ур=+7.5%, 4ур=+10%, 5ур=+12.5%. Крит накладывает Скрытность на 3с.",
+            "Шанс критической атаки: 1ур=+3%, 2ур=+6%, 3ур=+9%, 4ур=+12%, 5ур=+15%. Крит накладывает Скрытность на 3с.",
             5, SkillCategory.RogueClass, RogueSkillsFolder);
         CreatePassive("Skill_PoisonedBlade", SkillEffectMap.PoisonedBlade,
-            "Пробивающие атаки накладывают стак Яда (3с, урон/сек=стаки, макс=уровень навыка). Удваивается в Скрытности.",
+            "Пробивающие атаки накладывают Яд на 3с. Заряд наносит 1 + 2% среднего урона оружия в секунду; максимум равен уровню навыка и удваивается в Скрытности.",
             5, SkillCategory.RogueClass, RogueSkillsFolder);
         CreatePassive("Skill_ByAThread", SkillEffectMap.ByAThread,
             "После уклонения: +скорость атаки на 3с — 1ур=+3%, 2ур=+6%, 3ур=+9%, 4ур=+12%, 5ур=+15%.",
@@ -154,7 +154,7 @@ public static class RogueBarbarianContentGenerator
             "Крит-множитель урона: 1ур=175%, 2ур=180%, 3ур=185%, 4ур=190%, 5ур=200% (заменяет базовые 150%).",
             5, SkillCategory.RogueClass, RogueSkillsFolder);
         CreatePassive("Skill_SlipAway", SkillEffectMap.SlipAway,
-            "После уклонения даёт Скрытность на 3с. Шанс уклонения: 1ур=+1% ... 5ур=+5%.",
+            "После уклонения даёт Скрытность на 3с. Шанс уклонения: 1ур=+2%, 2ур=+4%, 3ур=+6%, 4ур=+8%, 5ур=+10%.",
             5, SkillCategory.RogueClass, RogueSkillsFolder);
 
         CreatePassive("Skill_Stubbornness", SkillEffectMap.Stubbornness,

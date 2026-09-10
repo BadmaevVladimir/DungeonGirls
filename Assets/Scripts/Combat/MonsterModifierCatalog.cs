@@ -63,40 +63,44 @@ public static class MonsterModifierCatalog
     }
 
     // 2.8: применяется ПОВЕРХ уже отмасштабированных по этажу (2.6) и уровню монстра (2.7) статов.
-    public static void ApplyToRuntime(CombatantRuntime runtime, MonsterModifierType modifier, int floorNumber = 1)
+    public static void ApplyToRuntime(CombatantRuntime runtime, MonsterModifierType modifier, int floorNumber = 1, int monsterLevel = 1)
     {
+        float levelStrength = 1f + 0.1f * (Mathf.Clamp(monsterLevel, 1, 4) - 1);
         switch (modifier)
         {
             case MonsterModifierType.Fast:
                 foreach (var weapon in runtime.Weapons)
                 {
-                    weapon.AttackSpeed *= 1.25f;
+                    weapon.AttackSpeed *= 1f + 0.25f * levelStrength;
                 }
                 break;
 
             case MonsterModifierType.Big:
                 float oldMax = runtime.MaxHP;
-                runtime.MaxHP *= 1.5f;
+                runtime.MaxHP = DamageCalculator.RoundPoints(runtime.MaxHP * (1f + 0.5f * levelStrength));
                 runtime.CurrentHP += runtime.MaxHP - oldMax; // монстр только что создан на полном HP
                 break;
 
             case MonsterModifierType.Armored:
-                runtime.PhysicalDefenseMax += 5f;
-                runtime.PhysicalDefenseCurrent += 5f;
+                float armorBonus = DamageCalculator.RoundPoints(StatScaling.ApplyLevelBonus(
+                    5f * Mathf.Pow(1.15f, Mathf.Max(1, floorNumber) - 1), monsterLevel));
+                runtime.PhysicalDefenseMax += armorBonus;
+                runtime.PhysicalDefenseCurrent += armorBonus;
                 break;
 
             case MonsterModifierType.Fierce:
                 foreach (var weapon in runtime.Weapons)
                 {
-                    weapon.DamageMin *= 1.25f;
-                    weapon.DamageMax *= 1.25f;
+                    weapon.DamageMin *= 1f + 0.25f * levelStrength;
+                    weapon.DamageMax *= 1f + 0.25f * levelStrength;
                 }
                 break;
 
             case MonsterModifierType.ArmorPiercing:
                 // Дополнительный прямой износ за каждую неуклонённую атаку: 2 на этажах 1–2,
                 // 3 на 3–5, 4 на 6–8 и 5 на 9–10. Срабатывает даже при полном блоке по HP.
-                runtime.MonsterGuaranteedArmorDamage = 2f + Mathf.Floor(Mathf.Max(floorNumber, 1) / 3f);
+                runtime.MonsterGuaranteedArmorDamage = DamageCalculator.RoundPoints(
+                    (2f + Mathf.Floor(Mathf.Max(floorNumber, 1) / 3f)) * levelStrength);
                 break;
         }
     }

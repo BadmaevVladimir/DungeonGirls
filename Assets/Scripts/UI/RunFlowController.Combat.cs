@@ -843,6 +843,8 @@ public partial class RunFlowController
             {
                 entry.IconFrame.EnableInClassList("skill-icon-toggle-active", slot.IsToggleActive);
                 entry.IconFrame.EnableInClassList("skill-icon-toggle-inactive", !slot.IsToggleActive);
+                entry.CooldownText.text = slot.ForcedDisableRemaining > 0f ? $"{slot.ForcedDisableRemaining:F1}" : string.Empty;
+                entry.CooldownOverlay.style.height = new Length(slot.ForcedDisableRemaining > 0f ? 100f : 0f, LengthUnit.Percent);
                 continue;
             }
 

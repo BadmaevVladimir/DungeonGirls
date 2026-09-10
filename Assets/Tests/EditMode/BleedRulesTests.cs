@@ -25,7 +25,7 @@ public class BleedRulesTests
             SkillEyeForAnEyeLevel = 2
         };
 
-        Assert.AreEqual(33f, CombatCriticalRules.CalculateChancePercent(attacker));
+        Assert.AreEqual(34f, CombatCriticalRules.CalculateChancePercent(attacker));
     }
 
     [Test]

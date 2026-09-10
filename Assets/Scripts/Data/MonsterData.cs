@@ -15,6 +15,8 @@ public class MonsterData : ScriptableObject
 
     public float physicalDefense;
     public float magicDefense;
+    public float universalShield;
+    public bool frontlinePriority;
 
     [Tooltip("Сущность вообще не получает оружия и никогда не атакует (Свечи Свечника). Нужна "+
         "именно как цель: каждый лишний атакующий на сцене — лишний бросок против уклонения "+

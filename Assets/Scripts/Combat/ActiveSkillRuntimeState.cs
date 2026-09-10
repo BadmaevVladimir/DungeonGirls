@@ -10,6 +10,8 @@ public class ActiveSkillRuntimeState
     public float DamageMultiplierPerHit;
     public float CooldownTimer;
     public bool IsToggleActive;
+    public float ForcedDisableRemaining;
+    public bool ResumeToggleAfterDisable;
     public bool AutoMode;
     // R05: сколько секунд после активации персонаж не начинает обычных атак (см.
     // CombatManager.ResolveActiveSkillAttackLockSeconds).

@@ -27,6 +27,7 @@ public class CombatantRuntime
     public string DisplayName;
     public bool IsPlayer;
     public bool IsBoss;
+    public bool FrontlinePriority;
 
     // Пока таймер не истёк — TickCombatant пропускает этого участника целиком (таймер атаки не
     // копится, обычные атаки не резолвятся): восстановление после активного навыка, во время
@@ -257,6 +258,7 @@ public class CombatantRuntime
     public int RoguePoisonStacksOnTarget; // хранится на ЦЕЛИ (симметрично PoisonStacks у монстров)
     public float RoguePoisonTimer;
     public float RoguePoisonTickAccumulator;
+    [NonSerialized] public CombatantRuntime RoguePoisonSource;
 
     // 3.11 (Устранение) — переопределяет базовый крит-множитель 150% (см. CombatManager.ResolveAttack
     // `damage *= 1.5f`), null = нет навыка, используется база. Аналогичный паттерн для Barbarian ниже.
@@ -281,9 +283,7 @@ public class CombatantRuntime
     public int SkillSuperstitionLevel; // "Суеверность"
     public int UniqueChampionOfTheTribeLevel; // пассивка "Чемпион племени"
 
-    // 3.11 (Боевая регенерация) — счётчик полученных ударов, сбрасывается при срабатывании. Считает
-    // ЛЮБОЙ разрешённый удар по цели, включая полностью заблокированный (не только прошедший по HP) —
-    // см. CombatManager.ResolveAttack, где инкремент стоит безусловно после блока/урона.
+    // Боевая регенерация считает только удары, нанёсшие урон по HP; при срабатывании счётчик сбрасывается.
     public int HitsTakenSinceLastRegen;
     public float CombatRegenCooldownRemaining;
 
@@ -333,6 +333,7 @@ public class CombatantRuntime
         }
 
         multiplier *= Mathf.Max(0.01f, 1f - FreezeStacks * 0.05f);
+
         // Boss framework: «Скорбь» — постоянное ускорение выжившего участника групповой связки.
         if (BossSoloAttackSpeedBonusPercent > 0f)
             multiplier *= 1f + BossSoloAttackSpeedBonusPercent / 100f;
@@ -392,7 +393,8 @@ public class CombatantRuntime
     {
         float before = CurrentHP;
         float receivedMultiplier = Mathf.Max(0f, 1f + TotalReceivedHealingPercent / 100f);
-        CurrentHP = Mathf.Min(MaxHP, CurrentHP + Mathf.Max(0f, amount) * receivedMultiplier);
+        CurrentHP = Mathf.Min(DamageCalculator.RoundPoints(MaxHP),
+            DamageCalculator.RoundPoints(CurrentHP) + DamageCalculator.RoundPoints(Mathf.Max(0f, amount) * receivedMultiplier));
         return CurrentHP - before;
     }
 

@@ -197,8 +197,8 @@ public static class ProgressionContentAssetGenerator
             3, 2, 1, 1);
         Blueprint("spell_eater", "Пожиратель чар", WeaponSubtype.Axe,
             WeaponPrototypeEffectId.SpellEater, 1f, 0f, 0,
-            "Физическое оружие, способное наносить урон Магическому щиту. За каждую фактически уничтоженную " +
-            "единицу щита (без учёта избыточного урона) — +1 плоского урона оружия до конца боя, сбрасывается после боя.",
+            "Физическая атака дополнительно снимает магический щит, не расходуя основной урон. При уничтожении " +
+            "щита каждая снятая этим ударом единица даёт +1 к урону до конца боя.",
             3, 2, 2, 1);
         Blueprint("lightning_spear", "Копьё молний", WeaponSubtype.Spear,
             WeaponPrototypeEffectId.LightningSpear, 50f, 0f, 3,
@@ -212,7 +212,7 @@ public static class ProgressionContentAssetGenerator
             4, 1, 2, 1);
         Blueprint("day_and_night", "День и Ночь", WeaponSubtype.Blade,
             WeaponPrototypeEffectId.DayAndNight, 50f, 50f, 0,
-            "Парные клинки: одна атака наносит ~50% физического и ~50% магического урона одним результатом " +
+            "Двуручное оружие: одна атака наносит 50% физического и 50% магического урона одним результатом " +
             "попадания/крита, не удваивая суммарный DPS. Доступно только Вайолет/Плуту.",
             4, 3, 2, 1);
         Blueprint("last_argument_prototype", "Последний аргумент", WeaponSubtype.TwoHandedAxe,

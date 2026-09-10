@@ -20,7 +20,9 @@ MonoBehaviour:
   damageMax: 18
   damageType: 0
   attackSpeed: 0.6
-  physicalDefense: 15
+  physicalDefense: 13
+  universalShield: 20
+  frontlinePriority: 1
   magicDefense: 0
   passiveSkill: {fileID: 0}
   gender: 0
