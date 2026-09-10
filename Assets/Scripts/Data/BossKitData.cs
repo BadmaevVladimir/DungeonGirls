@@ -60,7 +60,12 @@ public enum BossAbilityEffectKind
     Enrage,
     // Босс на время становится неуязвимым И перестаёт атаковать («Погружение» Левиафана).
     // Это пауза в ритме боя, а не наказание: атаковать он тоже не может.
-    SelfInvulnerable
+    SelfInvulnerable,
+    // Щит, который САМ восстанавливается, если по нему не били (Монетный панцирь Ростовщика).
+    // Проверяет не пик урона, а его СТАБИЛЬНОСТЬ: билд, бьющий редко и слабо, щит не пробьёт.
+    // Скорость регенерации со временем падает — иначе бой мог бы стать невыигрываемым для
+    // самого медленного класса, а это уже не сложность, а непроходимость.
+    ShieldRegen
 }
 
 [System.Serializable]
@@ -164,6 +169,25 @@ public class BossAbilityConfig
 
     [Tooltip("SelfInvulnerable: сколько секунд босс неуязвим и не атакует.")]
     public float selfInvulnerableSeconds = 0f;
+
+    [Tooltip("ShieldRegen: сколько процентов от МАКСИМУМА щита восстанавливается в секунду.")]
+    public float shieldRegenPercentPerSecond = 0f;
+
+    [Tooltip("ShieldRegen: сколько секунд после последнего попадания по щиту он не регенерирует.")]
+    public float shieldRegenDelaySeconds = 2f;
+
+    [Tooltip("ShieldRegen: на сколько процентов слабеет сама регенерация каждые 20 секунд боя. " +
+        "Страховка от непроходимости: даже самый медленный урон рано или поздно вскрывает щит.")]
+    public float shieldRegenDecayPercentPer20Seconds = 20f;
+
+    [Tooltip("ShieldRegen: насколько больнее бьёт босс, ПОКА щит цел (30 = +30%).")]
+    public float shieldIntactDamageBonusPercent = 0f;
+
+    [Tooltip("ShieldRegen: насколько слабее он бьёт сразу после пробития щита — это и есть окно.")]
+    public float shieldBrokenDamagePenaltyPercent = 0f;
+
+    [Tooltip("ShieldRegen: сколько секунд держится окно после пробития.")]
+    public float shieldBrokenPenaltySeconds = 0f;
 }
 
 [System.Serializable]

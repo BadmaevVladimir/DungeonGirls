@@ -1223,4 +1223,93 @@ public class BossEncounterTests
         DamageCalculator.ApplyDamage(boss, 100f, DamageType.Physical);
         Assert.Less(boss.CurrentHP, hpBefore);
     }
+
+    // ---- Самовосстанавливающийся щит (план 7, Ростовщик, 2026-09-11) ----
+
+    static BossAbilityConfig MakeCoinShell(float amount, float regenPercent, float delay,
+        float decayPer20s = 20f, float intactBonus = 0f, float brokenPenalty = 0f, float brokenSeconds = 0f)
+    {
+        var a = Instant("Монетный панцирь", BossAbilityEffectKind.ShieldRegen);
+        a.triggerKind = BossAbilityTriggerKind.OnCombatStart;
+        a.shieldAmount = amount;
+        a.shieldRegenPercentPerSecond = regenPercent;
+        a.shieldRegenDelaySeconds = delay;
+        a.shieldRegenDecayPercentPer20Seconds = decayPer20s;
+        a.shieldIntactDamageBonusPercent = intactBonus;
+        a.shieldBrokenDamagePenaltyPercent = brokenPenalty;
+        a.shieldBrokenPenaltySeconds = brokenSeconds;
+        return a;
+    }
+
+    [Test]
+    public void ShieldRegen_RefillsOnlyAfterTheQuietPeriod()
+    {
+        var boss = MakeSimpleBoss(MakeCoinShell(amount: 100f, regenPercent: 10f, delay: 2f, decayPer20s: 0f));
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+        Assert.AreEqual(100f, boss.ShieldPoolCurrent, 0.5f, "щит выдаётся на старте боя");
+
+        DamageCalculator.ApplyDamage(boss, 40f, DamageType.Physical);
+        cm.Tick(0.1f); // тик замечает падение щита и обнуляет тишину
+        float afterHit = boss.ShieldPoolCurrent;
+        Assert.Less(afterHit, 100f);
+
+        // Меньше паузы тишины — регенерации быть не должно.
+        for (int i = 0; i < 10; i++) cm.Tick(0.1f);
+        Assert.AreEqual(afterHit, boss.ShieldPoolCurrent, 0.5f, "пока идёт пауза тишины, щит не растёт");
+
+        // После паузы — растёт.
+        for (int i = 0; i < 30; i++) cm.Tick(0.1f);
+        Assert.Greater(boss.ShieldPoolCurrent, afterHit, "после тишины щит обязан восстанавливаться");
+    }
+
+    [Test]
+    public void ShieldRegen_WeakensOverTime_SoTheFightAlwaysHasASolution()
+    {
+        var fresh = MakeSimpleBoss(MakeCoinShell(amount: 100f, regenPercent: 10f, delay: 0f, decayPer20s: 50f));
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { fresh });
+        cm.Tick(0.016f);
+
+        fresh.ShieldPoolCurrent = 0f;
+        cm.Tick(0.1f);
+        float early = fresh.ShieldPoolCurrent;
+        for (int i = 0; i < 10; i++) cm.Tick(0.1f);
+        float earlyGain = fresh.ShieldPoolCurrent - early;
+
+        // Проматываем бой на минуту — регенерация обязана заметно ослабнуть.
+        for (int i = 0; i < 60; i++) cm.Tick(1f);
+        fresh.ShieldPoolCurrent = 0f;
+        cm.Tick(0.1f);
+        float late = fresh.ShieldPoolCurrent;
+        for (int i = 0; i < 10; i++) cm.Tick(0.1f);
+        float lateGain = fresh.ShieldPoolCurrent - late;
+
+        Assert.Less(lateGain, earlyGain,
+            "без затухания самый медленный билд не вскрыл бы щит никогда — это была бы непроходимость, а не сложность");
+    }
+
+    [Test]
+    public void ShieldState_MakesBossHitHarderWhileIntact_AndWeakerRightAfterItBreaks()
+    {
+        var boss = MakeSimpleBoss(MakeCoinShell(amount: 50f, regenPercent: 0f, delay: 99f,
+            intactBonus: 30f, brokenPenalty: 30f, brokenSeconds: 5f));
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(30f, boss.ShieldIntactDamageBonusPercent, 0.01f);
+        Assert.AreEqual(0f, boss.ShieldBrokenPenaltyTimer, 0.01f, "пока щит цел, штрафа нет");
+
+        // Ровно по величине щита: больший урон пролился бы в HP и УБИЛ босса, а мёртвого тик
+        // пропускает — окно тогда не открылось бы, и тест мерил бы не то.
+        DamageCalculator.ApplyDamage(boss, 50f, DamageType.Physical);
+        cm.Tick(0.1f);
+
+        Assert.AreEqual(0f, boss.ShieldPoolCurrent, 0.01f);
+        Assert.Greater(boss.ShieldBrokenPenaltyTimer, 0f,
+            "пробитие щита обязано открывать окно — иначе бить по нему незачем");
+    }
 }

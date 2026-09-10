@@ -428,6 +428,12 @@ public class CombatManager : MonoBehaviour
         combatant.BossArmorDebuffTimer = 0f;
         combatant.BossEnrageDamageBonusPercent = 0f;
         combatant.SelfInvulnerableTimer = 0f;
+        combatant.ShieldRegenPerSecond = 0f;
+        combatant.SecondsSinceShieldDamaged = 0f;
+        combatant.ShieldRegenElapsedSeconds = 0f;
+        combatant.LastKnownShieldValue = 0f;
+        combatant.ShieldIntactDamageBonusPercent = 0f;
+        combatant.ShieldBrokenPenaltyTimer = 0f;
         combatant.CursedParanoiaStacks = 0;
         combatant.CursedRecklessStacks = 0;
         combatant.CursedRecklessDecayTimer = 0f;
@@ -501,6 +507,7 @@ public class CombatManager : MonoBehaviour
         TickBossHeavyAttacks(deltaTime); // легаси-путь: боссы БЕЗ BossKitData (см. BossEncounter ниже)
         TickBossEncounters(deltaTime); // boss framework: боссы С BossKitData
         TickBossGroups(); // boss framework: правила связки нескольких сущностей одного босс-боя
+        TickBossShieldRegen(deltaTime); // boss framework: самовосстанавливающийся щит Ростовщика
 
         CheckCombatEnd();
         if (!IsCombatActive)
@@ -600,6 +607,61 @@ public class CombatManager : MonoBehaviour
     // участник может умереть от чего угодно (атака, кровотечение, яд, шипы), и единой точки
     // «кто-то умер» в бою не существует. Метод дешёвый: два вложенных прохода по Enemies, которых
     // в босс-бою единицы.
+    // Boss framework (Ростовщик): щит восстанавливается сам, если по нему не били заданное время.
+    // Факт попадания определяем по ПАДЕНИЮ значения щита между тиками, а не хуком в местах вызова
+    // ApplyDamage: точек применения урона несколько, и любая забытая ломала бы механику молча.
+    void TickBossShieldRegen(float deltaTime)
+    {
+        foreach (var enemy in Enemies)
+        {
+            // Условие входа — «этот босс вообще пользуется системой панциря», а не «у него есть
+            // регенерация»: иначе босс со стабильным щитом и «Жадностью» молча не получал бы
+            // ни окна после пробития, ни бонуса за целый щит.
+            bool usesShieldSystem = enemy.ShieldRegenPerSecond > 0f
+                || enemy.ShieldIntactDamageBonusPercent > 0f
+                || enemy.ShieldBrokenDamagePenaltyPercent > 0f;
+            if (!usesShieldSystem || !enemy.IsAlive)
+            {
+                continue;
+            }
+
+            enemy.ShieldRegenElapsedSeconds += deltaTime;
+
+            bool wasIntact = enemy.LastKnownShieldValue > 0f;
+            if (enemy.ShieldPoolCurrent < enemy.LastKnownShieldValue)
+            {
+                enemy.SecondsSinceShieldDamaged = 0f;
+                // Щит только что пробит насквозь — открывается окно, ради которого игрок его и бил.
+                if (wasIntact && enemy.ShieldPoolCurrent <= 0f && enemy.ShieldBrokenPenaltySeconds > 0f)
+                {
+                    enemy.ShieldBrokenPenaltyTimer = enemy.ShieldBrokenPenaltySeconds;
+                    Log($"[Combat] Щит {enemy.DisplayName} пробит: он бьёт слабее {enemy.ShieldBrokenPenaltySeconds:F0} с.");
+                }
+            }
+            else
+            {
+                enemy.SecondsSinceShieldDamaged += deltaTime;
+            }
+
+            if (enemy.ShieldBrokenPenaltyTimer > 0f)
+            {
+                enemy.ShieldBrokenPenaltyTimer = Mathf.Max(0f, enemy.ShieldBrokenPenaltyTimer - deltaTime);
+            }
+
+            if (enemy.SecondsSinceShieldDamaged >= enemy.ShieldRegenDelaySeconds && enemy.ShieldPoolCurrent < enemy.ShieldPoolMax)
+            {
+                // Регенерация слабеет со временем: страховка от непроходимости для самого
+                // медленного билда. Без неё бой мог бы не иметь решения вообще.
+                float decaySteps = enemy.ShieldRegenElapsedSeconds / 20f;
+                float decay = Mathf.Pow(1f - enemy.ShieldRegenDecayPercentPer20Seconds / 100f, decaySteps);
+                enemy.ShieldPoolCurrent = Mathf.Min(enemy.ShieldPoolMax,
+                    enemy.ShieldPoolCurrent + enemy.ShieldRegenPerSecond * decay * deltaTime);
+            }
+
+            enemy.LastKnownShieldValue = enemy.ShieldPoolCurrent;
+        }
+    }
+
     void TickBossGroups()
     {
         foreach (var enemy in Enemies)
@@ -913,6 +975,23 @@ public class CombatManager : MonoBehaviour
                 boss.AttackLockRemaining = Mathf.Max(boss.AttackLockRemaining, invulnSeconds);
                 ActiveSkillActivated?.Invoke(boss, ability.displayName);
                 Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — неуязвим и не атакует {invulnSeconds:F0} с.");
+                break;
+
+            case BossAbilityEffectKind.ShieldRegen:
+                boss.ShieldPoolMax = ability.shieldAmount;
+                boss.ShieldPoolCurrent = ability.shieldAmount;
+                boss.ShieldPoolExpireTimer = float.PositiveInfinity;
+                boss.ShieldRegenPerSecond = ability.shieldAmount * Mathf.Max(0f, ability.shieldRegenPercentPerSecond) / 100f;
+                boss.ShieldRegenDelaySeconds = Mathf.Max(0f, ability.shieldRegenDelaySeconds);
+                boss.ShieldRegenDecayPercentPer20Seconds = Mathf.Clamp(ability.shieldRegenDecayPercentPer20Seconds, 0f, 100f);
+                boss.ShieldIntactDamageBonusPercent = Mathf.Max(0f, ability.shieldIntactDamageBonusPercent);
+                boss.ShieldBrokenDamagePenaltyPercent = Mathf.Clamp(ability.shieldBrokenDamagePenaltyPercent, 0f, 100f);
+                boss.ShieldBrokenPenaltySeconds = Mathf.Max(0f, ability.shieldBrokenPenaltySeconds);
+                boss.SecondsSinceShieldDamaged = 0f;
+                boss.ShieldRegenElapsedSeconds = 0f;
+                boss.LastKnownShieldValue = boss.ShieldPoolCurrent;
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName} поднимает «{ability.displayName}»: щит {ability.shieldAmount:F0}, восстанавливается сам.");
                 break;
         }
     }
@@ -1274,6 +1353,13 @@ public class CombatManager : MonoBehaviour
         // Boss framework: накопленная надбавка Enrage — предохранитель от затягивания боя.
         if (attacker.BossEnrageDamageBonusPercent > 0f)
             damage *= 1f + attacker.BossEnrageDamageBonusPercent / 100f;
+
+        // Boss framework («Жадность» Ростовщика): щит цел — бьёт больнее; щит только что пробит —
+        // слабее. Это и есть то, ради чего игрок вскрывает панцирь.
+        if (attacker.ShieldIntactDamageBonusPercent > 0f && attacker.ShieldPoolCurrent > 0f)
+            damage *= 1f + attacker.ShieldIntactDamageBonusPercent / 100f;
+        if (attacker.ShieldBrokenPenaltyTimer > 0f)
+            damage *= 1f - attacker.ShieldBrokenDamagePenaltyPercent / 100f;
 
         damage *= 1f + attacker.TotalDamageBonusPercent / 100f; // блюдо + бонус привала (Таверна ур.5)
         if (weapon.DamageType == DamageType.Physical)

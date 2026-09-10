@@ -55,3 +55,6 @@ MonoBehaviour:
   - boss: {fileID: 11400000, guid: fd467d9369a04f608160c8cb7c7620af, type: 2}
     minFloor: 7
     maxFloor: 9
+  - boss: {fileID: 11400000, guid: 8368d8cc2be84b3a8b12e4fbdba5df82, type: 2}
+    minFloor: 4
+    maxFloor: 6

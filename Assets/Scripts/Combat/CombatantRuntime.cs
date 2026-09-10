@@ -160,6 +160,19 @@ public class CombatantRuntime
     public float BossEnrageDamageBonusPercent;
     public float SelfInvulnerableTimer;
 
+    // Boss framework (Позолоченный Ростовщик): самовосстанавливающийся щит и связанные с его
+    // состоянием модификаторы урона босса. ShieldRegenPerSecond == 0 = обычный щит, ничего не тикает.
+    public float ShieldRegenPerSecond;
+    public float ShieldRegenDelaySeconds;
+    public float ShieldRegenDecayPercentPer20Seconds;
+    public float SecondsSinceShieldDamaged;
+    public float ShieldRegenElapsedSeconds;
+    public float LastKnownShieldValue;
+    public float ShieldIntactDamageBonusPercent;
+    public float ShieldBrokenDamagePenaltyPercent;
+    public float ShieldBrokenPenaltySeconds;
+    public float ShieldBrokenPenaltyTimer;
+
     // Уровни навыков из 3.9, известных этому участнику боя (0 = не известен).
     // На практике заполняются только у игрока через CombatantFactory.ApplyCharacterSkills.
     public int SkillFreezeLevel;
