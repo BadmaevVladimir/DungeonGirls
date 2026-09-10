@@ -1027,4 +1027,82 @@ public class BossEncounterTests
         Assert.AreEqual(1000f, armored.CurrentHP, 0.01f, "броня обязана поглотить процентный удар");
         Assert.Less(armored.PhysicalDefenseCurrent, 500f, "и при этом износиться");
     }
+
+    // ---- DoT, штраф лечения и добивание (план 5, 2026-09-11) ----
+
+    [Test]
+    public void ApplyDot_StacksUpToItsOwnCap_AndNeverBeyond()
+    {
+        var ability = Instant("Споровое облако", BossAbilityEffectKind.ApplyDot);
+        ability.dotStacks = 2;
+        ability.dotMaxStacks = 5;
+        ability.dotSeconds = 8f;
+        ability.cooldownSeconds = 0.01f;
+        var boss = MakeSimpleBoss(ability);
+        var player = MakePlayer(hp: 5000f);
+        var cm = CreateCombatManager();
+        cm.StartCombat(player, new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        for (int i = 0; i < 40; i++) cm.Tick(0.02f);
+
+        Assert.LessOrEqual(player.PoisonStacks, 5,
+            "очистки эффектов нет ни у кого, поэтому потолок зарядов — условие проходимости");
+        Assert.Greater(player.PoisonStacks, 0);
+    }
+
+    [Test]
+    public void HealCut_HalvesHealing_AndIsClampedSoRegenNeverStops()
+    {
+        var ability = Instant("Приговор", BossAbilityEffectKind.HealCut);
+        ability.healCutPercent = 200f; // ассет просит невозможного
+        var boss = MakeSimpleBoss(ability);
+        var player = MakePlayer(hp: 1000f);
+        player.CurrentHP = 500f;
+        var cm = CreateCombatManager();
+        cm.StartCombat(player, new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(CombatManager.MaxBossHealCutPercent, player.BossHealCutPercent, 0.01f,
+            "штраф лечения обязан упираться в потолок, иначе «Боевая регенерация» Саши выключается");
+
+        float healed = player.Heal(100f);
+        Assert.AreEqual(50f, healed, 1f, "при −50% сотня лечения превращается в полсотни");
+    }
+
+    [Test]
+    public void HeavyAttack_ExecuteBonus_GrowsOnlyBelowThreshold()
+    {
+        BossAbilityConfig MakeExecute()
+        {
+            var a = Instant("Крюк", BossAbilityEffectKind.HeavyAttack);
+            a.damageMultiplier = 1f;
+            a.damagePercentOfTargetMaxHp = 10f;
+            a.executeBelowHpPercent = 40f;
+            a.executeMaxDamageMultiplier = 2.5f;
+            return a;
+        }
+
+        // Цель на полном здоровье — добивание не работает.
+        var healthy = MakePlayer(hp: 1000f);
+        var bossA = MakeSimpleBoss(MakeExecute());
+        var cmA = CreateCombatManager();
+        cmA.StartCombat(healthy, new System.Collections.Generic.List<CombatantRuntime> { bossA });
+        cmA.Tick(0.016f);
+        float healthyLost = 1000f - healthy.CurrentHP;
+
+        // Та же способность против цели на 10% HP — удар обязан быть заметно больнее.
+        var dying = MakePlayer(hp: 1000f);
+        dying.CurrentHP = 300f;
+        var bossB = MakeSimpleBoss(MakeExecute());
+        var cmB = CreateCombatManager();
+        cmB.StartCombat(dying, new System.Collections.Generic.List<CombatantRuntime> { bossB });
+        cmB.Tick(0.016f);
+        float dyingLost = 300f - dying.CurrentHP;
+
+        Assert.Greater(dyingLost, healthyLost,
+            "добивание обязано усиливать удар по цели ниже порога");
+        Assert.LessOrEqual(dyingLost, 1000f * CombatManager.MaxBossSingleHitPercentOfMaxHp / 100f + 0.5f,
+            "и всё равно упираться в общий потолок одиночного удара");
+    }
 }

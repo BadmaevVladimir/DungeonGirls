@@ -109,6 +109,10 @@ public class CombatManager : MonoBehaviour
     // условие проходимости, а не настройка.
     public const float MaxBossSingleHitPercentOfMaxHp = 50f;
 
+    // Правило честности №5: лечение можно резать максимум вдвое. Полный запрет лечения выключил
+    // бы «Боевую регенерацию» Саши как класс-механику, а не усложнил бой.
+    public const float MaxBossHealCutPercent = 50f;
+
     public static float ResolveActiveSkillAttackLockSeconds(CharacterClass characterClass) => characterClass switch
     {
         CharacterClass.Rogue => 0f,
@@ -413,6 +417,8 @@ public class CombatManager : MonoBehaviour
         combatant.BossSoloAttackSpeedBonusPercent = 0f;
         combatant.BossSoloBonusApplied = false;
         combatant.IsInvulnerable = false;
+        combatant.BossHealCutPercent = 0f;
+        combatant.BossHealCutTimer = 0f;
         combatant.CursedParanoiaStacks = 0;
         combatant.CursedRecklessStacks = 0;
         combatant.CursedRecklessDecayTimer = 0f;
@@ -721,7 +727,21 @@ public class CombatManager : MonoBehaviour
                 // телеграфа".
                 ActiveSkillActivated?.Invoke(boss, ability.displayName);
                 Log($"[Combat] {boss.DisplayName} завершает подготовку «{ability.displayName}» ({ability.damageMultiplier * 100f:F0}% урона).");
-                ResolveAttack(boss, boss.Weapons[0], ability.damageMultiplier, isRegularAttack: false,
+                // Добивание: множитель растёт линейно от порога до нуля HP цели. Считается от
+                // МАКСИМАЛЬНОГО HP — иначе порог полз бы вместе с уроном и вёл себя непредсказуемо.
+                float heavyMultiplier = ability.damageMultiplier;
+                if (ability.executeBelowHpPercent > 0f && ability.executeMaxDamageMultiplier > ability.damageMultiplier
+                    && Player.MaxHP > 0f)
+                {
+                    float hpPercent = Player.CurrentHP / Player.MaxHP * 100f;
+                    if (hpPercent < ability.executeBelowHpPercent)
+                    {
+                        float t = 1f - Mathf.Clamp01(hpPercent / ability.executeBelowHpPercent);
+                        heavyMultiplier = Mathf.Lerp(ability.damageMultiplier, ability.executeMaxDamageMultiplier, t);
+                    }
+                }
+
+                ResolveAttack(boss, boss.Weapons[0], heavyMultiplier, isRegularAttack: false,
                     damagePercentOfTargetMaxHp: ability.damagePercentOfTargetMaxHp,
                     maxHpPercentCap: MaxBossSingleHitPercentOfMaxHp);
                 break;
@@ -807,6 +827,32 @@ public class CombatManager : MonoBehaviour
                 ActiveSkillActivated?.Invoke(boss, ability.displayName);
                 Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — сам себе {dealt:F1} урона.");
                 break;
+
+            case BossAbilityEffectKind.ApplyDot:
+                if (IgnoresDebuffs(Player))
+                {
+                    Log($"[Combat] «Упёртость» защищает {Player.DisplayName} от «{ability.displayName}».");
+                    break;
+                }
+
+                // Потолок зарядов обязателен: очистки эффектов в игре нет ни у кого, поэтому
+                // растущий без предела DoT — это не сложность, а отложенная смерть.
+                int dotCap = Mathf.Max(1, ability.dotMaxStacks);
+                Player.PoisonStacks = Mathf.Min(Player.PoisonStacks + Mathf.Max(1, ability.dotStacks), dotCap);
+                Player.PoisonTimer = Player.AdjustNegativeStatusDuration(Mathf.Max(0.1f, ability.dotSeconds));
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — {Player.DisplayName} отравлен ({Player.PoisonStacks}/{dotCap}).");
+                break;
+
+            case BossAbilityEffectKind.HealCut:
+                Player.BossHealCutPercent = Mathf.Clamp(ability.healCutPercent, 0f, MaxBossHealCutPercent);
+                // 0 секунд = на весь бой: у Инквизитора «Приговор» висит с первой секунды и до конца.
+                Player.BossHealCutTimer = ability.healCutSeconds > 0f
+                    ? Player.AdjustNegativeStatusDuration(ability.healCutSeconds)
+                    : float.PositiveInfinity;
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — лечение {Player.DisplayName} −{Player.BossHealCutPercent:F0}%.");
+                break;
         }
     }
 
@@ -848,6 +894,17 @@ public class CombatManager : MonoBehaviour
 
         // Boss framework: окно повышенного получаемого урона истекает по боевому времени и
         // ОБНУЛЯЕТ процент, а не только таймер — иначе просроченное окно продолжило бы работать.
+        // Штраф к лечению истекает по боевому времени; бесконечный таймер (на весь бой) не тикает.
+        if (combatant.BossHealCutTimer > 0f && !float.IsPositiveInfinity(combatant.BossHealCutTimer))
+        {
+            combatant.BossHealCutTimer -= deltaTime;
+            if (combatant.BossHealCutTimer <= 0f)
+            {
+                combatant.BossHealCutTimer = 0f;
+                combatant.BossHealCutPercent = 0f;
+            }
+        }
+
         if (combatant.DamageTakenBonusTimer > 0f)
         {
             combatant.DamageTakenBonusTimer -= deltaTime;
@@ -1230,7 +1287,9 @@ public class CombatManager : MonoBehaviour
         // добивание работало бы наоборот.
         if (damagePercentOfTargetMaxHp > 0f)
         {
-            damage = target.MaxHP * damagePercentOfTargetMaxHp / 100f;
+            // Множитель НЕ теряется: иначе добивание и любые другие надбавки к тяжёлому удару
+            // молча обнулялись бы, стоило перевести способность на проценты.
+            damage = target.MaxHP * damagePercentOfTargetMaxHp / 100f * Mathf.Max(0f, damageMultiplier);
             armorPenetrationDamage = 0f;
         }
 

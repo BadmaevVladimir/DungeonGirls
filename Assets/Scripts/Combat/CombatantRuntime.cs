@@ -85,7 +85,8 @@ public class CombatantRuntime
     public float TotalAttackSpeedBonusPercent => FoodAttackSpeedPercent + RestBonusAttackSpeedPercent;
     public float TotalCritChanceBonusPoints => FoodCritChancePoints + RestBonusCritChancePoints;
     public float TotalReceivedHealingPercent =>
-        FoodReceivedHealingPercent + RunReceivedHealingPercent + RestBonusReceivedHealingPercent;
+        FoodReceivedHealingPercent + RunReceivedHealingPercent + RestBonusReceivedHealingPercent
+        - BossHealCutPercent;
 
     // Одно оружие — у монстров и большинства снаряжения персонажа; два — при дуал-вилде
     // (3.9 "Амбидекстрия"), каждое со своим независимым таймером атаки.
@@ -142,6 +143,11 @@ public class CombatantRuntime
     public bool IsBossAnchor;
     public bool PendingInvulnerableWhileAnchorsAlive;
     public bool IsInvulnerable;
+
+    // Boss framework (Пепельный Инквизитор, Матерь Спор): временный штраф к ПОЛУЧАЕМОМУ лечению.
+    // Складывается в общий TotalReceivedHealingPercent, поэтому режет всё, что идёт через Heal().
+    public float BossHealCutPercent;
+    public float BossHealCutTimer;
 
     // Уровни навыков из 3.9, известных этому участнику боя (0 = не известен).
     // На практике заполняются только у игрока через CombatantFactory.ApplyCharacterSkills.
