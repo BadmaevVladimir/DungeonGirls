@@ -149,6 +149,17 @@ public class CombatantRuntime
     public float BossHealCutPercent;
     public float BossHealCutTimer;
 
+    // Boss framework (Ржавый Кузнец): суммарный штраф к броне от способностей боссов, в процентах.
+    // Клампится потолком в CombatManager — броня никогда не обнуляется полностью.
+    public float BossArmorDebuffPercent;
+    public int BossArmorDebuffStacks;
+    public float BossArmorDebuffTimer;
+
+    // Boss framework (Костяной Левиафан): накопленная надбавка к урону от Enrage и таймер
+    // добровольной неуязвимости («Погружение»).
+    public float BossEnrageDamageBonusPercent;
+    public float SelfInvulnerableTimer;
+
     // Уровни навыков из 3.9, известных этому участнику боя (0 = не известен).
     // На практике заполняются только у игрока через CombatantFactory.ApplyCharacterSkills.
     public int SkillFreezeLevel;

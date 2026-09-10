@@ -48,7 +48,19 @@ public enum BossAbilityEffectKind
     ApplyDot,
     // Режет ПОЛУЧАЕМОЕ игроком лечение на время. Работает только потому, что вампиризм,
     // «Боевая регенерация» и «Просто царапина» сведены к CombatantRuntime.Heal().
-    HealCut
+    HealCut,
+    // Временно режет БРОНЮ игрока. Никогда не в ноль: потолок суммарного штрафа в коде, иначе
+    // Дженифер, чьё выживание построено на броне, выключается целиком.
+    StatDebuff,
+    // Фоновый урон по игроку вне цикла атак: уклониться нельзя, броня частично режет. Считается
+    // в ДОЛЯХ макс. HP цели — плоское число здесь убивало бы Вайолет и не замечалось Сашей.
+    RoomTick,
+    // Накапливающаяся надбавка к урону босса. Предохранитель от затягивания боя, а не механика:
+    // игроку на неё реагировать нечем, поэтому она должна быть заметной и медленной.
+    Enrage,
+    // Босс на время становится неуязвимым И перестаёт атаковать («Погружение» Левиафана).
+    // Это пауза в ритме боя, а не наказание: атаковать он тоже не может.
+    SelfInvulnerable
 }
 
 [System.Serializable]
@@ -134,6 +146,24 @@ public class BossAbilityConfig
     [Tooltip("HeavyAttack: во сколько раз усиливается удар, когда цель при смерти. Между порогом " +
         "и нулём растёт линейно от damageMultiplier до этого значения.")]
     public float executeMaxDamageMultiplier = 0f;
+
+    [Tooltip("StatDebuff: на сколько процентов режется броня игрока за одно наложение.")]
+    public float armorDebuffPercent = 0f;
+
+    [Tooltip("StatDebuff: сколько наложений может держаться одновременно.")]
+    public int armorDebuffMaxStacks = 1;
+
+    [Tooltip("StatDebuff: длительность одного наложения в секундах.")]
+    public float armorDebuffSeconds = 8f;
+
+    [Tooltip("RoomTick: урон за срабатывание в процентах от МАКСИМАЛЬНОГО HP игрока.")]
+    public float roomTickPercentOfMaxHp = 0f;
+
+    [Tooltip("Enrage: сколько процентов урона босс добавляет себе НАВСЕГДА за каждое срабатывание.")]
+    public float enrageDamagePercentPerTrigger = 0f;
+
+    [Tooltip("SelfInvulnerable: сколько секунд босс неуязвим и не атакует.")]
+    public float selfInvulnerableSeconds = 0f;
 }
 
 [System.Serializable]

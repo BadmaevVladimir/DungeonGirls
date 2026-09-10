@@ -42,7 +42,11 @@ public static class DamageCalculator
         float cursedDefenseMultiplier = CursedItemRules.IsCurseActive(target, CursedEffectId.RecklessCharge)
             ? CursedItemRules.RecklessDefenseMultiplier(target.CursedRecklessStacks) : 1f;
         float foodArmorMultiplier = 1f + target.FoodArmorEffectivenessPercent / 100f;
-        float effectiveDefense = target.PhysicalDefenseCurrent * foodArmorMultiplier * cursedDefenseMultiplier * (1f - Mathf.Clamp01(armorIgnorePercent / 100f));
+        // Boss framework («Ржавчина» Кузнеца): режет ЭФФЕКТИВНОСТЬ брони, а не сам её пул —
+        // износ продолжает работать как обычно, а по истечении дебаффа броня снова полноценна.
+        float bossArmorDebuffMultiplier = 1f - Mathf.Clamp01(target.BossArmorDebuffPercent / 100f);
+        float effectiveDefense = target.PhysicalDefenseCurrent * foodArmorMultiplier * cursedDefenseMultiplier
+            * bossArmorDebuffMultiplier * (1f - Mathf.Clamp01(armorIgnorePercent / 100f));
         float armorLoss = incomingDamage > 0f ? Mathf.Max(1f, Mathf.Floor(incomingDamage / 20f)) : 0f;
 
         if (incomingDamage <= effectiveDefense)

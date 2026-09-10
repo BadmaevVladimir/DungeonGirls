@@ -113,6 +113,10 @@ public class CombatManager : MonoBehaviour
     // бы «Боевую регенерацию» Саши как класс-механику, а не усложнил бой.
     public const float MaxBossHealCutPercent = 50f;
 
+    // Правило честности №4: броню можно резать максимум вдвое. В ноль — нельзя: Дженифер живёт
+    // бронёй, и обнуление выключает её как класс, а не усложняет бой.
+    public const float MaxBossArmorDebuffPercent = 50f;
+
     public static float ResolveActiveSkillAttackLockSeconds(CharacterClass characterClass) => characterClass switch
     {
         CharacterClass.Rogue => 0f,
@@ -419,6 +423,11 @@ public class CombatManager : MonoBehaviour
         combatant.IsInvulnerable = false;
         combatant.BossHealCutPercent = 0f;
         combatant.BossHealCutTimer = 0f;
+        combatant.BossArmorDebuffPercent = 0f;
+        combatant.BossArmorDebuffStacks = 0;
+        combatant.BossArmorDebuffTimer = 0f;
+        combatant.BossEnrageDamageBonusPercent = 0f;
+        combatant.SelfInvulnerableTimer = 0f;
         combatant.CursedParanoiaStacks = 0;
         combatant.CursedRecklessStacks = 0;
         combatant.CursedRecklessDecayTimer = 0f;
@@ -853,6 +862,58 @@ public class CombatManager : MonoBehaviour
                 ActiveSkillActivated?.Invoke(boss, ability.displayName);
                 Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — лечение {Player.DisplayName} −{Player.BossHealCutPercent:F0}%.");
                 break;
+
+            case BossAbilityEffectKind.StatDebuff:
+                if (IgnoresDebuffs(Player))
+                {
+                    Log($"[Combat] «Упёртость» защищает {Player.DisplayName} от «{ability.displayName}».");
+                    break;
+                }
+
+                int armorCap = Mathf.Max(1, ability.armorDebuffMaxStacks);
+                Player.BossArmorDebuffStacks = Mathf.Min(Player.BossArmorDebuffStacks + 1, armorCap);
+                Player.BossArmorDebuffPercent = Mathf.Clamp(
+                    ability.armorDebuffPercent * Player.BossArmorDebuffStacks, 0f, MaxBossArmorDebuffPercent);
+                Player.BossArmorDebuffTimer = Player.AdjustNegativeStatusDuration(Mathf.Max(0.1f, ability.armorDebuffSeconds));
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — броня {Player.DisplayName} −{Player.BossArmorDebuffPercent:F0}% ({Player.BossArmorDebuffStacks}/{armorCap}).");
+                break;
+
+            case BossAbilityEffectKind.RoomTick:
+                float tickDamage = Player.MaxHP * Mathf.Max(0f, ability.roomTickPercentOfMaxHp) / 100f;
+                if (tickDamage <= 0f)
+                {
+                    break;
+                }
+
+                // Мимо уклонения (это не атака), но через броню — поэтому обычный ApplyDamage, а не
+                // прямой урон. Баннер намеренно НЕ показываем: фоновый тик каждые пару секунд
+                // забил бы собой весь лог боя.
+                var tickResult = DamageCalculator.ApplyDamage(Player, tickDamage, DamageType.Physical);
+                EmitHitResolved(Player, tickResult.DamageToHP, false, tickResult.WasBlocked);
+                break;
+
+            case BossAbilityEffectKind.Enrage:
+                boss.BossEnrageDamageBonusPercent += Mathf.Max(0f, ability.enrageDamagePercentPerTrigger);
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — урон +{boss.BossEnrageDamageBonusPercent:F0}% суммарно.");
+                break;
+
+            case BossAbilityEffectKind.SelfInvulnerable:
+                float invulnSeconds = Mathf.Max(0f, ability.selfInvulnerableSeconds);
+                if (invulnSeconds <= 0f)
+                {
+                    break;
+                }
+
+                boss.IsInvulnerable = true;
+                boss.SelfInvulnerableTimer = invulnSeconds;
+                // Пауза честная: пока босс неуязвим, он и сам не бьёт (TickCombatant пропускает
+                // участника с активным AttackLockRemaining).
+                boss.AttackLockRemaining = Mathf.Max(boss.AttackLockRemaining, invulnSeconds);
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — неуязвим и не атакует {invulnSeconds:F0} с.");
+                break;
         }
     }
 
@@ -894,6 +955,31 @@ public class CombatManager : MonoBehaviour
 
         // Boss framework: окно повышенного получаемого урона истекает по боевому времени и
         // ОБНУЛЯЕТ процент, а не только таймер — иначе просроченное окно продолжило бы работать.
+        // Дебафф брони истекает по боевому времени и снимает ВСЕ стаки разом: он накладывается
+        // целиком, поэтому и спадать должен целиком, иначе стаки жили бы вечно по одному.
+        if (combatant.BossArmorDebuffTimer > 0f)
+        {
+            combatant.BossArmorDebuffTimer -= deltaTime;
+            if (combatant.BossArmorDebuffTimer <= 0f)
+            {
+                combatant.BossArmorDebuffTimer = 0f;
+                combatant.BossArmorDebuffPercent = 0f;
+                combatant.BossArmorDebuffStacks = 0;
+            }
+        }
+
+        // Добровольная неуязвимость («Погружение») снимается сама — иначе босс остался бы
+        // неуязвимым до конца боя.
+        if (combatant.SelfInvulnerableTimer > 0f)
+        {
+            combatant.SelfInvulnerableTimer -= deltaTime;
+            if (combatant.SelfInvulnerableTimer <= 0f)
+            {
+                combatant.SelfInvulnerableTimer = 0f;
+                combatant.IsInvulnerable = false;
+            }
+        }
+
         // Штраф к лечению истекает по боевому времени; бесконечный таймер (на весь бой) не тикает.
         if (combatant.BossHealCutTimer > 0f && !float.IsPositiveInfinity(combatant.BossHealCutTimer))
         {
@@ -1184,6 +1270,10 @@ public class CombatManager : MonoBehaviour
         // Boss framework: «Скорбь» — постоянный бонус урона выжившему участнику связки.
         if (attacker.BossSoloDamageBonusPercent > 0f)
             damage *= 1f + attacker.BossSoloDamageBonusPercent / 100f;
+
+        // Boss framework: накопленная надбавка Enrage — предохранитель от затягивания боя.
+        if (attacker.BossEnrageDamageBonusPercent > 0f)
+            damage *= 1f + attacker.BossEnrageDamageBonusPercent / 100f;
 
         damage *= 1f + attacker.TotalDamageBonusPercent / 100f; // блюдо + бонус привала (Таверна ур.5)
         if (weapon.DamageType == DamageType.Physical)

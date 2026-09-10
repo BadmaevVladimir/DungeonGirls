@@ -1105,4 +1105,122 @@ public class BossEncounterTests
         Assert.LessOrEqual(dyingLost, 1000f * CombatManager.MaxBossSingleHitPercentOfMaxHp / 100f + 0.5f,
             "и всё равно упираться в общий потолок одиночного удара");
     }
+
+    // ---- Дебафф брони, фоновый урон, enrage, погружение (план 6, 2026-09-11) ----
+
+    [Test]
+    public void StatDebuff_StacksUpButNeverCutsArmorInHalfMoreThanOnce()
+    {
+        var ability = Instant("Ржавчина", BossAbilityEffectKind.StatDebuff);
+        ability.armorDebuffPercent = 40f;
+        ability.armorDebuffMaxStacks = 3;   // 3 x 40% = 120%, но потолок обязан срезать до 50%
+        ability.armorDebuffSeconds = 5f;
+        ability.cooldownSeconds = 0.01f;
+        var boss = MakeSimpleBoss(ability);
+        var player = MakePlayer(hp: 1000f);
+        player.PhysicalDefenseMax = 100f;
+        player.PhysicalDefenseCurrent = 100f;
+        var cm = CreateCombatManager();
+        cm.StartCombat(player, new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        for (int i = 0; i < 10; i++) cm.Tick(0.02f);
+
+        Assert.AreEqual(CombatManager.MaxBossArmorDebuffPercent, player.BossArmorDebuffPercent, 0.01f,
+            "броню нельзя резать больше чем вдвое: Дженифер живёт бронёй");
+    }
+
+    [Test]
+    public void StatDebuff_ExpiresOnItsOwn_DroppingEveryStackAtOnce()
+    {
+        // Кулдаун намеренно огромный: способность срабатывает ОДИН раз, иначе она бесконечно
+        // обновляла бы таймер и истечение было бы невозможно наблюдать.
+        var ability = Instant("Ржавчина", BossAbilityEffectKind.StatDebuff);
+        ability.armorDebuffPercent = 25f;
+        ability.armorDebuffMaxStacks = 2;
+        ability.armorDebuffSeconds = 3f;
+        ability.cooldownSeconds = 1000f;
+        var boss = MakeSimpleBoss(ability);
+        var player = MakePlayer(hp: 1000f);
+        player.PhysicalDefenseMax = 100f;
+        player.PhysicalDefenseCurrent = 100f;
+        var cm = CreateCombatManager();
+        cm.StartCombat(player, new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+        Assert.AreEqual(25f, player.BossArmorDebuffPercent, 0.01f);
+
+        for (int i = 0; i < 10; i++) cm.Tick(0.5f);
+
+        Assert.AreEqual(0f, player.BossArmorDebuffPercent, 0.01f, "дебафф обязан спасть сам");
+        Assert.AreEqual(0, player.BossArmorDebuffStacks, "и снять все стаки разом, а не по одному");
+    }
+
+    [Test]
+    public void RoomTick_HurtsThroughArmorButScalesWithMaxHp()
+    {
+        BossAbilityConfig MakeTick()
+        {
+            var a = Instant("Осыпь", BossAbilityEffectKind.RoomTick);
+            a.roomTickPercentOfMaxHp = 10f;
+            return a;
+        }
+
+        var fat = MakePlayer(hp: 1000f);
+        var bossA = MakeSimpleBoss(MakeTick());
+        var cmA = CreateCombatManager();
+        cmA.StartCombat(fat, new System.Collections.Generic.List<CombatantRuntime> { bossA });
+        cmA.Tick(0.016f);
+
+        var thin = MakePlayer(hp: 100f);
+        var bossB = MakeSimpleBoss(MakeTick());
+        var cmB = CreateCombatManager();
+        cmB.StartCombat(thin, new System.Collections.Generic.List<CombatantRuntime> { bossB });
+        cmB.Tick(0.016f);
+
+        Assert.AreEqual(100f, 1000f - fat.CurrentHP, 1f, "10% от 1000");
+        Assert.AreEqual(10f, 100f - thin.CurrentHP, 1f, "10% от 100 — плоское число тут убивало бы Вайолет");
+    }
+
+    [Test]
+    public void Enrage_AccumulatesPermanently_AndActuallyRaisesBossDamage()
+    {
+        var ability = Instant("Ярость глубин", BossAbilityEffectKind.Enrage);
+        ability.enrageDamagePercentPerTrigger = 25f;
+        ability.cooldownSeconds = 0.01f;
+        var boss = MakeSimpleBoss(ability);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+        float afterFirst = boss.BossEnrageDamageBonusPercent;
+        for (int i = 0; i < 10; i++) cm.Tick(0.02f);
+
+        Assert.AreEqual(25f, afterFirst, 0.01f);
+        Assert.Greater(boss.BossEnrageDamageBonusPercent, afterFirst, "надбавка обязана накапливаться");
+    }
+
+    [Test]
+    public void SelfInvulnerable_MakesBossUntouchableButAlsoSilencesHim_AndExpires()
+    {
+        var ability = Instant("Погружение", BossAbilityEffectKind.SelfInvulnerable);
+        ability.selfInvulnerableSeconds = 3f;
+        var boss = MakeSimpleBoss(ability);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+
+        Assert.IsTrue(boss.IsInvulnerable);
+        Assert.IsTrue(boss.IsAttackLocked, "пауза честная: неуязвимый босс и сам не бьёт");
+
+        float hpBefore = boss.CurrentHP;
+        DamageCalculator.ApplyDamage(boss, 100f, DamageType.Physical);
+        Assert.AreEqual(hpBefore, boss.CurrentHP, 0.01f);
+
+        for (int i = 0; i < 10; i++) cm.Tick(0.5f);
+
+        Assert.IsFalse(boss.IsInvulnerable, "погружение обязано закончиться само");
+        DamageCalculator.ApplyDamage(boss, 100f, DamageType.Physical);
+        Assert.Less(boss.CurrentHP, hpBefore);
+    }
 }
