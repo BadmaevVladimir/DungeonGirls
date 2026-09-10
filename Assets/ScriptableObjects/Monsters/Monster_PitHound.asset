@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37c73bb7b20f0774db1d325b77fd4879, type: 3}
+  m_Name: Monster_PitHound
+  m_EditorClassIdentifier: Assembly-CSharp::MonsterData
+  monsterName: "\u0413\u043E\u043D\u0447\u0430\u044F \u042F\u043C\u044B"
+  sprite: {fileID: 21300000, guid: f331b5edfab5410b87991a3e71ff5008, type: 3}
+  isBoss: 1
+  hp: 130
+  damageMin: 6
+  damageMax: 9
+  damageType: 0
+  attackSpeed: 1.9
+  physicalDefense: 6
+  magicDefense: 0
+  universalShield: 0
+  frontlinePriority: 0
+  doesNotAttack: 0
+  passiveSkill: {fileID: 0}
+  bossKit: {fileID: 11400000, guid: 6a98dca3b5cf4590946be194d1c1986d, type: 2}
+  gender: 1
+  minFloorTier: 1

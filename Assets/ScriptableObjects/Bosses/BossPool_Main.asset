@@ -28,3 +28,15 @@ MonoBehaviour:
   - boss: {fileID: 11400000, guid: 9fea45cfd4e845a5969331428c5da436, type: 2}
     minFloor: 7
     maxFloor: 9
+  - boss: {fileID: 11400000, guid: 857b74062a6f4a6eb4e96dccbb8227e1, type: 2}
+    minFloor: 1
+    maxFloor: 3
+  - boss: {fileID: 11400000, guid: f6bc1e3923374647b5c90355d915bd25, type: 2}
+    minFloor: 1
+    maxFloor: 4
+  - boss: {fileID: 11400000, guid: b2b9ff7364c747c09fcd48942764284a, type: 2}
+    minFloor: 3
+    maxFloor: 5
+  - boss: {fileID: 11400000, guid: b0e8a3b686d7408aa9322dcea74530d6, type: 2}
+    minFloor: 4
+    maxFloor: 6

@@ -32,7 +32,16 @@ public enum BossAbilityEffectKind
     DamageTakenBuff,
     // Воскрешает одного мёртвого спутника-якоря на полное HP (Свечник заново зажигает свечу).
     // Если мёртвых якорей нет — способность просто ничего не делает и уходит на кулдаун.
-    ReviveAnchor
+    ReviveAnchor,
+    // Выдаёт игроку сразу несколько зарядов Заморозки (существующая система: 10 зарядов = заморозка
+    // на 5с, затем иммунитет). По одному заряду за каст босс копил бы их до конца боя, поэтому
+    // количество задаётся ассетом. Иммунитет и «Упёртость» Саши уважаются, как и при заморозке от игрока.
+    ApplyFreeze,
+    // Вешает на игрока временный дебафф скорости атаки (тот же ActiveDebuff, что «Запугивание»
+    // и замедление Колдуна) — в автобое это чистое замедление гонки, реагировать на него нечем.
+    AttackSpeedDebuff,
+    // Босс бьёт САМ СЕБЯ на долю своего максимального HP («Пошатнулся» Пьяного Великана).
+    SelfDamage
 }
 
 [System.Serializable]
@@ -74,6 +83,19 @@ public class BossAbilityConfig
 
     [Tooltip("DamageTakenBuff: сколько секунд держится окно повышенного урона.")]
     public float damageTakenBonusSeconds = 0f;
+
+    [Tooltip("ApplyFreeze: сколько зарядов Заморозки выдать за одно срабатывание (10 = мгновенная " +
+        "заморозка). Клампится потолком заряда существующей системы.")]
+    public int freezeStacks = 0;
+
+    [Tooltip("AttackSpeedDebuff: множитель скорости атаки игрока (0.8 = −20%).")]
+    public float attackSpeedMultiplier = 1f;
+
+    [Tooltip("AttackSpeedDebuff: длительность дебаффа в секундах (до сокращения от еды/навыков).")]
+    public float debuffSeconds = 0f;
+
+    [Tooltip("SelfDamage: доля МАКСИМАЛЬНОГО HP босса, которую он снимает сам с себя (8 = 8%).")]
+    public float selfDamagePercentOfMaxHp = 0f;
 }
 
 [System.Serializable]
@@ -106,6 +128,14 @@ public class BossPhaseData
         "цикле. triggerKind в такой фазе игнорируется. Нужно для боссов с выучиваемым паттерном "+
         "(Часовой Титан).")]
     public bool cycleAbilities;
+
+    [Tooltip("Множитель брони босса, применяемый ОДИН РАЗ при входе в эту фазу (0.5 = броня " +
+        "падает вдвое). 1 = броня не меняется. Первая фаза это поле игнорирует — она активна с " +
+        "начала боя, статы уже выставлены фабрикой.")]
+    public float enterArmorMultiplier = 1f;
+
+    [Tooltip("Множитель скорости атаки босса при входе в фазу (2 = бьёт вдвое чаще). 1 = не меняется.")]
+    public float enterAttackSpeedMultiplier = 1f;
 
     public List<BossAbilityConfig> abilities = new List<BossAbilityConfig>();
 }

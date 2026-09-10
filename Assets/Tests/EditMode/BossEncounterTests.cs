@@ -808,4 +808,137 @@ public class BossEncounterTests
         Assert.AreEqual(100f, player.CurrentHP, 0.01f,
             "свеча не должна снять ни одного HP: каждый лишний атакующий — лишний бросок против уклонения Вайолет");
     }
+
+    // ---- Фильтры билда: заморозка, замедление, самоурон (план 4, 2026-09-11) ----
+
+    static CombatantRuntime MakeSimpleBoss(params BossAbilityConfig[] abilities) => new CombatantRuntime
+    {
+        DisplayName = "Тест-босс",
+        IsBoss = true,
+        MaxHP = 200f,
+        CurrentHP = 200f,
+        BossEncounter = new BossEncounterState(MakeKit(MakePhase("Фаза 1", 100f, abilities))),
+        Weapons = { new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, AttackSpeed = 0.001f, DamageType = DamageType.Physical } }
+    };
+
+    static BossAbilityConfig Instant(string name, BossAbilityEffectKind kind) => new BossAbilityConfig
+    {
+        displayName = name,
+        effectKind = kind,
+        triggerKind = BossAbilityTriggerKind.Periodic,
+        cooldownSeconds = 100f,
+        initialDelaySeconds = 0f,
+        telegraphSeconds = 0f
+    };
+
+    [Test]
+    public void ApplyFreeze_GrantsSeveralStacksAtOnce_AndFreezesAtTen()
+    {
+        var ability = Instant("Плач", BossAbilityEffectKind.ApplyFreeze);
+        ability.freezeStacks = 10;
+        var boss = MakeSimpleBoss(ability);
+        var player = MakePlayer();
+        var cm = CreateCombatManager();
+        cm.StartCombat(player, new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(10, player.FreezeStacks, "способность выдаёт заряды пачкой, а не по одному");
+        Assert.IsTrue(player.IsFrozen, "на десяти зарядах игрок замораживается");
+    }
+
+    [Test]
+    public void ApplyFreeze_RespectsFreezeImmunity_SoChainsAreImpossible()
+    {
+        var ability = Instant("Плач", BossAbilityEffectKind.ApplyFreeze);
+        ability.freezeStacks = 10;
+        var boss = MakeSimpleBoss(ability);
+        var player = MakePlayer();
+        player.FreezeImmune = true;
+        player.FreezeImmuneTimer = 5f;
+        var cm = CreateCombatManager();
+        cm.StartCombat(player, new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(0, player.FreezeStacks, "иммунитет после разморозки не даёт зацепить игрока снова");
+        Assert.IsFalse(player.IsFrozen);
+    }
+
+    [Test]
+    public void AttackSpeedDebuff_SlowsThePlayer_AndExpiresOnItsOwn()
+    {
+        var ability = Instant("Иней", BossAbilityEffectKind.AttackSpeedDebuff);
+        ability.attackSpeedMultiplier = 0.8f;
+        ability.debuffSeconds = 5f;
+        var boss = MakeSimpleBoss(ability);
+        var player = MakePlayer();
+        var weapon = player.Weapons[0];
+        weapon.AttackSpeed = 1f;
+        float baseSpeed = player.GetEffectiveAttackSpeed(weapon);
+
+        var cm = CreateCombatManager();
+        cm.StartCombat(player, new System.Collections.Generic.List<CombatantRuntime> { boss });
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(baseSpeed * 0.8f, player.GetEffectiveAttackSpeed(weapon), 0.01f);
+
+        for (int i = 0; i < 12; i++) cm.Tick(0.5f);
+
+        Assert.AreEqual(baseSpeed, player.GetEffectiveAttackSpeed(weapon), 0.01f, "дебафф обязан истечь сам");
+    }
+
+    [Test]
+    public void SelfDamage_HurtsTheBossByShareOfItsOwnMaxHp()
+    {
+        var ability = Instant("Пошатнулся", BossAbilityEffectKind.SelfDamage);
+        ability.selfDamagePercentOfMaxHp = 8f;
+        var boss = MakeSimpleBoss(ability);
+        // Броня не должна спасать босса от собственной неуклюжести.
+        boss.PhysicalDefenseMax = 100f;
+        boss.PhysicalDefenseCurrent = 100f;
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(184f, boss.CurrentHP, 0.5f, "8% от 200 максимального HP");
+        Assert.AreEqual(100f, boss.PhysicalDefenseCurrent, 0.01f, "самоурон идёт мимо брони");
+    }
+
+    [Test]
+    public void PhaseEntry_AppliesStatMultipliersOnce_ArmorDownAndAttacksMoreOften()
+    {
+        var kit = MakeKit(MakePhase("Целый", 100f), MakePhase("Треснувший", 45f));
+        kit.phases[1].enterArmorMultiplier = 0.5f;
+        kit.phases[1].enterAttackSpeedMultiplier = 2f;
+
+        var boss = new CombatantRuntime
+        {
+            DisplayName = "Тест-Идол",
+            IsBoss = true,
+            MaxHP = 100f,
+            CurrentHP = 100f,
+            PhysicalDefenseMax = 40f,
+            PhysicalDefenseCurrent = 40f,
+            BossEncounter = new BossEncounterState(kit),
+            Weapons = { new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, AttackSpeed = 0.5f, DamageType = DamageType.Physical } }
+        };
+
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        boss.CurrentHP = 40f; // ниже порога второй фазы
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(20f, boss.PhysicalDefenseCurrent, 0.01f, "броня падает вдвое при входе в фазу");
+        Assert.AreEqual(20f, boss.PhysicalDefenseMax, 0.01f);
+        // AttackSpeed — частота, поэтому «вдвое чаще» это ×2, а не ÷2.
+        Assert.AreEqual(1f, boss.Weapons[0].AttackSpeed, 0.01f);
+
+        cm.Tick(0.016f);
+        cm.Tick(0.016f);
+        Assert.AreEqual(20f, boss.PhysicalDefenseCurrent, 0.01f, "множитель не должен применяться повторно каждый тик");
+        Assert.AreEqual(1f, boss.Weapons[0].AttackSpeed, 0.01f);
+    }
 }

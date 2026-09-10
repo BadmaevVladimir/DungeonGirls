@@ -662,6 +662,27 @@ public class CombatManager : MonoBehaviour
                     enemy.Sprite = newPhase.phaseSprite;
                 }
 
+                // Фаза может менять статы самого босса, а не только его способности: Каменный Идол
+                // трескается и теряет броню, Плакальщица разгоняется. Применяется РОВНО ОДИН РАЗ,
+                // в момент перехода — TryEnterNextPhase монотонен и дважды в фазу не заводит.
+                if (!Mathf.Approximately(newPhase.enterArmorMultiplier, 1f))
+                {
+                    float armorScale = Mathf.Max(0f, newPhase.enterArmorMultiplier);
+                    enemy.PhysicalDefenseMax *= armorScale;
+                    enemy.PhysicalDefenseCurrent *= armorScale;
+                }
+
+                if (!Mathf.Approximately(newPhase.enterAttackSpeedMultiplier, 1f))
+                {
+                    float speedScale = Mathf.Max(0.01f, newPhase.enterAttackSpeedMultiplier);
+                    foreach (var weapon in enemy.Weapons)
+                    {
+                        // AttackSpeed — это ЧАСТОТА ударов (в тестах 0.01 = интервал 100с),
+                        // поэтому «бить чаще» = умножать.
+                        weapon.AttackSpeed *= speedScale;
+                    }
+                }
+
                 ActiveSkillActivated?.Invoke(enemy, newPhase.phaseName);
                 Log($"[Boss] {enemy.DisplayName} переходит в фазу «{newPhase.phaseName}» (здоровье {hpPercent:F0}%).");
                 continue; // новая фаза резолвит свои кулдауны/телеграфы со следующего Tick.
@@ -740,6 +761,43 @@ public class CombatManager : MonoBehaviour
                 revived.CurrentHP = revived.MaxHP;
                 ActiveSkillActivated?.Invoke(boss, ability.displayName);
                 Log($"[Combat] {boss.DisplayName} применяет «{ability.displayName}»: {revived.DisplayName} снова в строю.");
+                break;
+
+            case BossAbilityEffectKind.ApplyFreeze:
+                ApplyBossFreeze(boss, ability);
+                break;
+
+            case BossAbilityEffectKind.AttackSpeedDebuff:
+                // «Упёртость» Саши гасит новые дебаффы целиком — тот же контракт, что у заморозки
+                // и «Запугивания», иначе вложение в неё выборочно не работало бы против боссов.
+                if (IgnoresDebuffs(Player))
+                {
+                    Log($"[Combat] «Упёртость» защищает {Player.DisplayName} от «{ability.displayName}».");
+                    break;
+                }
+
+                Player.ActiveDebuffs.Add(new ActiveDebuff
+                {
+                    Id = "boss_" + ability.displayName,
+                    RemainingTime = Player.AdjustNegativeStatusDuration(Mathf.Max(0f, ability.debuffSeconds)),
+                    AttackSpeedMultiplier = Mathf.Clamp(ability.attackSpeedMultiplier, 0.1f, 1f)
+                });
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — скорость атаки {Player.DisplayName} ×{Mathf.Clamp(ability.attackSpeedMultiplier, 0.1f, 1f):F2} на {ability.debuffSeconds:F0} с.");
+                break;
+
+            case BossAbilityEffectKind.SelfDamage:
+                float selfDamage = boss.MaxHP * Mathf.Max(0f, ability.selfDamagePercentOfMaxHp) / 100f;
+                if (selfDamage <= 0f)
+                {
+                    break;
+                }
+
+                // Прямой урон мимо брони и щитов: босс калечит себя сам, защищаться тут не от чего.
+                float dealt = DamageCalculator.ApplyDirectDamage(boss, selfDamage);
+                EmitHitResolved(boss, dealt, false, false);
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — сам себе {dealt:F1} урона.");
                 break;
         }
     }
@@ -1375,6 +1433,37 @@ public class CombatManager : MonoBehaviour
             case 3: return 6;
             case 4: return 8;
             default: return 10;
+        }
+    }
+
+    // Boss framework: заморозка от способности босса. Отличается от ApplyFreezeOnHit тем, что не
+    // привязана к попаданию оружия и выдаёт СРАЗУ несколько зарядов: по одному за каст босс копил
+    // бы до конца боя. Правила иммунитета и «Упёртости» те же — цепочки заморозок системно
+    // невозможны, потому что после разморозки включается FreezeImmune.
+    void ApplyBossFreeze(CombatantRuntime boss, BossAbilityConfig ability)
+    {
+        int stacks = Mathf.Max(0, ability.freezeStacks);
+        if (stacks == 0 || Player.IsFrozen || Player.FreezeImmune)
+        {
+            return;
+        }
+
+        if (IgnoresDebuffs(Player))
+        {
+            Log($"[Combat] «Упёртость» защищает {Player.DisplayName} от «{ability.displayName}».");
+            return;
+        }
+
+        Player.FreezeStacks = Mathf.Min(Player.FreezeStacks + stacks, 10);
+        Player.FreezeStackTimer = Player.AdjustNegativeStatusDuration(3f);
+        ActiveSkillActivated?.Invoke(boss, ability.displayName);
+        Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — {Player.DisplayName} получает {stacks} зарядов заморозки ({Player.FreezeStacks}/10).");
+
+        if (Player.FreezeStacks >= 10)
+        {
+            Player.IsFrozen = true;
+            Player.FreezeTimer = Player.AdjustNegativeStatusDuration(5f);
+            Log($"[Combat] {Player.DisplayName} замораживается на 5 секунд!");
         }
     }
 
