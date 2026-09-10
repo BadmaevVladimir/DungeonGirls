@@ -25,6 +25,10 @@ public partial class RunFlowController : MonoBehaviour
     [SerializeField] List<PassiveSkillData> barbarianSkillPool;
     [SerializeField] List<MonsterData> regularMonsterPool;
     [SerializeField] MonsterData bossData;
+    // Пул боссов этажа (2026-09-10). bossData остаётся как запасной вариант: если пул не заполнен
+    // или на этом этаже ни один вариант не подходит, спавнится он — так сцена, собранная до
+    // появления пула, продолжает работать без изменений.
+    [SerializeField] BossPoolData bossPool;
     [SerializeField] RareRoomConfig rareRoomConfig;
     [SerializeField] VeteranAttestationConfig veteranAttestationConfig;
     // UXML ui:Image's src="project://database/..." does not resolve at runtime (confirmed via

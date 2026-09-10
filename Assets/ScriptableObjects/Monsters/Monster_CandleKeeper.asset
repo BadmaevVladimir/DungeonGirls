@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37c73bb7b20f0774db1d325b77fd4879, type: 3}
+  m_Name: Monster_CandleKeeper
+  m_EditorClassIdentifier: Assembly-CSharp::MonsterData
+  monsterName: "\u0421\u0432\u0435\u0447\u043D\u0438\u043A"
+  sprite: {fileID: 21300000, guid: d9cf2c4d1f814b5eb103ce7f8fa1dd82, type: 3}
+  isBoss: 1
+  hp: 300
+  damageMin: 28
+  damageMax: 35
+  damageType: 0
+  attackSpeed: 1.3
+  physicalDefense: 20
+  magicDefense: 0
+  universalShield: 0
+  frontlinePriority: 0
+  doesNotAttack: 0
+  passiveSkill: {fileID: 0}
+  bossKit: {fileID: 11400000, guid: 074011bbd8b84754b8ef5c31315048cc, type: 2}
+  gender: 0
+  minFloorTier: 7

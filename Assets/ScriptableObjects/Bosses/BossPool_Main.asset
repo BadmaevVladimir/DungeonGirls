@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5b0885319c395f4fb9e081cf7b7b3b8, type: 3}
+  m_Name: BossPool_Main
+  m_EditorClassIdentifier: 
+  entries:
+  - boss: {fileID: 11400000, guid: 5e45ae67fea08194381c1bc1e639783e, type: 2}
+    minFloor: 1
+    maxFloor: 10
+  - boss: {fileID: 11400000, guid: 6723a3f9b38f4ad5b6b954c6b6721e2e, type: 2}
+    minFloor: 4
+    maxFloor: 6
+  - boss: {fileID: 11400000, guid: 4bfbcd6d9a924c4ab6593b35dc34167a, type: 2}
+    minFloor: 5
+    maxFloor: 8
+  - boss: {fileID: 11400000, guid: 45474461867b4a6f871aafc4e5872813, type: 2}
+    minFloor: 3
+    maxFloor: 5
+  - boss: {fileID: 11400000, guid: 9fea45cfd4e845a5969331428c5da436, type: 2}
+    minFloor: 7
+    maxFloor: 9

@@ -61,7 +61,7 @@ MonoBehaviour:
       triggerKind: 1
       cooldownSeconds: 9
       initialDelaySeconds: 3
-      telegraphSeconds: 1.2
+      telegraphSeconds: 1.5
       damageMultiplier: 1.8
       shieldAmount: 0
       shieldDurationSeconds: 0

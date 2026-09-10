@@ -16,6 +16,11 @@ public class MonsterData : ScriptableObject
     public float physicalDefense;
     public float magicDefense;
 
+    [Tooltip("Сущность вообще не получает оружия и никогда не атакует (Свечи Свечника). Нужна "+
+        "именно как цель: каждый лишний атакующий на сцене — лишний бросок против уклонения "+
+        "Вайолет, а её 15 HP базы этого не прощают.")]
+    public bool doesNotAttack;
+
     public PassiveSkillData passiveSkill;
 
     // Boss framework (минимальный слайс, см. Docs/Design/2026-09-01-floor-boss-system-design.md):

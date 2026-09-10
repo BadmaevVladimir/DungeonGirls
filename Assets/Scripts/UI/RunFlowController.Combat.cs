@@ -296,7 +296,12 @@ public partial class RunFlowController
         var enemies = new List<CombatantRuntime>();
         if (isBoss)
         {
-            enemies.Add(CombatantFactory.CreateMonsterCombatant(bossData, dungeonManager.CurrentFloorNumber));
+            var bossForFloor = BossPoolSelector.Select(bossPool, dungeonManager.CurrentFloorNumber, bossData);
+            var bossRuntime = CombatantFactory.CreateMonsterCombatant(bossForFloor, dungeonManager.CurrentFloorNumber);
+            enemies.Add(bossRuntime);
+            // Групповой босс-бой (Тени-Близнецы): спутники выходят на сцену сразу вместе с боссом.
+            enemies.AddRange(CombatantFactory.CreateBossCompanions(bossForFloor,
+                dungeonManager.CurrentFloorNumber, bossRuntime));
         }
         else
         {

@@ -295,4 +295,517 @@ public class BossEncounterTests
         Assert.IsFalse(boss.IsAlive);
         Assert.IsTrue(player.IsAlive);
     }
+
+    // ---- DisruptSkills (Тюремщик, 2026-09-10) ----
+
+    static ActiveSkillData MakeCooldownSkill(float cooldownSeconds)
+    {
+        var data = ScriptableObject.CreateInstance<ActiveSkillData>();
+        data.skillName = "Тестовый навык";
+        // В SkillId нет отдельного значения для «3 быстрых атак» — Skill_ThreeQuickStrikes.asset тоже
+        // хранит skillId: 0. Для этих тестов id не важен: ветки Berserk/SmokeBomb в CombatManager
+        // диспатчатся по skillId, а нам нужен нейтральный слот.
+        data.skillId = SkillId.None;
+        data.skillType = ActiveSkillType.Cooldown;
+        data.cooldownSeconds = cooldownSeconds;
+        return data;
+    }
+
+    static CombatantRuntime MakeDisruptBoss(BossAbilityConfig ability) => new CombatantRuntime
+    {
+        DisplayName = "Тест-Тюремщик",
+        IsBoss = true,
+        MaxHP = 100f,
+        CurrentHP = 100f,
+        BossEncounter = new BossEncounterState(MakeKit(MakePhase("Фаза 1", 100f, ability))),
+        Weapons = { new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, AttackSpeed = 0.001f, DamageType = DamageType.Physical } }
+    };
+
+    [Test]
+    public void DisruptSkills_AfterTelegraph_PutsPlayerCooldownSkillOutOfReach()
+    {
+        var ability = new BossAbilityConfig
+        {
+            displayName = "Кандалы",
+            effectKind = BossAbilityEffectKind.DisruptSkills,
+            triggerKind = BossAbilityTriggerKind.Periodic,
+            cooldownSeconds = 100f,
+            initialDelaySeconds = 0f,
+            telegraphSeconds = 1f,
+            disruptSeconds = 5f
+        };
+        var boss = MakeDisruptBoss(ability);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+        cm.ConfigureActiveSkills(new[]
+        {
+            new ActiveSkillConfigEntry(MakeCooldownSkill(4f), hitCount: 3, damageMultiplierPerHit: 1f, autoMode: false)
+        });
+
+        Assert.IsTrue(cm.IsSkillReady(0), "до срабатывания способности навык доступен");
+
+        cm.Tick(0.016f); // запускает pending-телеграф
+        Assert.IsTrue(cm.IsSkillReady(0), "пока идёт телеграф, навык ещё доступен — это и есть окно,"+
+            " в которое игрок должен успеть его потратить");
+
+        cm.Tick(1.2f);   // телеграф истёк — способность резолвится
+
+        Assert.IsFalse(cm.IsSkillReady(0), "после «Кандалов» навык должен быть недоступен");
+        // Блокировка добавляет disruptSeconds к кулдауну, но тик ТОГО ЖЕ кадра списывает свою
+        // дельту, поэтому остаток — 5 − 1.2, а не ровно 5. Проверяем точное значение, чтобы тест
+        // ломался при изменении этой семантики, а не молча проходил на любом положительном числе.
+        Assert.AreEqual(3.8f, cm.SkillCooldownRemaining(0), 0.05f,
+            "блокировка добавляет свои секунды к кулдауну навыка");
+    }
+
+    [Test]
+    public void DisruptSkills_LongerThanCap_IsClampedToMaxBossSkillDisruptSeconds()
+    {
+        var ability = new BossAbilityConfig
+        {
+            displayName = "Кандалы навсегда",
+            effectKind = BossAbilityEffectKind.DisruptSkills,
+            triggerKind = BossAbilityTriggerKind.Periodic,
+            cooldownSeconds = 100f,
+            initialDelaySeconds = 0f,
+            telegraphSeconds = 0f,
+            disruptSeconds = 999f
+        };
+        var boss = MakeDisruptBoss(ability);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+        cm.ConfigureActiveSkills(new[]
+        {
+            new ActiveSkillConfigEntry(MakeCooldownSkill(0f), hitCount: 3, damageMultiplierPerHit: 1f, autoMode: false)
+        });
+
+        cm.Tick(0.016f);
+
+        Assert.LessOrEqual(cm.SkillCooldownRemaining(0), CombatManager.MaxBossSkillDisruptSeconds,
+            "правило честности: блокировка навыка не длиннее потолка, даже если в ассете указано больше");
+    }
+
+    [Test]
+    public void DisruptSkills_WithNoConfiguredSkills_DoesNotThrow()
+    {
+        var ability = new BossAbilityConfig
+        {
+            displayName = "Кандалы",
+            effectKind = BossAbilityEffectKind.DisruptSkills,
+            triggerKind = BossAbilityTriggerKind.Periodic,
+            cooldownSeconds = 100f,
+            initialDelaySeconds = 0f,
+            telegraphSeconds = 0f,
+            disruptSeconds = 5f
+        };
+        var boss = MakeDisruptBoss(ability);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+        // ConfigureActiveSkills намеренно НЕ вызывается: у персонажа без изученного активного навыка
+        // список пуст, и способность босса не должна на этом падать.
+
+        Assert.DoesNotThrow(() => cm.Tick(0.016f));
+    }
+
+    // ---- Циклические способности и окно уязвимости (Часовой Титан, 2026-09-10) ----
+
+    static BossAbilityConfig MakeCycleStep(string name, float cooldownSeconds)
+    {
+        return new BossAbilityConfig
+        {
+            displayName = name,
+            effectKind = BossAbilityEffectKind.HeavyAttack,
+            triggerKind = BossAbilityTriggerKind.Periodic,
+            cooldownSeconds = cooldownSeconds,
+            initialDelaySeconds = 0f,
+            telegraphSeconds = 0f,
+            damageMultiplier = 1f
+        };
+    }
+
+    static BossPhaseData MakeCyclePhase(params BossAbilityConfig[] abilities)
+    {
+        var phase = MakePhase("Цикл", 100f, abilities);
+        phase.cycleAbilities = true;
+        return phase;
+    }
+
+    [Test]
+    public void CyclicPhase_FiresAbilitiesInStrictOrderAndWrapsAround()
+    {
+        var first = MakeCycleStep("Первая шестерня", 1f);
+        var second = MakeCycleStep("Вторая шестерня", 1f);
+        var third = MakeCycleStep("Третья шестерня", 1f);
+        var state = new BossEncounterState(MakeKit(MakeCyclePhase(first, second, third)));
+
+        var fired = new System.Collections.Generic.List<string>();
+        for (int i = 0; i < 400 && fired.Count < 5; i++)
+        {
+            state.Tick(0.1f, out var executed);
+            if (executed != null) fired.Add(executed.displayName);
+        }
+
+        // Порядок жёсткий и повторяется — именно на это игрок и опирается, заучивая паттерн.
+        CollectionAssert.AreEqual(
+            new[] { "Первая шестерня", "Вторая шестерня", "Третья шестерня", "Первая шестерня", "Вторая шестерня" },
+            fired);
+    }
+
+    [Test]
+    public void CyclicPhase_CooldownOfExecutedStepIsTheGapBeforeTheNextStep()
+    {
+        // У первого шага пауза 2с, у второго 5с. После первого шага следующий обязан ждать 2с
+        // (кулдаун СРАБОТАВШЕГО), а не 5с (свой собственный) — иначе цикл читался бы задом наперёд.
+        var first = MakeCycleStep("Первая", 2f);
+        var second = MakeCycleStep("Вторая", 5f);
+        var state = new BossEncounterState(MakeKit(MakeCyclePhase(first, second)));
+
+        state.Tick(0.1f, out var opening);
+        Assert.AreEqual("Первая", opening.displayName);
+
+        float waited = 0f;
+        BossAbilityConfig next = null;
+        for (int i = 0; i < 200 && next == null; i++)
+        {
+            state.Tick(0.1f, out next);
+            waited += 0.1f;
+        }
+
+        Assert.IsNotNull(next);
+        Assert.AreEqual("Вторая", next.displayName);
+        Assert.AreEqual(2f, waited, 0.15f, "пауза перед вторым шагом = cooldownSeconds первого");
+    }
+
+    [Test]
+    public void CyclicPhase_ExposesCurrentStepForUi_AndOrdinaryPhaseDoesNot()
+    {
+        var cyclic = new BossEncounterState(MakeKit(MakeCyclePhase(MakeCycleStep("A", 1f), MakeCycleStep("B", 1f))));
+        Assert.AreEqual(0, cyclic.CurrentCycleIndex, "в начале боя стрелка на первом шаге");
+
+        cyclic.Tick(0.1f, out _);
+        Assert.AreEqual(1, cyclic.CurrentCycleIndex, "после исполнения стрелка сдвигается");
+
+        var ordinary = new BossEncounterState(MakeKit(MakePhase("Обычная", 100f, MakeCycleStep("A", 1f))));
+        Assert.AreEqual(-1, ordinary.CurrentCycleIndex, "у нецикличной фазы шага цикла нет");
+    }
+
+    [Test]
+    public void DamageTakenBuff_RaisesIncomingDamage_ThenExpiresOnItsOwn()
+    {
+        var ability = new BossAbilityConfig
+        {
+            displayName = "Открытая грудь",
+            effectKind = BossAbilityEffectKind.DamageTakenBuff,
+            triggerKind = BossAbilityTriggerKind.Periodic,
+            cooldownSeconds = 100f,
+            initialDelaySeconds = 0f,
+            telegraphSeconds = 0f,
+            damageTakenBonusPercent = 50f,
+            damageTakenBonusSeconds = 2f
+        };
+        var boss = new CombatantRuntime
+        {
+            DisplayName = "Тест-Титан",
+            IsBoss = true,
+            MaxHP = 1000f,
+            CurrentHP = 1000f,
+            BossEncounter = new BossEncounterState(MakeKit(MakePhase("Фаза 1", 100f, ability))),
+            Weapons = { new WeaponAttackState { DamageMin = 1f, DamageMax = 1f, AttackSpeed = 0.001f, DamageType = DamageType.Physical } }
+        };
+
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss });
+
+        cm.Tick(0.016f); // способность резолвится сразу, телеграфа нет
+        Assert.AreEqual(50f, boss.DamageTakenBonusPercent, 0.01f);
+
+        float hpBefore = boss.CurrentHP;
+        DamageCalculator.ApplyDamage(boss, 100f, DamageType.Physical);
+        float takenInsideWindow = hpBefore - boss.CurrentHP;
+
+        // Окно истекает само по боевому времени и обнуляет процент, а не только таймер.
+        cm.Tick(2.5f);
+        Assert.AreEqual(0f, boss.DamageTakenBonusPercent, 0.01f);
+        Assert.AreEqual(0f, boss.DamageTakenBonusTimer, 0.01f);
+
+        hpBefore = boss.CurrentHP;
+        DamageCalculator.ApplyDamage(boss, 100f, DamageType.Physical);
+        float takenAfterWindow = hpBefore - boss.CurrentHP;
+
+        Assert.Greater(takenInsideWindow, takenAfterWindow,
+            "в окне уязвимости тот же удар обязан снимать больше HP");
+    }
+
+    // ---- Групповой босс-бой: «Связь» и «Скорбь» (Тени-Близнецы, 2026-09-11) ----
+
+    static CombatantRuntime MakeGroupMember(string name, float hp, float reductionPercent,
+        float soloDamagePercent, float soloSpeedPercent)
+    {
+        return new CombatantRuntime
+        {
+            DisplayName = name,
+            IsBoss = true,
+            MaxHP = hp,
+            CurrentHP = hp,
+            InBossGroup = true,
+            PendingGroupDamageReductionPercent = reductionPercent,
+            PendingSoloDamageBonusPercent = soloDamagePercent,
+            PendingSoloAttackSpeedBonusPercent = soloSpeedPercent,
+            SoloTransitionName = "Скорбь",
+            Weapons = { new WeaponAttackState { DamageMin = 10f, DamageMax = 10f, AttackSpeed = 0.001f, DamageType = DamageType.Physical } }
+        };
+    }
+
+    [Test]
+    public void BossGroup_WhileAllyAlive_MembersTakeReducedDamage()
+    {
+        var first = MakeGroupMember("Первая тень", 500f, 30f, 50f, 30f);
+        var second = MakeGroupMember("Вторая тень", 500f, 30f, 50f, 30f);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { first, second });
+
+        cm.Tick(0.016f);
+        Assert.AreEqual(30f, first.BossGroupDamageReductionPercent, 0.01f);
+
+        float before = first.CurrentHP;
+        DamageCalculator.ApplyDamage(first, 100f, DamageType.Physical);
+        float takenLinked = before - first.CurrentHP;
+
+        Assert.AreEqual(70f, takenLinked, 0.5f, "при связи -30% удар на 100 обязан снимать 70");
+    }
+
+    [Test]
+    public void BossGroup_WhenAllyDies_SurvivorLosesLinkAndGainsSoloBonusExactlyOnce()
+    {
+        var survivor = MakeGroupMember("Выжившая", 500f, 30f, 50f, 30f);
+        var doomed = MakeGroupMember("Обречённая", 500f, 30f, 50f, 30f);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { survivor, doomed });
+
+        cm.Tick(0.016f);
+        Assert.AreEqual(30f, survivor.BossGroupDamageReductionPercent, 0.01f);
+        Assert.AreEqual(0f, survivor.BossSoloDamageBonusPercent, 0.01f, "пока союзник жив, усиления нет");
+
+        doomed.CurrentHP = 0f;
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(0f, survivor.BossGroupDamageReductionPercent, 0.01f, "связь разорвана — снижение урона спадает");
+        Assert.AreEqual(50f, survivor.BossSoloDamageBonusPercent, 0.01f);
+        Assert.AreEqual(30f, survivor.BossSoloAttackSpeedBonusPercent, 0.01f);
+        Assert.IsTrue(survivor.BossSoloBonusApplied);
+
+        // Дальнейшие тики не должны накручивать бонус повторно — иначе выживший разгонялся бы
+        // бесконечно, просто потому что бой продолжается.
+        survivor.BossSoloDamageBonusPercent = 50f;
+        cm.Tick(1f);
+        cm.Tick(1f);
+        Assert.AreEqual(50f, survivor.BossSoloDamageBonusPercent, 0.01f);
+    }
+
+    [Test]
+    public void BossGroup_SoloSpeedBonus_ActuallySpeedsUpAttacks()
+    {
+        var survivor = MakeGroupMember("Выжившая", 500f, 0f, 0f, 100f);
+        var weapon = survivor.Weapons[0];
+        weapon.AttackSpeed = 1f;
+
+        float baseSpeed = survivor.GetEffectiveAttackSpeed(weapon);
+        survivor.BossSoloAttackSpeedBonusPercent = 100f;
+        float boosted = survivor.GetEffectiveAttackSpeed(weapon);
+
+        Assert.AreEqual(baseSpeed * 2f, boosted, 0.01f, "+100% скорости обязаны удваивать эффективную скорость");
+    }
+
+    [Test]
+    public void CreateBossCompanions_SelfReferencingKit_SpawnsOnePartnerAndMarksBothWithoutRecursion()
+    {
+        var kit = ScriptableObject.CreateInstance<BossKitData>();
+        kit.phases.Add(MakePhase("Фаза 1", 100f));
+        kit.groupDamageReductionPercent = 30f;
+        kit.soloDamageBonusPercent = 50f;
+        kit.soloAttackSpeedBonusPercent = 30f;
+        kit.soloTransitionName = "Скорбь";
+
+        var monster = ScriptableObject.CreateInstance<MonsterData>();
+        monster.monsterName = "Тень";
+        monster.isBoss = true;
+        monster.hp = 100f;
+        monster.damageMin = 1f;
+        monster.damageMax = 1f;
+        monster.attackSpeed = 1f;
+        monster.bossKit = kit;
+        // Кит ссылается на СВОЕГО ЖЕ монстра — так делаются симметричные связки.
+        kit.companions.Add(new BossCompanionSpawn { monster = monster, count = 1 });
+
+        var boss = CombatantFactory.CreateMonsterCombatant(monster, floorNumber: 1);
+        var companions = CombatantFactory.CreateBossCompanions(monster, 1, boss);
+
+        Assert.AreEqual(1, companions.Count, "самоссылающийся кит обязан дать РОВНО одного спутника, а не уйти в рекурсию");
+        Assert.IsTrue(boss.InBossGroup);
+        Assert.IsTrue(companions[0].InBossGroup);
+        Assert.AreEqual(30f, companions[0].PendingGroupDamageReductionPercent, 0.01f);
+        Assert.AreEqual(50f, boss.PendingSoloDamageBonusPercent, 0.01f);
+        Assert.AreEqual("Скорбь", boss.SoloTransitionName);
+    }
+
+    [Test]
+    public void CreateBossCompanions_KitWithoutCompanions_LeavesBossOutsideAnyGroup()
+    {
+        var kit = ScriptableObject.CreateInstance<BossKitData>();
+        kit.phases.Add(MakePhase("Фаза 1", 100f));
+
+        var monster = ScriptableObject.CreateInstance<MonsterData>();
+        monster.monsterName = "Одиночка";
+        monster.isBoss = true;
+        monster.hp = 100f;
+        monster.attackSpeed = 1f;
+        monster.bossKit = kit;
+
+        var boss = CombatantFactory.CreateMonsterCombatant(monster, floorNumber: 1);
+        var companions = CombatantFactory.CreateBossCompanions(monster, 1, boss);
+
+        Assert.IsEmpty(companions);
+        Assert.IsFalse(boss.InBossGroup, "обычный одиночный босс не должен попадать в групповые правила");
+    }
+
+    // ---- Якоря и неуязвимость (Свечник, 2026-09-11) ----
+
+    static CombatantRuntime MakeAnchor(string name, float hp) => new CombatantRuntime
+    {
+        DisplayName = name,
+        MaxHP = hp,
+        CurrentHP = hp,
+        InBossGroup = true,
+        IsBossAnchor = true
+        // Оружия намеренно нет: якорь — цель, а не атакующий.
+    };
+
+    static CombatantRuntime MakeAnchoredBoss(params BossAbilityConfig[] abilities) => new CombatantRuntime
+    {
+        DisplayName = "Тест-Свечник",
+        IsBoss = true,
+        MaxHP = 500f,
+        CurrentHP = 500f,
+        InBossGroup = true,
+        PendingInvulnerableWhileAnchorsAlive = true,
+        BossEncounter = new BossEncounterState(MakeKit(MakePhase("Фаза 1", 100f, abilities))),
+        Weapons = { new WeaponAttackState { DamageMin = 5f, DamageMax = 5f, AttackSpeed = 0.001f, DamageType = DamageType.Physical } }
+    };
+
+    [Test]
+    public void AnchoredBoss_IsInvulnerableWhileAnchorAlive_AndKillableAfterAllAnchorsDie()
+    {
+        var boss = MakeAnchoredBoss();
+        var candle = MakeAnchor("Свеча", 10f);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss, candle });
+
+        cm.Tick(0.016f);
+        Assert.IsTrue(boss.IsInvulnerable, "пока горит свеча, босс неуязвим");
+
+        float hpBefore = boss.CurrentHP;
+        DamageCalculator.ApplyDamage(boss, 250f, DamageType.Physical);
+        Assert.AreEqual(hpBefore, boss.CurrentHP, 0.01f, "урон по неуязвимому боссу обязан пропадать полностью");
+
+        candle.CurrentHP = 0f;
+        cm.Tick(0.016f);
+
+        Assert.IsFalse(boss.IsInvulnerable, "свеча потушена — открылось окно урона");
+        DamageCalculator.ApplyDamage(boss, 100f, DamageType.Physical);
+        Assert.Less(boss.CurrentHP, hpBefore, "в окне босс обязан получать урон");
+    }
+
+    [Test]
+    public void AnchoredBoss_InvulnerabilityDoesNotWearArmorOrShields()
+    {
+        var boss = MakeAnchoredBoss();
+        boss.PhysicalDefenseMax = 50f;
+        boss.PhysicalDefenseCurrent = 50f;
+        boss.ShieldPoolMax = 40f;
+        boss.ShieldPoolCurrent = 40f;
+        var candle = MakeAnchor("Свеча", 10f);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss, candle });
+        cm.Tick(0.016f);
+
+        DamageCalculator.ApplyDamage(boss, 500f, DamageType.Physical);
+
+        // Иначе игрок «продавливал» бы неуязвимость, снашивая броню сквозь неё, и окно урона
+        // переставало быть единственным способом навредить.
+        Assert.AreEqual(50f, boss.PhysicalDefenseCurrent, 0.01f, "броня не изнашивается сквозь неуязвимость");
+        Assert.AreEqual(40f, boss.ShieldPoolCurrent, 0.01f, "щит не тратится сквозь неуязвимость");
+    }
+
+    [Test]
+    public void ReviveAnchor_BringsBackOneDeadAnchorAtFullHp_AndRestoresInvulnerability()
+    {
+        var relight = new BossAbilityConfig
+        {
+            displayName = "Зажечь",
+            effectKind = BossAbilityEffectKind.ReviveAnchor,
+            triggerKind = BossAbilityTriggerKind.Periodic,
+            cooldownSeconds = 100f,
+            initialDelaySeconds = 0f,
+            telegraphSeconds = 0f
+        };
+        var boss = MakeAnchoredBoss(relight);
+        var candle = MakeAnchor("Свеча", 10f);
+        candle.CurrentHP = 0f;
+
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss, candle });
+
+        cm.Tick(0.016f);
+
+        Assert.AreEqual(10f, candle.CurrentHP, 0.01f, "свеча зажигается на полное HP");
+        Assert.IsTrue(candle.IsAlive);
+
+        cm.Tick(0.016f);
+        Assert.IsTrue(boss.IsInvulnerable, "зажжённая свеча снова закрывает босса");
+    }
+
+    [Test]
+    public void ReviveAnchor_WithNoDeadAnchors_DoesNothingAndDoesNotThrow()
+    {
+        var relight = new BossAbilityConfig
+        {
+            displayName = "Зажечь",
+            effectKind = BossAbilityEffectKind.ReviveAnchor,
+            triggerKind = BossAbilityTriggerKind.Periodic,
+            cooldownSeconds = 100f,
+            initialDelaySeconds = 0f,
+            telegraphSeconds = 0f
+        };
+        var boss = MakeAnchoredBoss(relight);
+        var candle = MakeAnchor("Свеча", 10f);
+        var cm = CreateCombatManager();
+        cm.StartCombat(MakePlayer(), new System.Collections.Generic.List<CombatantRuntime> { boss, candle });
+
+        Assert.DoesNotThrow(() => cm.Tick(0.016f));
+        Assert.AreEqual(10f, candle.CurrentHP, 0.01f);
+    }
+
+    [Test]
+    public void NonAttackingMonster_GetsNoWeaponAndNeverDamagesThePlayer()
+    {
+        var candleData = ScriptableObject.CreateInstance<MonsterData>();
+        candleData.monsterName = "Свеча";
+        candleData.hp = 10f;
+        candleData.damageMin = 99f;
+        candleData.damageMax = 99f;
+        candleData.attackSpeed = 10f;
+        candleData.doesNotAttack = true;
+
+        var candle = CombatantFactory.CreateMonsterCombatant(candleData, floorNumber: 1);
+        Assert.IsEmpty(candle.Weapons, "сущность с doesNotAttack не получает оружия вовсе");
+
+        var player = MakePlayer(hp: 100f);
+        var cm = CreateCombatManager();
+        cm.StartCombat(player, new System.Collections.Generic.List<CombatantRuntime> { candle });
+
+        for (int i = 0; i < 300; i++) cm.Tick(0.05f);
+
+        Assert.AreEqual(100f, player.CurrentHP, 0.01f,
+            "свеча не должна снять ни одного HP: каждый лишний атакующий — лишний бросок против уклонения Вайолет");
+    }
 }

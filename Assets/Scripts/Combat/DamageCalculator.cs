@@ -86,11 +86,25 @@ public static class DamageCalculator
     // дальше по цепочке, а не отрицательный урон).
     public static DamageResult ApplyDamage(CombatantRuntime target, float incomingDamage, DamageType damageType, float armorIgnorePercent = 0f)
     {
+        // Boss framework: неуязвимость (Свечник, пока горит хоть одна свеча) режет урон до нуля
+        // в самом начале цепочки — ни броня, ни щиты не изнашиваются, попадание просто ничего не даёт.
+        if (target.IsInvulnerable)
+        {
+            return new DamageResult { DamageToHP = 0f, WasBlocked = true };
+        }
+
         float resistancePercent = damageType == DamageType.Physical ? target.PhysicalResistancePercent : target.MagicalResistancePercent;
         float receivedMultiplier = 1f;
         var berserkerWeapon = target.FindCursedWeapon(CursedEffectId.BerserkerAxe);
         if (berserkerWeapon != null && CursedItemRules.IsCurseActive(target, CursedEffectId.BerserkerAxe))
             receivedMultiplier *= 1f + CursedItemRules.StackBonusPercent(berserkerWeapon.ItemRank, berserkerWeapon.CursedStacks) / 100f;
+        // Boss framework: «Связь» — пока жив союзник по группе, участник получает меньше урона.
+        // Кламп на 90%, чтобы кривой ассет не сделал связку неубиваемой.
+        if (target.BossGroupDamageReductionPercent > 0f)
+            receivedMultiplier *= 1f - Mathf.Clamp(target.BossGroupDamageReductionPercent, 0f, 90f) / 100f;
+
+        if (target.DamageTakenBonusPercent > 0f)
+            receivedMultiplier *= 1f + target.DamageTakenBonusPercent / 100f;
         float damageAfterResistance = incomingDamage * receivedMultiplier * (1f - Mathf.Clamp01(resistancePercent / 100f));
 
         // Boss framework (минимальный слайс) — shield pool (BossAbilityEffectKind.ShieldPool) поглощает

@@ -14,6 +14,13 @@ public class BossEncounterState
     readonly Dictionary<BossAbilityConfig, float> cooldownTimers = new Dictionary<BossAbilityConfig, float>();
     readonly HashSet<BossAbilityConfig> firedOnCombatStart = new HashSet<BossAbilityConfig>();
 
+    // Позиция в жёстком цикле способностей фазы (BossPhaseData.cycleAbilities). Для обычных фаз
+    // не используется вовсе.
+    int cycleIndex;
+
+    // Индекс шага цикла для UI: игрок должен видеть, где сейчас стрелка на циферблате.
+    public int CurrentCycleIndex => CurrentPhase.cycleAbilities ? cycleIndex : -1;
+
     BossAbilityConfig pendingAbility;
     float pendingRemainingSeconds;
     float pendingTotalSeconds;
@@ -54,6 +61,20 @@ public class BossEncounterState
         pendingAbility = null;
         pendingRemainingSeconds = 0f;
         pendingTotalSeconds = 0f;
+
+        cycleIndex = 0;
+
+        // Циклическая фаза: тикает ТОЛЬКО текущий шаг, поэтому заводим таймер одной первой
+        // способности. Остальные получат свой таймер в момент, когда цикл до них дойдёт.
+        if (CurrentPhase.cycleAbilities)
+        {
+            if (CurrentPhase.abilities.Count > 0)
+            {
+                cooldownTimers[CurrentPhase.abilities[0]] = CurrentPhase.abilities[0].initialDelaySeconds;
+            }
+
+            return;
+        }
 
         foreach (var ability in CurrentPhase.abilities)
         {
@@ -97,6 +118,27 @@ public class BossEncounterState
                 executedAbility = pendingAbility;
                 RestartCooldown(pendingAbility);
                 pendingAbility = null;
+            }
+
+            return;
+        }
+
+        // Циклическая фаза (Часовой Титан): рассматриваем ровно один шаг — тот, на котором стоит
+        // стрелка. Порядок детерминирован и одинаков каждый бой, в этом весь смысл такого босса.
+        if (CurrentPhase.cycleAbilities)
+        {
+            if (CurrentPhase.abilities.Count == 0)
+            {
+                return;
+            }
+
+            var step = CurrentPhase.abilities[cycleIndex];
+            float stepRemaining = cooldownTimers.TryGetValue(step, out float known) ? known : step.cooldownSeconds;
+            stepRemaining -= deltaTime;
+            cooldownTimers[step] = stepRemaining;
+            if (stepRemaining <= 0f)
+            {
+                BeginOrExecute(step, out executedAbility);
             }
 
             return;
@@ -146,6 +188,16 @@ public class BossEncounterState
 
     void RestartCooldown(BossAbilityConfig ability)
     {
+        // В циклической фазе кулдаун сработавшей способности — это пауза ПЕРЕД следующим шагом
+        // цикла, а не до её собственного повтора. Стрелка сдвигается здесь, то есть в момент
+        // фактического исполнения (после телеграфа), а не когда телеграф только начался.
+        if (CurrentPhase.cycleAbilities)
+        {
+            cycleIndex = (cycleIndex + 1) % CurrentPhase.abilities.Count;
+            cooldownTimers[CurrentPhase.abilities[cycleIndex]] = ability.cooldownSeconds;
+            return;
+        }
+
         if (ability.triggerKind == BossAbilityTriggerKind.Periodic)
         {
             cooldownTimers[ability] = ability.cooldownSeconds;

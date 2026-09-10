@@ -19,7 +19,20 @@ public enum BossAbilityEffectKind
     HeavyAttack,
     // Выдаёт/обновляет отдельный shield pool (CombatantRuntime.ShieldPoolCurrent/Max), поглощающий
     // входящий урон ДО HP, независимо от типа урона (см. DamageCalculator.ApplyDamage).
-    ShieldPool
+    ShieldPool,
+    // Блокирует активный навык игрока на disruptSeconds (см. CombatManager.DisruptPlayerActiveSkills):
+    // Cooldown-навыку добавляются секунды к кулдауну, Toggle гасится и сам возвращается после снятия.
+    // Единственная механика роспиcи боссов, целящаяся не в HP игрока, а в его единственный рычаг в
+    // автобое, поэтому длительность жёстко ограничена сверху — см. CombatManager.MaxBossSkillDisruptSeconds.
+    DisruptSkills,
+    // Временно повышает получаемый боссом урон (CombatantRuntime.DamageTakenBonusPercent) —
+    // «открытая грудь». Единственный способ выразить в автобое окно, в которое игроку выгодно
+    // нажать активный навык: окно даёт БОНУС К УРОНУ, а не требует защиты, поэтому им может
+    // воспользоваться и Дженифер, у которой навык атакующий (см. спеку, раздел 0.4, правило 6).
+    DamageTakenBuff,
+    // Воскрешает одного мёртвого спутника-якоря на полное HP (Свечник заново зажигает свечу).
+    // Если мёртвых якорей нет — способность просто ничего не делает и уходит на кулдаун.
+    ReviveAnchor
 }
 
 [System.Serializable]
@@ -51,6 +64,16 @@ public class BossAbilityConfig
     [Tooltip("ShieldPool: 0 = щит живёт, пока не поглотит весь урон (бессрочно); >0 = принудительно " +
         "спадает через N секунд, даже если не выбит уроном.")]
     public float shieldDurationSeconds = 0f;
+
+    [Tooltip("DisruptSkills: на сколько секунд блокируется активный навык игрока. Клампится сверху " +
+        "потолком CombatManager.MaxBossSkillDisruptSeconds — значение больше потолка не даёт эффекта.")]
+    public float disruptSeconds = 5f;
+
+    [Tooltip("DamageTakenBuff: на сколько процентов вырастает получаемый боссом урон (40 = +40%).")]
+    public float damageTakenBonusPercent = 0f;
+
+    [Tooltip("DamageTakenBuff: сколько секунд держится окно повышенного урона.")]
+    public float damageTakenBonusSeconds = 0f;
 }
 
 [System.Serializable]
@@ -78,6 +101,12 @@ public class BossPhaseData
         "SpriteFloorAnalyzer.cs, вручную не редактировать.")]
     public float floorPaddingFraction;
 
+    [Tooltip("Способности фазы идут ЖЁСТКИМ ЦИКЛОМ по порядку списка, а не каждая на своём "+
+        "независимом кулдауне. cooldownSeconds сработавшей способности = пауза ПЕРЕД следующей в "+
+        "цикле. triggerKind в такой фазе игнорируется. Нужно для боссов с выучиваемым паттерном "+
+        "(Часовой Титан).")]
+    public bool cycleAbilities;
+
     public List<BossAbilityConfig> abilities = new List<BossAbilityConfig>();
 }
 
@@ -86,9 +115,49 @@ public class BossPhaseData
 // спрайты уникального босса данными, без bespoke-кода на каждого нового босса. Монстр без bossKit
 // (isBoss=true, bossKit=null) продолжает работать через старую CombatManager.TickBossHeavyAttacks —
 // см. CombatantFactory.CreateMonsterCombatant.
+// Спутник босса: сущность, которая ставится на сцену ВМЕСТЕ с боссом при старте боя (не спавнится
+// по ходу — для этого нужен отдельный механизм). Победа = все враги мертвы, это уже так работает
+// в CombatManager.CheckCombatEnd.
+[System.Serializable]
+public class BossCompanionSpawn
+{
+    [Tooltip("Кого ставим рядом. Может ссылаться на того же монстра, что и сам босс — так делаются "+
+        "симметричные связки вроде Теней-Близнецов.")]
+    public MonsterData monster;
+
+    [Tooltip("Сколько копий поставить.")]
+    public int count = 1;
+
+    [Tooltip("Якорь: пока жив, главный босс группы неуязвим (Свечи Свечника). Требует "+
+        "bossInvulnerableWhileAnchorsAlive на ките.")]
+    public bool isAnchor;
+}
+
 [CreateAssetMenu(fileName = "NewBossKit", menuName = "DungeonGirls/Boss Kit")]
 public class BossKitData : ScriptableObject
 {
+    [Tooltip("Босс неуязвим, пока жив хотя бы один спутник-якорь. Весь бой сводится к выбору цели: "+
+        "урон в босса при живом якоре пропадает впустую, и единственный правильный ответ — "+
+        "переключиться кликом.")]
+    public bool bossInvulnerableWhileAnchorsAlive;
+
+    [Tooltip("Кто выходит на сцену вместе с боссом. Пусто = обычный бой один на один.")]
+    public List<BossCompanionSpawn> companions = new List<BossCompanionSpawn>();
+
+    [Tooltip("«Связь»: пока жив хотя бы один другой участник группы, каждый получает на столько "+
+        "процентов меньше входящего урона. Клампится сверху 90% в DamageCalculator.")]
+    public float groupDamageReductionPercent;
+
+    [Tooltip("«Скорбь»: когда участник остаётся последним живым в группе, он НАВСЕГДА получает "+
+        "этот бонус к урону.")]
+    public float soloDamageBonusPercent;
+
+    [Tooltip("«Скорбь»: и этот бонус к скорости атаки.")]
+    public float soloAttackSpeedBonusPercent;
+
+    [Tooltip("Текст баннера в момент разрыва связи. Пусто = «Связь разорвана».")]
+    public string soloTransitionName;
+
     [Tooltip("Минимум одна фаза. phases[0].hpThresholdPercent должен быть 100 (активна с начала боя).")]
     public List<BossPhaseData> phases = new List<BossPhaseData>();
 }

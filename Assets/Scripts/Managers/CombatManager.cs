@@ -97,6 +97,12 @@ public class CombatManager : MonoBehaviour
     // ровно этой длины. Дымовая граната Плута замаха не имеет и блокировки не даёт.
     public const float ThreeQuickStrikesRecoverySeconds = 11f / 12f;
 
+    // Правило честности роспиcи боссов (Docs/Design/2026-09-10-boss-concepts-roster.md, раздел 0.4):
+    // активный навык — единственный рычаг игрока в автобое, поэтому отнимать его дольше чем на 8с
+    // нельзя ни одному боссу. Потолок живёт в коде, а не в ассете, чтобы его нельзя было случайно
+    // превысить при авторинге контента.
+    public const float MaxBossSkillDisruptSeconds = 8f;
+
     public static float ResolveActiveSkillAttackLockSeconds(CharacterClass characterClass) => characterClass switch
     {
         CharacterClass.Rogue => 0f,
@@ -350,6 +356,13 @@ public class CombatManager : MonoBehaviour
         combatant.CombatRegenCooldownRemaining = 0f;
         combatant.IsBerserkActive = false;
         combatant.BerserkTickAccumulator = 0f;
+        combatant.DamageTakenBonusPercent = 0f;
+        combatant.DamageTakenBonusTimer = 0f;
+        combatant.BossGroupDamageReductionPercent = 0f;
+        combatant.BossSoloDamageBonusPercent = 0f;
+        combatant.BossSoloAttackSpeedBonusPercent = 0f;
+        combatant.BossSoloBonusApplied = false;
+        combatant.IsInvulnerable = false;
         combatant.CursedParanoiaStacks = 0;
         combatant.CursedRecklessStacks = 0;
         combatant.CursedRecklessDecayTimer = 0f;
@@ -423,6 +436,7 @@ public class CombatManager : MonoBehaviour
         TickMonsterPeriodicPassives(deltaTime); // "Тёмное исцеление" / "Двойной удар" (2.4)
         TickBossHeavyAttacks(deltaTime); // легаси-путь: боссы БЕЗ BossKitData (см. BossEncounter ниже)
         TickBossEncounters(deltaTime); // boss framework: боссы С BossKitData
+        TickBossGroups(); // boss framework: правила связки нескольких сущностей одного босс-боя
 
         CheckCombatEnd();
         if (!IsCombatActive)
@@ -518,6 +532,70 @@ public class CombatManager : MonoBehaviour
     // 2) иначе тикает BossEncounterState (кулдауны/ожидающий телеграф) и исполняет ровно одну готовую
     //    способность за кадр, тем же намеренно упрощённым паттерном, что и TickMonsterPeriodicPassives/
     //    TickBossHeavyAttacks выше.
+    // Boss framework (групповой босс-бой): пересчитывается КАЖДЫЙ тик, а не по событию смерти —
+    // участник может умереть от чего угодно (атака, кровотечение, яд, шипы), и единой точки
+    // «кто-то умер» в бою не существует. Метод дешёвый: два вложенных прохода по Enemies, которых
+    // в босс-бою единицы.
+    void TickBossGroups()
+    {
+        foreach (var enemy in Enemies)
+        {
+            if (!enemy.InBossGroup || !enemy.IsAlive)
+            {
+                continue;
+            }
+
+            bool allyAlive = false;
+            foreach (var other in Enemies)
+            {
+                if (other == enemy || !other.InBossGroup || !other.IsAlive) continue;
+                allyAlive = true;
+                break;
+            }
+
+            // Свечник: неуязвим, пока горит хоть одна свеча. Пересчитывается тут же, потому что
+            // это ровно то же наблюдение «кто из группы ещё жив».
+            if (enemy.PendingInvulnerableWhileAnchorsAlive)
+            {
+                bool anchorAlive = false;
+                foreach (var other in Enemies)
+                {
+                    if (other == enemy || !other.IsBossAnchor || !other.IsAlive) continue;
+                    anchorAlive = true;
+                    break;
+                }
+
+                enemy.IsInvulnerable = anchorAlive;
+            }
+
+            if (allyAlive)
+            {
+                enemy.BossGroupDamageReductionPercent = enemy.PendingGroupDamageReductionPercent;
+                continue;
+            }
+
+            // Связь разорвана: снижение урона спадает, и ровно один раз навсегда включается
+            // усиление выжившего. Это единственное место, где оно выдаётся.
+            enemy.BossGroupDamageReductionPercent = 0f;
+            if (enemy.BossSoloBonusApplied)
+            {
+                continue;
+            }
+
+            enemy.BossSoloBonusApplied = true;
+            enemy.BossSoloDamageBonusPercent = enemy.PendingSoloDamageBonusPercent;
+            enemy.BossSoloAttackSpeedBonusPercent = enemy.PendingSoloAttackSpeedBonusPercent;
+
+            if (enemy.BossSoloDamageBonusPercent > 0f || enemy.BossSoloAttackSpeedBonusPercent > 0f)
+            {
+                string banner = string.IsNullOrEmpty(enemy.SoloTransitionName) ? "Связь разорвана" : enemy.SoloTransitionName;
+                ActiveSkillActivated?.Invoke(enemy, banner);
+                Log($"[Boss] {enemy.DisplayName}: «{banner}» — урон +{enemy.BossSoloDamageBonusPercent:F0}%, " +
+                    $"скорость атаки +{enemy.BossSoloAttackSpeedBonusPercent:F0}%.");
+            }
+        }
+    }
+
     void TickBossEncounters(float deltaTime)
     {
         foreach (var enemy in Enemies)
@@ -583,6 +661,44 @@ public class CombatManager : MonoBehaviour
                 ActiveSkillActivated?.Invoke(boss, ability.displayName);
                 Log($"[Combat] {boss.DisplayName} активирует «{ability.displayName}»: щит {ability.shieldAmount:F0}.");
                 break;
+
+            case BossAbilityEffectKind.DisruptSkills:
+                float disruptSeconds = Mathf.Clamp(ability.disruptSeconds, 0f, MaxBossSkillDisruptSeconds);
+                // DisruptPlayerActiveSkills сам корректно обрабатывает пустой список слотов и
+                // разницу Cooldown/Toggle — здесь только клампим длительность и логируем.
+                DisruptPlayerActiveSkills(disruptSeconds);
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName} применяет «{ability.displayName}»: активный навык заблокирован на {disruptSeconds:F0} с.");
+                break;
+
+            case BossAbilityEffectKind.DamageTakenBuff:
+                boss.DamageTakenBonusPercent = Mathf.Max(0f, ability.damageTakenBonusPercent);
+                boss.DamageTakenBonusTimer = Mathf.Max(0f, ability.damageTakenBonusSeconds);
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName}: «{ability.displayName}» — получаемый урон +{boss.DamageTakenBonusPercent:F0}% на {boss.DamageTakenBonusTimer:F0} с.");
+                break;
+
+            case BossAbilityEffectKind.ReviveAnchor:
+                CombatantRuntime revived = null;
+                foreach (var candidate in Enemies)
+                {
+                    if (!candidate.IsBossAnchor || candidate.IsAlive) continue;
+                    revived = candidate;
+                    break;
+                }
+
+                if (revived == null)
+                {
+                    // Все якоря живы — зажигать нечего. Способность уходит на кулдаун вхолостую,
+                    // и это нормальный ход боя, а не ошибка данных.
+                    break;
+                }
+
+                revived.CurrentHP = revived.MaxHP;
+                ActiveSkillActivated?.Invoke(boss, ability.displayName);
+                Log($"[Combat] {boss.DisplayName} применяет «{ability.displayName}»: {revived.DisplayName} снова в строю.");
+                break;
+
         }
     }
 
@@ -621,6 +737,18 @@ public class CombatManager : MonoBehaviour
         // R05: восстановление после активного навыка истекает по боевому времени, а не по концу
         // UI-анимации — иначе бой без сцены (симуляция аттестации) блокировки вообще не видел.
         combatant.AttackLockRemaining = Mathf.Max(0f, combatant.AttackLockRemaining - deltaTime);
+
+        // Boss framework: окно повышенного получаемого урона истекает по боевому времени и
+        // ОБНУЛЯЕТ процент, а не только таймер — иначе просроченное окно продолжило бы работать.
+        if (combatant.DamageTakenBonusTimer > 0f)
+        {
+            combatant.DamageTakenBonusTimer -= deltaTime;
+            if (combatant.DamageTakenBonusTimer <= 0f)
+            {
+                combatant.DamageTakenBonusTimer = 0f;
+                combatant.DamageTakenBonusPercent = 0f;
+            }
+        }
         if (combatant.CursedRecklessStacks > 0)
         {
             combatant.CursedRecklessDecayTimer -= deltaTime;
@@ -883,6 +1011,10 @@ public class CombatManager : MonoBehaviour
         {
             damage *= 1f + attacker.ItemDamageBonusPercent / 100f;
         }
+
+        // Boss framework: «Скорбь» — постоянный бонус урона выжившему участнику связки.
+        if (attacker.BossSoloDamageBonusPercent > 0f)
+            damage *= 1f + attacker.BossSoloDamageBonusPercent / 100f;
 
         damage *= 1f + attacker.TotalDamageBonusPercent / 100f; // блюдо + бонус привала (Таверна ур.5)
         if (weapon.DamageType == DamageType.Physical)

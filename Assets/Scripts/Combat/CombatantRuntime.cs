@@ -113,6 +113,35 @@ public class CombatantRuntime
     // float.PositiveInfinity = щит живёт, пока не поглотит весь урон (нет принудительного таймера).
     public float ShieldPoolExpireTimer = float.PositiveInfinity;
 
+    // Boss framework (2026-09-10, BossAbilityEffectKind.DamageTakenBuff) — временное окно
+    // повышенного получаемого урона («открытая грудь» Часового Титана, «пошатнулся» Великана).
+    // 0 = окна нет, множитель урона не меняется вообще.
+    public float DamageTakenBonusPercent;
+    public float DamageTakenBonusTimer;
+
+    // Boss framework (2026-09-11, групповой босс-бой: Тени-Близнецы). Все участники одного
+    // босс-энкаунтера помечены InBossGroup — победа по-прежнему = все враги мертвы
+    // (CombatManager.CheckCombatEnd уже так работает), группа нужна только для двух правил:
+    // «пока жив союзник — меньше входящего урона» и «остался один — навсегда усилился».
+    public bool InBossGroup;
+    public float BossGroupDamageReductionPercent;
+    public float BossSoloDamageBonusPercent;
+    public float BossSoloAttackSpeedBonusPercent;
+    // Числа усиления одиночки берутся из кита и лежат тут же, чтобы CombatManager не искал кит
+    // заново в момент смерти союзника.
+    public float PendingGroupDamageReductionPercent;
+    public float PendingSoloDamageBonusPercent;
+    public float PendingSoloAttackSpeedBonusPercent;
+    public string SoloTransitionName;
+    public bool BossSoloBonusApplied;
+
+    // Boss framework (Свечник): якорь — сущность, которая сама по себе безобидна, но пока жива,
+    // делает главного босса группы неуязвимым. Это единственный способ выразить в автобое «не бей
+    // сюда»: игрок не может перестать атаковать, но может ПЕРЕКЛЮЧИТЬ ЦЕЛЬ.
+    public bool IsBossAnchor;
+    public bool PendingInvulnerableWhileAnchorsAlive;
+    public bool IsInvulnerable;
+
     // Уровни навыков из 3.9, известных этому участнику боя (0 = не известен).
     // На практике заполняются только у игрока через CombatantFactory.ApplyCharacterSkills.
     public int SkillFreezeLevel;
@@ -304,6 +333,9 @@ public class CombatantRuntime
         }
 
         multiplier *= Mathf.Max(0.01f, 1f - FreezeStacks * 0.05f);
+        // Boss framework: «Скорбь» — постоянное ускорение выжившего участника групповой связки.
+        if (BossSoloAttackSpeedBonusPercent > 0f)
+            multiplier *= 1f + BossSoloAttackSpeedBonusPercent / 100f;
         if (weapon.PrototypeEffect != WeaponPrototypeEffectId.LastArgumentConversion)
         {
             multiplier *= 1f + ItemAttackSpeedBonusPercent / 100f;

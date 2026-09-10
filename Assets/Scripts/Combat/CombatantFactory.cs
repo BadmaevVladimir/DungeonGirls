@@ -159,13 +159,18 @@ public static class CombatantFactory
             }
         }
 
-        runtime.Weapons.Add(new WeaponAttackState
+        // Сущность без оружия физически не может атаковать: TickCombatant перебирает Weapons и
+        // для пустого списка не делает ничего.
+        if (!monster.doesNotAttack)
         {
-            DamageMin = damageMin,
-            DamageMax = damageMax,
-            DamageType = monster.damageType,
-            AttackSpeed = monster.attackSpeed
-        });
+            runtime.Weapons.Add(new WeaponAttackState
+            {
+                DamageMin = damageMin,
+                DamageMax = damageMax,
+                DamageType = monster.damageType,
+                AttackSpeed = monster.attackSpeed
+            });
+        }
 
         // 2.4: пассивка монстра — некоторые пассивки требуют начального рантайм-состояния
         // (флэт-бонус уклонения "Порхание", стартовый кулдаун периодических пассивок).
@@ -204,6 +209,59 @@ public static class CombatantFactory
         }
 
         return runtime;
+    }
+
+    // Boss framework (групповой босс-бой, 2026-09-11): собирает спутников босса и помечает ВСЮ
+    // связку, включая самого босса, полями группы. Возвращает только спутников — босс уже создан
+    // вызывающей стороной и передан сюда, чтобы получить те же метки.
+    // Спутники намеренно НЕ рекурсивны: их собственные kit.companions игнорируются, иначе кит,
+    // ссылающийся сам на себя (симметричные Близнецы), уходил бы в бесконечный спавн.
+    public static List<CombatantRuntime> CreateBossCompanions(MonsterData bossData, int floorIndex,
+        CombatantRuntime bossRuntime)
+    {
+        var companions = new List<CombatantRuntime>();
+        var kit = bossData != null ? bossData.bossKit : null;
+        if (kit == null || kit.companions == null || kit.companions.Count == 0)
+        {
+            return companions;
+        }
+
+        foreach (var spawn in kit.companions)
+        {
+            if (spawn == null || spawn.monster == null) continue;
+            for (int i = 0; i < Mathf.Max(0, spawn.count); i++)
+            {
+                var companion = CreateMonsterCombatant(spawn.monster, floorIndex);
+                companion.IsBossAnchor = spawn.isAnchor;
+                companions.Add(companion);
+            }
+        }
+
+        if (companions.Count == 0)
+        {
+            return companions;
+        }
+
+        MarkGroupMember(bossRuntime, kit);
+        // Неуязвимость от якорей — свойство именно главного босса, а не всей группы: сами якоря
+        // обязаны оставаться убиваемыми, иначе бой не имеет решения.
+        bossRuntime.PendingInvulnerableWhileAnchorsAlive = kit.bossInvulnerableWhileAnchorsAlive;
+        foreach (var companion in companions)
+        {
+            MarkGroupMember(companion, kit);
+        }
+
+        return companions;
+    }
+
+    static void MarkGroupMember(CombatantRuntime runtime, BossKitData kit)
+    {
+        if (runtime == null) return;
+        runtime.InBossGroup = true;
+        runtime.PendingGroupDamageReductionPercent = kit.groupDamageReductionPercent;
+        runtime.PendingSoloDamageBonusPercent = kit.soloDamageBonusPercent;
+        runtime.PendingSoloAttackSpeedBonusPercent = kit.soloAttackSpeedBonusPercent;
+        runtime.SoloTransitionName = kit.soloTransitionName;
     }
 
     // 2.6: общая формула масштабирования по этажам — множитель за этаж накапливается степенью,

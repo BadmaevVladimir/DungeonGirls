@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37c73bb7b20f0774db1d325b77fd4879, type: 3}
+  m_Name: Monster_TwinShade
+  m_EditorClassIdentifier: Assembly-CSharp::MonsterData
+  monsterName: "\u0422\u0435\u043D\u044C-\u0431\u043B\u0438\u0437\u043D\u0435\u0446"
+  sprite: {fileID: 21300000, guid: b24aa82029e144f9bd06e7dbd125c2e5, type: 3}
+  isBoss: 1
+  hp: 80
+  damageMin: 8
+  damageMax: 11
+  damageType: 0
+  attackSpeed: 1.0
+  physicalDefense: 8
+  magicDefense: 0
+  universalShield: 0
+  frontlinePriority: 0
+  passiveSkill: {fileID: 0}
+  bossKit: {fileID: 11400000, guid: 661397f4dfee4c39bfe1863c65fe9036, type: 2}
+  gender: 1
+  minFloorTier: 3
