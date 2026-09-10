@@ -863,12 +863,11 @@ public partial class RunFlowController
         // кадр ЦЕЛИКОМ, поэтому видимый размер персонажа задаёт отношение рамки к холсту PNG, а не
         // сама рамка. Кадры Стража лежат на общем холсте 108x108 (см. BossAnimationCanvasTests),
         // 108 * 4.8 = 518 — при этом рост босса ~430px против 384px у игрока.
-        const float enemySpriteSize = 260f;
-        const float bossSpriteSize = 518f;
-
         foreach (var enemy in enemies)
         {
-            float spriteSize = enemy.BossEncounter != null ? bossSpriteSize : enemySpriteSize;
+            // Размер зависит от СОСТАВА сцены, а не только от самого участника: групповые
+            // боссы (Близнецы, Свечник) сломали прежнее допущение «бой с боссом всегда 1 на 1».
+            float spriteSize = BossStageLayout.SpriteSize(enemy, enemies);
 
             var wrapper = new VisualElement();
             wrapper.AddToClassList("enemy-stage-sprite-wrapper");
