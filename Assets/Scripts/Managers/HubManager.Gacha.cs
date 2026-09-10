@@ -54,6 +54,10 @@ public partial class HubManager
         AudioClip openClip = GachaOpenClipFor(jingleTier);
         TaggedAudio.Play(gachaOpenAudioSource, openClip, AudioCategory.SFX);
 
+        // W11: тот же джингл — тот же приём, что и у сундука в забеге (см.
+        // RunFlowController.Reward.ChestRevealFlow). Здесь заглушается тема деревни.
+        int musicOverride = MusicPlayer.Instance?.BeginOverride() ?? 0;
+
         void BuildSlot(int index, bool isWinning)
         {
             var slot = new VisualElement();
@@ -102,22 +106,33 @@ public partial class HubManager
             gachaReelStrip.Add(slot);
         }
 
-        yield return ChestRevealAnimator.PlayReel(gachaReelStrip, gachaReelViewport, BuildSlot, gachaSkipButton, winningIndex, JumpGachaAudioToEnding);
-        if (winningSlot != null) ChestRevealAnimator.SpawnBurst(winningSlot, gachaRevealContainer);
-
-        if (winningPortrait != null)
+        // try/finally: корутину обрывает и уход из хаба, и уничтожение объекта. Без него музыка
+        // деревни осталась бы заглушённой до конца сессии. Скип рулетки приходит сюда же —
+        // PlayReel просто завершается раньше, и finally отрабатывает так же.
+        try
         {
-            Color tint = Color.black;
-            bool revealComplete = false;
-            DG.Tweening.DOTween.To(() => tint, value =>
+            yield return ChestRevealAnimator.PlayReel(gachaReelStrip, gachaReelViewport, BuildSlot, gachaSkipButton, winningIndex, JumpGachaAudioToEnding);
+            if (winningSlot != null) ChestRevealAnimator.SpawnBurst(winningSlot, gachaRevealContainer);
+
+            if (winningPortrait != null)
             {
-                tint = value;
-                winningPortrait.style.unityBackgroundImageTintColor = value;
-            }, Color.white, 0.18f).OnComplete(() => revealComplete = true);
-            while (!revealComplete) yield return null;
+                Color tint = Color.black;
+                bool revealComplete = false;
+                DG.Tweening.DOTween.To(() => tint, value =>
+                {
+                    tint = value;
+                    winningPortrait.style.unityBackgroundImageTintColor = value;
+                }, Color.white, 0.18f).OnComplete(() => revealComplete = true);
+                while (!revealComplete) yield return null;
+            }
+
+            yield return new WaitForSeconds(0.3f);
+        }
+        finally
+        {
+            MusicPlayer.Instance?.EndOverride(musicOverride);
         }
 
-        yield return new WaitForSeconds(0.3f);
         gachaRevealContainer.style.display = DisplayStyle.None;
 
         // Первые встречи Вайолет и Саши запускаются сразу после первой копии, ещё до

@@ -81,12 +81,38 @@ public partial class RunFlowController
 
     void ResolveCombatContent(FloorMapNode node)
     {
-        int count = MonsterEncounterBudget.RollMonsterCount(characterManager.Level);
+        FloorDirectorPlan plan = floorDirectorSession.PendingPlan;
+        if (plan == null || plan.TargetFloorNumber != dungeonManager.CurrentFloorNumber) plan = null;
+        int monsterCount = MonsterEncounterBudget.RollMonsterCount(characterManager.Level);
+
+        string firstDiscouragedSignature = null;
+        for (int attempt = 0; attempt < FloorDirectorEncounterPolicy.MaxResolveAttempts; attempt++)
+        {
+            RollCombatContent(node, monsterCount);
+            bool discouraged = FloorDirectorEncounterPolicy.IsDiscouraged(plan, node.ResolvedMonsterIds);
+            if (!discouraged || attempt == FloorDirectorEncounterPolicy.MaxResolveAttempts - 1)
+            {
+                if (firstDiscouragedSignature != null)
+                {
+                    string result = FloorDirectorEncounterPolicy.BuildSignature(node.ResolvedMonsterIds);
+                    Debug.Log($"[FloorDirector][Variety] encounterReroll node={node.Id} " +
+                        $"avoided=\"{firstDiscouragedSignature}\" result=\"{result}\" attempts={attempt + 1} " +
+                        $"fallback={discouraged}");
+                }
+                return;
+            }
+            firstDiscouragedSignature ??= FloorDirectorEncounterPolicy.BuildSignature(node.ResolvedMonsterIds);
+        }
+    }
+
+    void RollCombatContent(FloorMapNode node, int monsterCount)
+    {
+        node.ResolvedMonsterIds.Clear();
         int remainingThreatBudget = MonsterEncounterBudget.GetThreatBudget(dungeonManager.CurrentFloorNumber);
         var eligible = regularMonsterPool.FindAll(monster => monster != null && monster.minFloorTier <= dungeonManager.CurrentFloorNumber);
         if (eligible.Count == 0) eligible = regularMonsterPool.FindAll(monster => monster != null);
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < monsterCount; i++)
         {
             var monster = MonsterEncounterBudget.RollAffordableMonster(eligible, remainingThreatBudget);
             if (monster == null) break;

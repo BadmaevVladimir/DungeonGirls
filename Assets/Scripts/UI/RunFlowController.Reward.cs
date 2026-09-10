@@ -207,6 +207,11 @@ public partial class RunFlowController
         AudioClip openClip = ChestOpenClipFor(reward.ItemRarity);
         TaggedAudio.Play(chestOpenAudioSource, openClip, AudioCategory.SFX);
 
+        // W11: джингл — один из трёх законных поводов заглушить музыку забега. Её таймлайн при
+        // этом продолжает идти, останавливать нечего: снятие override просто возвращает базовый
+        // слой туда, где он и так уже играет.
+        int musicOverride = MusicPlayer.Instance?.BeginOverride() ?? 0;
+
         void BuildSlot(int index, bool isWinning)
         {
             Sprite iconSprite = isWinning ? winningIcon : pool[Random.Range(0, pool.Count)].icon;
@@ -216,13 +221,23 @@ public partial class RunFlowController
             chestReelStrip.Add(icon);
         }
 
-        yield return ChestRevealAnimator.PlayReel(chestReelStrip, chestReelViewport, BuildSlot, chestSkipButton, winningIndex, JumpChestAudioToEnding);
+        // try/finally, а не снятие override следующей строкой: корутину обрывают и StopCoroutine
+        // при выходе из забега, и уничтожение объекта — без finally музыка осталась бы заглушённой
+        // до конца сессии. Скип рулетки сюда же и приходит: PlayReel просто завершается раньше.
+        try
+        {
+            yield return ChestRevealAnimator.PlayReel(chestReelStrip, chestReelViewport, BuildSlot, chestSkipButton, winningIndex, JumpChestAudioToEnding);
 
-        // Вспышка/burst на приземлении (финальный ревью, замена world-space ParticleSystem — см.
-        // SpawnChestBurst): UI Toolkit-нативные "искры" внутри chestRevealContainer.
-        ChestRevealAnimator.SpawnBurst(chestSpriteImage, chestRevealContainer);
+            // Вспышка/burst на приземлении (финальный ревью, замена world-space ParticleSystem — см.
+            // SpawnChestBurst): UI Toolkit-нативные "искры" внутри chestRevealContainer.
+            ChestRevealAnimator.SpawnBurst(chestSpriteImage, chestRevealContainer);
 
-        yield return new WaitForSeconds(0.3f); // короткая пауза на "приземление" перед итоговым текстом
+            yield return new WaitForSeconds(0.3f); // короткая пауза на "приземление" перед итоговым текстом
+        }
+        finally
+        {
+            MusicPlayer.Instance?.EndOverride(musicOverride);
+        }
 
         chestRevealContainer.style.display = DisplayStyle.None;
     }

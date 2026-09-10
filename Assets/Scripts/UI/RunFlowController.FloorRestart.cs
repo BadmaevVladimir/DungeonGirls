@@ -39,6 +39,7 @@ public partial class RunFlowController
     {
         floorRestartsRemaining--;
         RestoreFloorRestartSnapshot(snapshot);
+        BeginFloorDirectorObservation();
 
         ShowOnly(eventPopup);
         eventChoicesContainer.Clear();

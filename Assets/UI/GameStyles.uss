@@ -846,34 +846,37 @@ Button {
 }
 
 .item-compare-stat-label {
-    color: rgb(150, 150, 158);
-    font-size: 12px;
+    color: rgb(198, 198, 208);
+    font-size: 13px;
 }
 
 .item-compare-stat-value {
-    font-size: 12px;
+    font-size: 13px;
     -unity-font-style: bold;
 }
 
+/* Старое значение приглушено относительно нового, но остаётся читаемым: раньше и подпись, и
+   "было" красились в rgb(150,150,158) — на тёмной карточке это сливалось с фоном. */
 .item-compare-stat-value-old {
-    color: rgb(150, 150, 158);
+    color: rgb(176, 176, 186);
     -unity-font-style: normal;
 }
 
 .item-compare-stat-arrow {
-    color: rgb(150, 150, 158);
+    color: rgb(176, 176, 186);
+    font-size: 13px;
 }
 
 .item-compare-stat-up {
-    color: rgb(120, 200, 120);
+    color: rgb(126, 214, 126);
 }
 
 .item-compare-stat-down {
-    color: rgb(224, 110, 110);
+    color: rgb(236, 122, 122);
 }
 
 .item-compare-stat-neutral {
-    color: rgb(190, 190, 196);
+    color: rgb(214, 214, 222);
 }
 
 /* 7.2/8.2 [НОВОЕ]: презентация награды модальным окном поверх текущей сцены (обычно боя) —

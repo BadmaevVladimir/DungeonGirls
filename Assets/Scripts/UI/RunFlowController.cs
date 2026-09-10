@@ -312,6 +312,7 @@ public partial class RunFlowController : MonoBehaviour
     bool pendingSuccessfulEventOrTrapXp;
     RoomRewardGrant pendingRoomRewardGrant;
     System.Action lootSummaryConfirmHandler;
+    readonly FloorDirectorSession floorDirectorSession = new FloorDirectorSession();
 
     CharacterData selectedCharacter;
     VeteranCharacter selectedMentor;
@@ -605,6 +606,7 @@ public partial class RunFlowController : MonoBehaviour
         sashaBeerCellarTriggeredThisRun = false;
         huntQuestTriggeredThisRun = false;
         swordInStoneSucceededThisRun = false;
+        floorDirectorSession.BeginRun();
         dungeonManager.SetRunState(RunState.RunSetup);
         dungeonManager.GenerateDungeon();
         dungeonManager.SetRunState(RunState.InFloor);
@@ -615,9 +617,11 @@ public partial class RunFlowController : MonoBehaviour
         while (true)
         {
             floorManager.SetFloorState(FloorState.FloorStart);
-            floorManager.GenerateFloorMap(dungeonManager.CurrentFloorNumber);
+            floorManager.GenerateFloorMap(dungeonManager.CurrentFloorNumber,
+                directorPlan: floorDirectorSession.PendingPlan);
             characterManager.BeginFloor(); // 8.5: сброс счётчика пройденных комнат этого этажа
             ResolveGeneratedFloorMapContent();
+            BeginFloorDirectorObservation();
 
             // Храм ур.5 (D03a): состояние перед входом в первую комнату этажа. Без пятого уровня
             // возвращается null, и попытка этажа ровно одна — как было раньше.
@@ -651,6 +655,8 @@ public partial class RunFlowController : MonoBehaviour
                         break;
                     }
 
+                    floorDirectorSession.RecordVisitedRoom(currentNode.RoomType, currentNode.ContentKey);
+
                     // 8.5: комната засчитывается в награду за поражение только если персонаж её пережил.
                     characterManager.MarkRoomCleared();
 
@@ -660,6 +666,8 @@ public partial class RunFlowController : MonoBehaviour
 
                     if (isBossRoom)
                     {
+                        if (dungeonManager.CurrentFloorNumber < DungeonManager.TotalFloors)
+                            CompleteFloorDirectorObservation();
                         // После босса игрок получает ещё одну возможность потратить рацион перед
                         // следующим этажом. На 10-м этаже привал уже ничего не меняет, поэтому его
                         // не предлагаем после финального босса.

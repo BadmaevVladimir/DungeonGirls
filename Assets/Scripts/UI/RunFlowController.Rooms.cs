@@ -170,7 +170,24 @@ public partial class RunFlowController
 
     // ==================== Особая комната / квест (5.3-5.4) ====================
 
+    // W11: комната события — второй законный повод временно подменить музыку забега. Отдельный
+    // трек включается, только если он есть в Resources/Music (Event_<ключ> либо общий Event);
+    // иначе override просто заглушает основную тему на время события. В обоих случаях таймлайн
+    // темы забега продолжает идти, и по выходе она возвращается на базовом слое со своей позиции.
     IEnumerator EventRoomFlow(FloorMapNode roomNode)
+    {
+        int musicOverride = MusicPlayer.Instance?.BeginOverride(MusicRequest.Event(roomNode?.ContentKey)) ?? 0;
+        try
+        {
+            yield return EventRoomContentFlow(roomNode);
+        }
+        finally
+        {
+            MusicPlayer.Instance?.EndOverride(musicOverride);
+        }
+    }
+
+    IEnumerator EventRoomContentFlow(FloorMapNode roomNode)
     {
         if (string.Equals(roomNode.ContentKey, MushroomCaveContentKey, System.StringComparison.Ordinal))
         {

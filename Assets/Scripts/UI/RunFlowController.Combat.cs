@@ -17,6 +17,36 @@ public partial class RunFlowController
     // по коду, т.к. у CombatantRuntime нет отдельного characterId).
     bool HasAnimatedSprite => combatManager.Player != null && PlayableCharacterAnimations.Idle(combatManager.Player.DisplayName) != null;
 
+    // W11 / ГДД «Механика адаптивного боевого микса»: локальный датчик напряжённости текущего боя.
+    // Он ведёт только громкости слоёв и ничего не решает про урон, награды и генерацию.
+    readonly CombatMusicIntensity combatMusicIntensity = new CombatMusicIntensity();
+
+    // Сигнал обновляется несколько раз в секунду: покадровый пересчёт не нужен, а вызов на каждом
+    // кадре боя — лишняя работа в самом горячем цикле игры.
+    const float CombatMusicIntensityIntervalSeconds = 0.2f;
+    float combatMusicIntensityTimer;
+
+    void UpdateCombatMusicIntensity()
+    {
+        combatMusicIntensityTimer += Time.deltaTime;
+        if (combatMusicIntensityTimer < CombatMusicIntensityIntervalSeconds) return;
+
+        float elapsed = combatMusicIntensityTimer;
+        combatMusicIntensityTimer = 0f;
+
+        var player = combatManager.Player;
+        float hpFraction = player != null && player.MaxHP > 0f
+            ? Mathf.Clamp01(player.CurrentHP / player.MaxHP)
+            : 1f;
+
+        int aliveEnemies = 0;
+        for (int i = 0; i < combatManager.Enemies.Count; i++)
+            if (combatManager.Enemies[i].IsAlive) aliveEnemies++;
+
+        float target = combatMusicIntensity.Tick(elapsed, aliveEnemies, hpFraction);
+        MusicPlayer.Instance?.SetCombatIntensity(target);
+    }
+
     void StartPlayerIdleFlipbook()
     {
         if (!HasAnimatedSprite) return;
@@ -274,8 +304,13 @@ public partial class RunFlowController
             int monsterLevel = 1 + floorManager.RoomsCompletedOnFloor / 3;
             if (roomNode != null)
             {
+                bool suppressRandomModifiers = FloorDirectorEncounterPolicy.ShouldSuppressMonsterModifiers(roomNode, isBoss: false);
                 foreach (var data in GetResolvedMonsters(roomNode))
-                    enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber, monsterLevel));
+                    enemies.Add(CombatantFactory.CreateMonsterCombatant(data, dungeonManager.CurrentFloorNumber,
+                        monsterLevel, suppressRandomModifiers));
+                if (suppressRandomModifiers)
+                    Debug.Log($"[FloorDirector][Relief] node={roomNode.Id} monsterModifiers=suppressed " +
+                        $"enemyCount={enemies.Count}");
             }
             else
             {
@@ -376,8 +411,18 @@ public partial class RunFlowController
         combatManager.ActiveSkillActivated += OnActiveSkillActivated;
         combatManager.AttackPerformed += OnAttackPerformed;
         ShowOnly(combatPanel);
-        // W11: тема боя текущей героини (или тема босса, если она добавлена в Resources/Music).
-        MusicPlayer.Instance?.PlayCombat(characterManager.Character != null ? characterManager.Character.characterId : null, isBoss);
+        // W11: тема героини уже играет с начала забега — обычный бой её НЕ перезапускает, он
+        // только поднимает интенсивность и подмешивает слои. Бой босса — намеренная смена
+        // контекста, там тема действительно меняется (Combat_Boss*, если файл добавлен).
+        //
+        // Стартовую базу задаёт тип встречи. Когда режиссёр этажа научится помечать Испытания,
+        // он передаст сюда профиль встречи — но запускать и останавливать музыку он не будет.
+        combatMusicIntensity.Begin(CombatMusicIntensity.BaseForEncounter(isBoss, isChallenge: false));
+        combatMusicIntensityTimer = 0f;
+        MusicPlayer.Instance?.PlayCombat(
+            characterManager.Character != null ? characterManager.Character.characterId : null,
+            isBoss,
+            combatMusicIntensity.Target);
         combatManager.StartCombat(characterManager.Combatant, enemies);
         BuildEnemyStageEntries(enemies);
         StartPlayerIdleFlipbook();
@@ -409,10 +454,12 @@ public partial class RunFlowController
         {
             HandleSkillHotkeys();
             UpdateCombatUI();
+            UpdateCombatMusicIntensity();
             yield return null;
         }
 
         UpdateCombatUI();
+        floorDirectorSession.RecordCombat(combatManager.LastCombatTelemetry);
 
         // (доп.): CombatManager.CheckCombatEnd() тикает СРАЗУ ПОСЛЕ TryActivateUniqueActiveSkill,
         // в том же кадре — если скилл убивает последнего врага, IsCombatActive гаснет мгновенно,
@@ -426,9 +473,9 @@ public partial class RunFlowController
 
         UnsubscribeCombatEvents();
         StopPlayerFlipbook();
-        // W11: вне боя музыки в текущем объёме нет — гасим, а не оставляем боевую тему играть
-        // поверх карты и комнат.
-        MusicPlayer.Instance?.StopMusic();
+        // W11: музыка забега не прерывается между боями. Ни Stop, ни смены клипа, ни сброса
+        // позиции — интенсивность плавно уходит к нулю, и остаётся звучать базовый слой.
+        MusicPlayer.Instance?.ExitCombat();
 
         for (int i = 0; i < characterManager.Combatant.Weapons.Count && i < originalStats.Count; i++)
         {
@@ -1018,6 +1065,12 @@ public partial class RunFlowController
     // красная вспышка спрайта при получении урона и VFX "3 линии" для активного навыка Дженифер.
     void OnHitResolved(CombatantRuntime target, float damageToHP, bool isCrit, bool wasBlocked)
     {
+        // W11: обмен уроном в обе стороны повышает событийную плотность — до любых проверок на
+        // визуальную обвязку, иначе удары по врагу вне сцены не попадали бы в датчик.
+        var player = combatManager.Player;
+        if (player != null) combatMusicIntensity.ReportDamage(damageToHP, player.MaxHP);
+        if (isCrit) combatMusicIntensity.ReportSpike();
+
         var wrapper = FindStageWrapper(target);
         if (wrapper == null)
         {

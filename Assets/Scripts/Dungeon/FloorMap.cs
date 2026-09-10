@@ -29,6 +29,8 @@ public sealed class FloorMapNode
     public bool ContentResolved;
     public List<string> ResolvedMonsterIds = new List<string>();
     public List<FloorMerchantOfferState> ResolvedMerchantOffers = new List<FloorMerchantOfferState>();
+    public bool IsReliefRoute;
+    public bool SuppressMonsterModifiers;
     public bool Visited;
 }
 

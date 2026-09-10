@@ -117,4 +117,116 @@ public class MusicCatalogTests
         Assert.IsNotNull(clip,
             $"Трек {expected} не найден в Assets/Resources/{MusicCatalog.ResourceFolder}/ — бой этой героини останется без музыки.");
     }
+
+    // ==================== Слои (W11) ====================
+
+    [Test]
+    public void RunContext_ResolvesExactlyLikeOrdinaryCombat()
+    {
+        // Отсюда и берётся непрерывность: бой не меняет ключ контекста, значит не перезапускает трек.
+        CollectionAssert.AreEqual(
+            MusicCatalog.CandidateNames(MusicRequest.Combat("violet", isBoss: false)),
+            MusicCatalog.CandidateNames(MusicRequest.Run("violet")));
+    }
+
+    [Test]
+    public void SpecialRoomAndEvent_HaveTheirOwnNameChains()
+    {
+        CollectionAssert.AreEqual(new[] { "Room_temple", "Room" },
+            MusicCatalog.CandidateNames(MusicRequest.SpecialRoom("temple")));
+        CollectionAssert.AreEqual(new[] { "Event_mushroom_cave", "Event" },
+            MusicCatalog.CandidateNames(MusicRequest.Event("Mushroom_Cave")));
+        CollectionAssert.AreEqual(new[] { "Event" },
+            MusicCatalog.CandidateNames(MusicRequest.Event(null)));
+    }
+
+    [Test]
+    public void Resolve_PrefersTheFullLayerSetOverTheControlMix()
+    {
+        var present = new HashSet<string>
+        {
+            "Combat_jennifer",
+            "Combat_jennifer_harmony", "Combat_jennifer_drums", "Combat_jennifer_lead"
+        };
+        var set = MusicCatalog.Resolve(MusicRequest.Run("jennifer"), present.Contains);
+
+        Assert.AreEqual("Combat_jennifer", set.ContextKey);
+        Assert.IsTrue(set.IsLayered);
+        CollectionAssert.AreEqual(
+            new[] { "Combat_jennifer_harmony", "Combat_jennifer_drums", "Combat_jennifer_lead" }, set.Layers);
+        CollectionAssert.AreEqual(MusicLayerMix.LayerRoles, set.Roles);
+    }
+
+    // Два стема из трёх — это молча другая аранжировка, а не тихая версия темы.
+    [Test]
+    public void Resolve_RejectsAnIncompleteLayerSetAndPlaysTheControlMix()
+    {
+        var present = new HashSet<string>
+        {
+            "Combat_jennifer", "Combat_jennifer_harmony", "Combat_jennifer_drums"
+        };
+        var set = MusicCatalog.Resolve(MusicRequest.Run("jennifer"), present.Contains);
+
+        Assert.AreEqual("Combat_jennifer", set.ContextKey);
+        Assert.IsFalse(set.IsLayered);
+        CollectionAssert.AreEqual(new[] { "Combat_jennifer" }, set.Layers);
+        CollectionAssert.AreEqual(new[] { MusicLayerMix.FullMixLayer }, set.Roles);
+    }
+
+    [Test]
+    public void Resolve_KeepsTheSameContextKeyWhetherOrNotStemsExist()
+    {
+        var mixOnly = new HashSet<string> { "Combat_violet" };
+        var layered = new HashSet<string>
+        {
+            "Combat_violet", "Combat_violet_harmony", "Combat_violet_drums", "Combat_violet_lead"
+        };
+
+        // Появление стемов в Resources не должно читаться как смена контекста.
+        Assert.AreEqual(
+            MusicCatalog.Resolve(MusicRequest.Run("violet"), mixOnly.Contains).ContextKey,
+            MusicCatalog.Resolve(MusicRequest.Run("violet"), layered.Contains).ContextKey);
+    }
+
+    [Test]
+    public void Resolve_WithoutAnyFile_IsSilenceRatherThanAnError()
+    {
+        var set = MusicCatalog.Resolve(MusicRequest.Run("jennifer"), _ => false);
+        Assert.IsTrue(set.IsSilent);
+        Assert.IsNull(set.ContextKey);
+    }
+
+    // ==================== Кривые слоёв ====================
+
+    [Test]
+    public void BaseLayer_IsAudibleAtEveryIntensity()
+    {
+        for (float intensity = 0f; intensity <= 1f; intensity += 0.1f)
+            Assert.AreEqual(1f, MusicLayerMix.GainFor(MusicLayerMix.BaseLayer, intensity), 1e-4f);
+    }
+
+    [Test]
+    public void FullMixFallback_IgnoresIntensityToo()
+    {
+        Assert.AreEqual(1f, MusicLayerMix.GainFor(MusicLayerMix.FullMixLayer, 0f), 1e-4f);
+        Assert.AreEqual(1f, MusicLayerMix.GainFor(MusicLayerMix.FullMixLayer, 1f), 1e-4f);
+    }
+
+    [Test]
+    public void DrumsAndLead_AreSilentAtZeroAndFullAtOne()
+    {
+        Assert.AreEqual(0f, MusicLayerMix.GainFor(MusicLayerMix.Drums, 0f), 1e-4f);
+        Assert.AreEqual(0f, MusicLayerMix.GainFor(MusicLayerMix.Lead, 0f), 1e-4f);
+        Assert.AreEqual(1f, MusicLayerMix.GainFor(MusicLayerMix.Drums, 1f), 1e-4f);
+        Assert.AreEqual(1f, MusicLayerMix.GainFor(MusicLayerMix.Lead, 1f), 1e-4f);
+    }
+
+    [Test]
+    public void Drums_EnterBeforeLead()
+    {
+        Assert.Less(MusicLayerMix.DrumsFadeIn, MusicLayerMix.LeadFadeIn);
+        float middle = 0.5f * (MusicLayerMix.DrumsFull + MusicLayerMix.LeadFadeIn);
+        Assert.Greater(MusicLayerMix.GainFor(MusicLayerMix.Drums, middle), 0f);
+        Assert.AreEqual(0f, MusicLayerMix.GainFor(MusicLayerMix.Lead, middle), 1e-4f);
+    }
 }

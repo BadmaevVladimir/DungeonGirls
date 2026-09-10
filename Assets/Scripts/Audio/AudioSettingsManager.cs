@@ -78,6 +78,15 @@ public class AudioSettingsManager : MonoBehaviour
     public static float GetCategoryVolume(AudioCategory category) =>
         PlayerPrefs.GetFloat(CategoryVolumeKeyPrefix + category, DefaultCategoryVolume);
 
+    // W11: категорийная громкость применяется к УЖЕ ИГРАЮЩЕЙ музыке, а не при следующем запуске
+    // трека — иначе слайдер не давал бы обратной связи, пока идёт бой. Перезапуска нет: меняется
+    // только множитель, позиция и клипы слоёв не трогаются (см. MusicMixer.SetCategoryVolume).
+    public static void SetCategoryVolume(AudioCategory category, float volume)
+    {
+        PlayerPrefs.SetFloat(CategoryVolumeKeyPrefix + category, Mathf.Clamp01(volume));
+        if (category == AudioCategory.Music) MusicPlayer.Instance?.RefreshVolume();
+    }
+
     void OnMasterVolumeChanged(ChangeEvent<float> evt)
     {
         SetMasterVolume(evt.newValue);
