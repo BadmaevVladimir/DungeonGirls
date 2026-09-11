@@ -29,7 +29,7 @@ MonoBehaviour:
     enterAttackSpeedMultiplier: 1
     abilities:
     - displayName: "\u0420\u0436\u0430\u0432\u0447\u0438\u043D\u0430"
-      effectKind: 11
+      effectKind: 10
       triggerKind: 1
       cooldownSeconds: 10
       initialDelaySeconds: 4
@@ -98,7 +98,7 @@ MonoBehaviour:
     enterAttackSpeedMultiplier: 1
     abilities:
     - displayName: "\u0420\u0436\u0430\u0432\u0447\u0438\u043D\u0430"
-      effectKind: 11
+      effectKind: 10
       triggerKind: 1
       cooldownSeconds: 8
       initialDelaySeconds: 3

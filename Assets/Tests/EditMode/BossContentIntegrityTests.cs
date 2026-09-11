@@ -420,4 +420,76 @@ public class BossContentIntegrityTests
             }
         }
     }
+
+    // Настроенное поле способности читает ровно один effectKind. Если поле заполнено, а effectKind
+    // указывает на другой эффект — способность молча не делает НИЧЕГО: switch уходит в чужую ветку,
+    // а та своих полей не находит. Так в роспиcи жили 25 мёртвых способностей у семи боссов
+    // (лечение Инквизитора и Матери Спор не резалось, кровотечение Мясника не вешалось, броня
+    // Кузнецом не ломалась, щит Ростовщика не регенерировал, Левиафан не погружался). Ошибка не
+    // видна ни в редакторе, ни в бою — только по тому, что «ничего не происходит».
+    [Test]
+    public void EveryConfiguredField_MatchesTheAbilityEffectKind()
+    {
+        foreach (var kit in LoadAllKits())
+        {
+            for (int p = 0; p < kit.phases.Count; p++)
+            {
+                foreach (var a in kit.phases[p].abilities)
+                {
+                    string where = $"{kit.name}, фаза {p}, «{a.displayName}» (effectKind {a.effectKind})";
+                    // disruptSeconds — единственное поле-признак с НЕнулевым инициализатором (5f),
+                    // поэтому «настроено» для него значит «и не 0, и не 5»: ноль пишут новые киты,
+                    // где ключ выставлен явно, а пятёрку получают старые, где ключа в YAML нет
+                    // вовсе (BossKit_Warden). Ни то, ни другое не является осознанной настройкой.
+                    Check(a.disruptSeconds != 0f && a.disruptSeconds != 5f, a, where,
+                        "disruptSeconds", BossAbilityEffectKind.DisruptSkills);
+                    Check(a.damageTakenBonusPercent != 0f, a, where, "damageTakenBonusPercent", BossAbilityEffectKind.DamageTakenBuff);
+                    Check(a.freezeStacks != 0, a, where, "freezeStacks", BossAbilityEffectKind.ApplyFreeze);
+                    Check(a.attackSpeedMultiplier != 1f, a, where, "attackSpeedMultiplier", BossAbilityEffectKind.AttackSpeedDebuff);
+                    Check(a.selfDamagePercentOfMaxHp != 0f, a, where, "selfDamagePercentOfMaxHp", BossAbilityEffectKind.SelfDamage);
+                    Check(a.healCutPercent != 0f, a, where, "healCutPercent", BossAbilityEffectKind.HealCut);
+                    Check(a.armorDebuffPercent != 0f, a, where, "armorDebuffPercent", BossAbilityEffectKind.StatDebuff);
+                    Check(a.roomTickPercentOfMaxHp != 0f, a, where, "roomTickPercentOfMaxHp", BossAbilityEffectKind.RoomTick);
+                    Check(a.enrageDamagePercentPerTrigger != 0f, a, where, "enrageDamagePercentPerTrigger", BossAbilityEffectKind.Enrage);
+                    Check(a.selfInvulnerableSeconds != 0f, a, where, "selfInvulnerableSeconds", BossAbilityEffectKind.SelfInvulnerable);
+                    Check(a.shieldRegenPercentPerSecond != 0f, a, where, "shieldRegenPercentPerSecond", BossAbilityEffectKind.ShieldRegen);
+                    Check(a.spawnMonster != null, a, where, "spawnMonster", BossAbilityEffectKind.SpawnMinions);
+                    Check(a.healPercentOfMaxHp != 0f, a, where, "healPercentOfMaxHp", BossAbilityEffectKind.ConsumeMinion);
+                }
+            }
+        }
+    }
+
+    static void Check(bool configured, BossAbilityConfig a, string where, string field,
+        params BossAbilityEffectKind[] readers)
+    {
+        if (!configured) return;
+        foreach (var r in readers)
+        {
+            if (a.effectKind == r) return;
+        }
+
+        Assert.Fail($"{where}: поле {field} заполнено, но его читает только " +
+            $"{string.Join("/", readers)} — способность не сделает ничего.");
+    }
+
+    // Ни один effectKind не должен выходить за пределы enum: значение вне диапазона просто не
+    // попадает ни в один case закрытого switch, и способность тоже становится мёртвой.
+    [Test]
+    public void NoAbility_UsesAnEffectKindOutsideTheEnum()
+    {
+        var known = System.Enum.GetValues(typeof(BossAbilityEffectKind));
+        foreach (var kit in LoadAllKits())
+        {
+            for (int p = 0; p < kit.phases.Count; p++)
+            {
+                foreach (var a in kit.phases[p].abilities)
+                {
+                    Assert.IsTrue(System.Enum.IsDefined(typeof(BossAbilityEffectKind), a.effectKind),
+                        $"{kit.name}, фаза {p}, «{a.displayName}»: effectKind {(int)a.effectKind} вне enum " +
+                        $"(в нём {known.Length} значений).");
+                }
+            }
+        }
+    }
 }

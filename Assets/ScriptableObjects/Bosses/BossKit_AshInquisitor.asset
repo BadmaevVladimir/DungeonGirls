@@ -29,7 +29,7 @@ MonoBehaviour:
     enterAttackSpeedMultiplier: 1
     abilities:
     - displayName: "\u041F\u0440\u0438\u0433\u043E\u0432\u043E\u0440"
-      effectKind: 8
+      effectKind: 9
       triggerKind: 0
       cooldownSeconds: 0
       initialDelaySeconds: 0
@@ -53,7 +53,7 @@ MonoBehaviour:
       executeBelowHpPercent: 0
       executeMaxDamageMultiplier: 0
     - displayName: "\u041A\u043B\u0435\u0439\u043C\u043E"
-      effectKind: 7
+      effectKind: 8
       triggerKind: 1
       cooldownSeconds: 10
       initialDelaySeconds: 4
@@ -110,7 +110,7 @@ MonoBehaviour:
     enterAttackSpeedMultiplier: 1
     abilities:
     - displayName: "\u041F\u0440\u0438\u0433\u043E\u0432\u043E\u0440"
-      effectKind: 8
+      effectKind: 9
       triggerKind: 0
       cooldownSeconds: 0
       initialDelaySeconds: 0
@@ -134,7 +134,7 @@ MonoBehaviour:
       executeBelowHpPercent: 0
       executeMaxDamageMultiplier: 0
     - displayName: "\u041A\u043B\u0435\u0439\u043C\u043E"
-      effectKind: 7
+      effectKind: 8
       triggerKind: 1
       cooldownSeconds: 8
       initialDelaySeconds: 3

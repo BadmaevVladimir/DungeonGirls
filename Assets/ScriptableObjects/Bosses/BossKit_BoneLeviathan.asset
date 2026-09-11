@@ -29,7 +29,7 @@ MonoBehaviour:
     enterAttackSpeedMultiplier: 1
     abilities:
     - displayName: "\u041E\u0441\u044B\u043F\u044C"
-      effectKind: 12
+      effectKind: 11
       triggerKind: 1
       cooldownSeconds: 3
       initialDelaySeconds: 3
@@ -89,7 +89,7 @@ MonoBehaviour:
       enrageDamagePercentPerTrigger: 0
       selfInvulnerableSeconds: 0
     - displayName: "\u041F\u043E\u0433\u0440\u0443\u0436\u0435\u043D\u0438\u0435"
-      effectKind: 14
+      effectKind: 13
       triggerKind: 1
       cooldownSeconds: 20
       initialDelaySeconds: 11
@@ -119,7 +119,7 @@ MonoBehaviour:
       enrageDamagePercentPerTrigger: 0
       selfInvulnerableSeconds: 3
     - displayName: "\u042F\u0440\u043E\u0441\u0442\u044C \u0433\u043B\u0443\u0431\u0438\u043D"
-      effectKind: 13
+      effectKind: 12
       triggerKind: 1
       cooldownSeconds: 25
       initialDelaySeconds: 25
@@ -158,7 +158,7 @@ MonoBehaviour:
     enterAttackSpeedMultiplier: 1
     abilities:
     - displayName: "\u041E\u0441\u044B\u043F\u044C"
-      effectKind: 12
+      effectKind: 11
       triggerKind: 1
       cooldownSeconds: 2
       initialDelaySeconds: 2
@@ -218,7 +218,7 @@ MonoBehaviour:
       enrageDamagePercentPerTrigger: 0
       selfInvulnerableSeconds: 0
     - displayName: "\u042F\u0440\u043E\u0441\u0442\u044C \u0433\u043B\u0443\u0431\u0438\u043D"
-      effectKind: 13
+      effectKind: 12
       triggerKind: 1
       cooldownSeconds: 20
       initialDelaySeconds: 15

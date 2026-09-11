@@ -271,4 +271,30 @@ public class BossMinionSpawnTests
         Assert.AreEqual(0f, boss.BossSoloDamageBonusPercent, 0.01f,
             "усиление одиночки не может сработать раньше, чем у группы вообще был союзник");
     }
+
+    [Test]
+    public void KitWithGroupRulesButNoCompanions_StillMarksTheBoss_SoCocoonCanEverEngage()
+    {
+        // Ловушка, найденная при сборке кита Паучихи: правила группы раздавались только вместе со
+        // спутниками, а у неё их на старте нет вовсе — союзники приходят спавном. Без метки
+        // «Кокон» не включился бы ни разу за бой.
+        var kit = MakeKit(MakePhase("Фаза 1", 100f));
+        kit.groupDamageReductionPercent = 25f;
+
+        var data = ScriptableObject.CreateInstance<MonsterData>();
+        data.monsterName = "Паучиха";
+        data.isBoss = true;
+        data.hp = 100f;
+        data.damageMin = 1f;
+        data.damageMax = 1f;
+        data.attackSpeed = 1f;
+        data.bossKit = kit;
+
+        var boss = CombatantFactory.CreateMonsterCombatant(data, 1);
+        var companions = CombatantFactory.CreateBossCompanions(data, 1, boss);
+
+        Assert.AreEqual(0, companions.Count);
+        Assert.IsTrue(boss.InBossGroup, "без метки группы «Кокон» не включится никогда");
+        Assert.AreEqual(25f, boss.PendingGroupDamageReductionPercent, 0.01f);
+    }
 }

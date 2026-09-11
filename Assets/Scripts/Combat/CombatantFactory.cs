@@ -230,8 +230,22 @@ public static class CombatantFactory
     {
         var companions = new List<CombatantRuntime>();
         var kit = bossData != null ? bossData.bossKit : null;
-        if (kit == null || kit.companions == null || kit.companions.Count == 0)
+        if (kit == null)
         {
+            return companions;
+        }
+
+        bool hasCompanions = kit.companions != null && kit.companions.Count > 0;
+        if (!hasCompanions)
+        {
+            // План 8: у босса, чья группа наполняется СПАВНОМ (Паучиха), спутников на старте нет
+            // вовсе — но правила группы ему нужны, иначе «Кокон» не включится никогда. Раньше
+            // метод выходил здесь, и правила доставались только тем, у кого есть companions.
+            if (kit.groupDamageReductionPercent > 0f)
+            {
+                MarkGroupMember(bossRuntime, kit);
+            }
+
             return companions;
         }
 

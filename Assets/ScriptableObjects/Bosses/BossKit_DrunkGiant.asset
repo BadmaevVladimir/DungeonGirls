@@ -46,7 +46,7 @@ MonoBehaviour:
       selfDamagePercentOfMaxHp: 0
       damagePercentOfTargetMaxHp: 35
     - displayName: "\u041F\u043E\u0448\u0430\u0442\u043D\u0443\u043B\u0441\u044F"
-      effectKind: 6
+      effectKind: 7
       triggerKind: 1
       cooldownSeconds: 11
       initialDelaySeconds: 7
@@ -78,7 +78,7 @@ MonoBehaviour:
       debuffSeconds: 0
       selfDamagePercentOfMaxHp: 0
     - displayName: "\u041E\u0442\u0440\u044B\u0436\u043A\u0430"
-      effectKind: 5
+      effectKind: 6
       triggerKind: 1
       cooldownSeconds: 13
       initialDelaySeconds: 9
@@ -120,7 +120,7 @@ MonoBehaviour:
       selfDamagePercentOfMaxHp: 0
       damagePercentOfTargetMaxHp: 35
     - displayName: "\u041E\u0442\u0440\u044B\u0436\u043A\u0430"
-      effectKind: 5
+      effectKind: 6
       triggerKind: 1
       cooldownSeconds: 10
       initialDelaySeconds: 5

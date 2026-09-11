@@ -29,7 +29,7 @@ MonoBehaviour:
     enterAttackSpeedMultiplier: 1
     abilities:
     - displayName: "\u041C\u043E\u043D\u0435\u0442\u043D\u044B\u0439 \u043F\u0430\u043D\u0446\u0438\u0440\u044C"
-      effectKind: 15
+      effectKind: 14
       triggerKind: 0
       cooldownSeconds: 999
       initialDelaySeconds: 0

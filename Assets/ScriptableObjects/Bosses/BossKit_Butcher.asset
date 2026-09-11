@@ -53,7 +53,7 @@ MonoBehaviour:
       executeBelowHpPercent: 40
       executeMaxDamageMultiplier: 2.5
     - displayName: "\u0420\u0430\u0437\u0434\u0435\u043B\u043A\u0430"
-      effectKind: 7
+      effectKind: 8
       triggerKind: 1
       cooldownSeconds: 7
       initialDelaySeconds: 3
@@ -86,7 +86,7 @@ MonoBehaviour:
     enterAttackSpeedMultiplier: 1.4
     abilities:
     - displayName: "\u0420\u0430\u0437\u0434\u0435\u043B\u043A\u0430"
-      effectKind: 7
+      effectKind: 8
       triggerKind: 1
       cooldownSeconds: 5
       initialDelaySeconds: 2
