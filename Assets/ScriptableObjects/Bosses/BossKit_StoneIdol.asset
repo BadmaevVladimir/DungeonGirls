@@ -46,7 +46,7 @@ MonoBehaviour:
       selfDamagePercentOfMaxHp: 0
   - phaseName: "\u0422\u0440\u0435\u0441\u043D\u0443\u0432\u0448\u0438\u0439 \u0418\u0434\u043E\u043B"
     hpThresholdPercent: 45
-    phaseSprite: {fileID: 21300000, guid: 7840423c85c04586a0a8d3e1b4f1eb38, type: 3}
+    phaseSprite: {fileID: 21300000, guid: e1494134085e4164ac06206731761773, type: 3}
     animationFolderKey:
     floorPaddingFraction: 0
     cycleAbilities: 0

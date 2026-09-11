@@ -70,7 +70,7 @@ MonoBehaviour:
       damageTakenBonusSeconds: 0
   - phaseName: "\u0421\u043E\u0440\u0432\u0430\u043D\u043D\u044B\u0439 \u0437\u0430\u0432\u043E\u0434"
     hpThresholdPercent: 40
-    phaseSprite: {fileID: 21300000, guid: 6560ec6c06bb465f8231aabf4b0b4bc0, type: 3}
+    phaseSprite: {fileID: 21300000, guid: 35d44912ed884b3f8883ff706f808a0f, type: 3}
     animationFolderKey:
     floorPaddingFraction: 0
     cycleAbilities: 1

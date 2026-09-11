@@ -41,7 +41,7 @@ MonoBehaviour:
       disruptSeconds: 0
   - phaseName: "\u0421\u0442\u0430\u0440\u0448\u0438\u0439 \u043D\u0430\u0434\u0437\u0438\u0440\u0430\u0442\u0435\u043B\u044C"
     hpThresholdPercent: 45
-    phaseSprite: {fileID: 21300000, guid: 8aa39e55059245d9aa78cb399a398cbf, type: 3}
+    phaseSprite: {fileID: 21300000, guid: 2c423821b2f346edb361e30dc73b601b, type: 3}
     animationFolderKey:
     floorPaddingFraction: 0
     abilities:
