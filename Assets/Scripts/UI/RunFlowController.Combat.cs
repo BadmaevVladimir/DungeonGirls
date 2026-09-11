@@ -75,8 +75,8 @@ public partial class RunFlowController
         if (playerFlipbookCoroutine != null) StopCoroutine(playerFlipbookCoroutine);
         playerFlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(playerStageSprite, frames, fps, loop: false, onComplete: () =>
         {
-            StartPlayerIdleFlipbook();
             onComplete?.Invoke();
+            StartPlayerIdleFlipbook();
         }));
     }
 
@@ -177,6 +177,11 @@ public partial class RunFlowController
             OnEnemyAttackPerformed(attacker);
             return;
         }
+
+        // Combat recovery uses deltaTime; a flipbook's WaitForSeconds rounds every frame
+        // up to a rendered frame. A regular attack can therefore arrive before the skill's
+        // visual completion. Never cancel its callback (the reward flow waits for it).
+        if (playerSkillAnimationPlaying) return;
 
         var attackFrames = PlayableCharacterAnimations.Attack(attacker.DisplayName);
         if (attackFrames == null || attackFrames.Length == 0) return;
@@ -478,10 +483,17 @@ public partial class RunFlowController
         // и без этого ожидания StopPlayerFlipbook() ниже оборвал бы анимацию скилла на середине
         // (см. обсуждение с пользователем: "скил проскакивает до анимации... когда убивает противника").
         // Бой уже логически закончен — просто даём доиграть визуал, прежде чем чистить состояние.
-        while (playerSkillAnimationPlaying)
+        float skillVisualWait = 0f;
+        while (playerSkillAnimationPlaying && skillVisualWait < 2f)
         {
+            skillVisualWait += Time.deltaTime;
             yield return null;
         }
+
+        // A cancelled/missing visual must never hold a completed combat indefinitely.
+        // Scaled time deliberately keeps this timeout paused with the game.
+        if (playerSkillAnimationPlaying)
+            Debug.LogWarning("[Combat] Skill animation did not finish; continuing to rewards.");
 
         UnsubscribeCombatEvents();
         StopPlayerFlipbook();
@@ -533,6 +545,15 @@ public partial class RunFlowController
             runLogLines.RemoveAt(0);
         }
 
+        runLogDirty = true;
+    }
+
+    bool runLogDirty;
+
+    void LateUpdate()
+    {
+        if (!runLogDirty || runLogText == null || runLogScroll == null) return;
+        runLogDirty = false;
         RefreshRunLog();
     }
 
@@ -1068,12 +1089,21 @@ public partial class RunFlowController
     void PopulateStatusContainer(VisualElement container, CombatantRuntime combatant, bool hideStealth = false)
     {
         if (container == null) return;
-        container.Clear();
-
         var effects = CombatantStatusEffects.GetActiveEffects(combatant);
+        int index = 0;
         foreach (var effect in effects)
         {
             if (hideStealth && effect.label == "Скрытность") continue;
+
+            // Keep unchanged badges (and their tooltip callbacks) instead of allocating
+            // and removing the whole UI subtree every rendered frame.
+            if (index < container.childCount && container[index] is Label existing &&
+                existing.text == effect.label &&
+                existing.ClassListContains("combat-status-buff") == effect.isBuff)
+            {
+                index++;
+                continue;
+            }
 
             var badge = new Label(effect.label);
             badge.AddToClassList("combat-status-badge");
@@ -1081,8 +1111,11 @@ public partial class RunFlowController
             // Бейджи — самая непонятная часть боя: игрок видит «Заморозка ×7» или «Барьер 40/40»
             // и нигде не может узнать, что это значит.
             tutorialManager?.BindTransientTooltip(badge, effect.label, TutorialContent.StatusTooltip(effect.label));
-            container.Add(badge);
+            if (index < container.childCount) container.RemoveAt(index);
+            container.Insert(index++, badge);
         }
+
+        while (container.childCount > index) container.RemoveAt(container.childCount - 1);
 
         container.EnableInClassList("hidden", container.childCount == 0);
     }

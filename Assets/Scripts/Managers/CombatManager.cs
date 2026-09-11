@@ -6,6 +6,8 @@ public class CombatManager : MonoBehaviour
 {
     ICombatRandom combatRandom = new UnityCombatRandom();
     bool suppressCombatLogs;
+    [SerializeField, Tooltip("Mirror the in-game combat journal to the Unity Console. Enable only when debugging combat.")]
+    bool logCombatToConsole;
 
     public CombatantRuntime Player { get; private set; }
     public List<CombatantRuntime> Enemies { get; private set; } = new List<CombatantRuntime>();
@@ -58,7 +60,7 @@ public class CombatManager : MonoBehaviour
 
     void Log(string message)
     {
-        if (!suppressCombatLogs) Debug.Log(message);
+        if (!suppressCombatLogs && logCombatToConsole) Debug.Log(message);
         LogMessage?.Invoke(message);
     }
 
