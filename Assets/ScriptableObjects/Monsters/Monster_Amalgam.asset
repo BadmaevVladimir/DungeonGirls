@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37c73bb7b20f0774db1d325b77fd4879, type: 3}
+  m_Name: Monster_Amalgam
+  m_EditorClassIdentifier: Assembly-CSharp::MonsterData
+  monsterName: "\u041F\u043E\u0436\u0438\u0440\u0430\u044E\u0449\u0438\u0439 \u0410\u043C\u0430\u043B\u044C\u0433\u0430\u043C"
+  sprite: {fileID: 21300000, guid: 50345063b42245109be34374a6a91a88, type: 3}
+  isBoss: 1
+  hp: 200
+  damageMin: 15
+  damageMax: 20
+  damageType: 0
+  attackSpeed: 1.0
+  physicalDefense: 10
+  magicDefense: 0
+  universalShield: 0
+  frontlinePriority: 0
+  doesNotAttack: 0
+  passiveSkill: {fileID: 0}
+  bossKit: {fileID: 11400000, guid: 4e59164bc5134cdf8fcc6ed5ebbeb359, type: 2}
+  gender: 0
+  minFloorTier: 3

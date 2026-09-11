@@ -492,4 +492,29 @@ public class BossContentIntegrityTests
             }
         }
     }
+
+    // План 8: потолок одновременно живых миньонов — условие проходимости, а не настройка
+    // сложности. Каждый лишний атакующий на сцене это лишний бросок против уклонения Вайолет,
+    // а её 15 HP базы этого не прощают. Ноль здесь означал бы «без потолка».
+    [Test]
+    public void EverySpawnAbility_DeclaresAHardAliveCap()
+    {
+        foreach (var kit in LoadAllKits())
+        {
+            for (int p = 0; p < kit.phases.Count; p++)
+            {
+                foreach (var a in kit.phases[p].abilities)
+                {
+                    if (a.effectKind != BossAbilityEffectKind.SpawnMinions) continue;
+
+                    string where = $"{kit.name}, фаза {p}, «{a.displayName}»";
+                    Assert.IsNotNull(a.spawnMonster, $"{where}: SpawnMinions без spawnMonster ничего не ставит.");
+                    Assert.GreaterOrEqual(a.spawnAliveCap, 1, $"{where}: spawnAliveCap {a.spawnAliveCap} — ноль это «без потолка».");
+                    Assert.LessOrEqual(a.spawnAliveCap, 3,
+                        $"{where}: spawnAliveCap {a.spawnAliveCap} — больше трёх добавок Вайолет не переживёт.");
+                    Assert.GreaterOrEqual(a.spawnCount, 1, $"{where}: spawnCount {a.spawnCount}.");
+                }
+            }
+        }
+    }
 }
