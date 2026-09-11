@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "NewMonster", menuName = "DungeonGirls/Monster")]
@@ -30,6 +31,11 @@ public class MonsterData : ScriptableObject
     // работать через старую CombatManager.TickBossHeavyAttacks — не ломает существующих боссов без
     // авторского контента (см. CombatantFactory.CreateMonsterCombatant).
     public BossKitData bossKit;
+
+    // План 9 (Зеркальный Двойник): наборы способностей по классу игрока. Пусто у всех остальных
+    // боссов — это исключение, а не общий механизм. bossKit выше остаётся набором ПО УМОЛЧАНИЮ:
+    // он же и срабатывает, если для класса игрока ветки нет (например, Маг — его в игре нет).
+    public List<BossClassVariantKit> classVariantKits = new List<BossClassVariantKit>();
 
     // 2.8: род названия монстра — согласование прилагательного модификатора.
     public MonsterGender gender = MonsterGender.Masculine;

@@ -297,7 +297,14 @@ public partial class RunFlowController
         if (isBoss)
         {
             var bossForFloor = BossPoolSelector.Select(bossPool, dungeonManager.CurrentFloorNumber, bossData);
-            var bossRuntime = CombatantFactory.CreateMonsterCombatant(bossForFloor, dungeonManager.CurrentFloorNumber);
+            // План 9: единственное место, где класс игрока влияет на состав боя — Зеркальный Двойник
+            // выбирает по нему ветку кита. Для всех остальных боссов CreateBossCombatant ведёт себя
+            // ровно как CreateMonsterCombatant: веток нет, пол статов выключен.
+            var playerClass = characterManager.Character != null
+                ? characterManager.Character.characterClass
+                : CharacterClass.Warrior;
+            var bossRuntime = CombatantFactory.CreateBossCombatant(bossForFloor,
+                dungeonManager.CurrentFloorNumber, playerClass, characterManager.Combatant);
             enemies.Add(bossRuntime);
             // Групповой босс-бой (Тени-Близнецы): спутники выходят на сцену сразу вместе с боссом.
             enemies.AddRange(CombatantFactory.CreateBossCompanions(bossForFloor,

@@ -117,7 +117,7 @@ public static class CombatantFactory
     // suppressRandomModifiers отключает только каталог 2.8. Масштабирование уровня/этажа и
     // врождённая пассивка выше по-прежнему применяются — это контракт ветки Передышки.
     public static CombatantRuntime CreateMonsterCombatant(MonsterData monster, int floorNumber,
-        int monsterLevel = 1, bool suppressRandomModifiers = false)
+        int monsterLevel = 1, bool suppressRandomModifiers = false, BossKitData kitOverride = null)
     {
         int floorIndex = Mathf.Max(floorNumber, 1);
         int level = Mathf.Max(monsterLevel, 1);
@@ -154,10 +154,14 @@ public static class CombatantFactory
         // BossEncounterState на этот конкретный бой (фаза/кулдауны не должны переживать между боями)
         // + опциональный спрайт фазы 0, если авторы задали отдельный "боевой" спрайт для неё (иначе
         // остаётся monster.sprite, как у любого другого монстра).
-        if (monster.bossKit != null && monster.bossKit.phases.Count > 0)
+        // kitOverride (план 9) — уже выбранная ветка Зеркального Двойника. Класс игрока сюда не
+        // протаскивается намеренно: фабрика не должна о нём знать, её дело — собрать сущность по
+        // готовому киту (выбор делает MirrorKitSelector).
+        var kit = kitOverride != null ? kitOverride : monster.bossKit;
+        if (kit != null && kit.phases.Count > 0)
         {
-            runtime.BossEncounter = new BossEncounterState(monster.bossKit);
-            var phase0Sprite = monster.bossKit.phases[0].phaseSprite;
+            runtime.BossEncounter = new BossEncounterState(kit);
+            var phase0Sprite = kit.phases[0].phaseSprite;
             if (phase0Sprite != null)
             {
                 runtime.Sprite = phase0Sprite;
@@ -220,6 +224,56 @@ public static class CombatantFactory
         return runtime;
     }
 
+    // План 9: единственная точка, где класс игрока влияет на сборку босса. Выбирает ветку кита и,
+    // если ветка этого просит, подтягивает статы до пола относительно игрока.
+    public static CombatantRuntime CreateBossCombatant(MonsterData boss, int floorNumber,
+        CharacterClass playerClass, CombatantRuntime player = null)
+    {
+        var kit = MirrorKitSelector.Select(boss, playerClass);
+        var runtime = CreateMonsterCombatant(boss, floorNumber, kitOverride: kit);
+        ApplyMirrorStatFloor(runtime, kit, player);
+        return runtime;
+    }
+
+    // «120 % статов игрока» из спеки — это НИЖНЯЯ ГРАНИЦА, а не замена: буквальная замена сделала бы
+    // Зеркального Двойника боссом с 54 HP против Саши. Собственные статы берутся как есть и
+    // подтягиваются, только если оказались ниже. Броня и уклонение не трогаются — они заданы веткой
+    // класса осмысленно, и общий пол их бы смазал.
+    static void ApplyMirrorStatFloor(CombatantRuntime boss, BossKitData kit, CombatantRuntime player)
+    {
+        if (boss == null || kit == null || player == null) return;
+        if (kit.mirrorPlayerStatsPercent <= 0f) return;
+
+        float scale = kit.mirrorPlayerStatsPercent / 100f;
+
+        float hpFloor = DamageCalculator.RoundPoints(player.MaxHP * scale);
+        if (hpFloor > boss.MaxHP)
+        {
+            boss.MaxHP = hpFloor;
+            boss.CurrentHP = hpFloor;
+        }
+
+        if (player.Weapons.Count == 0) return;
+
+        float playerMax = 0f;
+        foreach (var weapon in player.Weapons)
+        {
+            if (weapon.DamageMax > playerMax) playerMax = weapon.DamageMax;
+        }
+
+        float damageFloor = DamageCalculator.RoundPoints(playerMax * scale);
+        foreach (var weapon in boss.Weapons)
+        {
+            if (weapon.DamageMax >= damageFloor) continue;
+
+            // Разброс мин/макс сохраняется: поднимаем обе границы на одну и ту же долю, иначе
+            // оружие босса превратилось бы в удар с фиксированным уроном.
+            float spread = weapon.DamageMax > 0f ? weapon.DamageMin / weapon.DamageMax : 1f;
+            weapon.DamageMax = damageFloor;
+            weapon.DamageMin = DamageCalculator.RoundPoints(damageFloor * spread);
+        }
+    }
+
     // Boss framework (групповой босс-бой, 2026-09-11): собирает спутников босса и помечает ВСЮ
     // связку, включая самого босса, полями группы. Возвращает только спутников — босс уже создан
     // вызывающей стороной и передан сюда, чтобы получить те же метки.
@@ -229,7 +283,12 @@ public static class CombatantFactory
         CombatantRuntime bossRuntime)
     {
         var companions = new List<CombatantRuntime>();
-        var kit = bossData != null ? bossData.bossKit : null;
+        // Кит берётся с УЖЕ СОБРАННОГО рантайма, а не перечитывается с MonsterData: у Зеркального
+        // Двойника (план 9) ветка выбрана по классу игрока, и перечитывание вернуло бы кит по
+        // умолчанию — ветка была бы выбрана, а сцена собрана из чужого набора.
+        var kit = bossRuntime != null && bossRuntime.BossEncounter != null
+            ? bossRuntime.BossEncounter.Kit
+            : (bossData != null ? bossData.bossKit : null);
         if (kit == null)
         {
             return companions;

@@ -78,6 +78,17 @@ public enum BossAbilityEffectKind
     ConsumeMinion
 }
 
+// План 9: одна ветка Зеркального Двойника — «против такого-то класса играет вот этот набор».
+[System.Serializable]
+public class BossClassVariantKit
+{
+    [Tooltip("Класс ИГРОКА, против которого выбирается этот набор.")]
+    public CharacterClass playerClass;
+
+    [Tooltip("Набор способностей для этой ветки. Пустое поле = ветки нет, сработает bossKit.")]
+    public BossKitData kit;
+}
+
 [System.Serializable]
 public class BossAbilityConfig
 {
@@ -307,6 +318,13 @@ public class BossKitData : ScriptableObject
 
     [Tooltip("Текст баннера в момент разрыва связи. Пусто = «Связь разорвана».")]
     public string soloTransitionName;
+
+    [Tooltip("План 9: нижняя граница статов в процентах от статов ИГРОКА (120 = не слабее 120%). " +
+        "0 = выключено. Это ПОЛ, а не замена: собственные статы босса берутся как есть и " +
+        "подтягиваются, только если оказались ниже. Буквальная замена сделала бы Зеркального " +
+        "Двойника боссом с 54 HP против Саши. Броня и уклонение НЕ подтягиваются — они заданы " +
+        "веткой класса осмысленно, и общий пол их бы смазал.")]
+    public float mirrorPlayerStatsPercent = 0f;
 
     [Tooltip("Минимум одна фаза. phases[0].hpThresholdPercent должен быть 100 (активна с начала боя).")]
     public List<BossPhaseData> phases = new List<BossPhaseData>();
