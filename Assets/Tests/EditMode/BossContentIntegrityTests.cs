@@ -394,4 +394,30 @@ public class BossContentIntegrityTests
             }
         }
     }
+
+    // Правило честности №4: броню босса нельзя обнулять, максимум −50 %. Множители входа в фазу
+    // задаются в YAML, а пять старых китов (Тюремщик, Свечник, Титан, Близнецы, Страж) написаны
+    // ДО появления этих полей и не содержат их вовсе. Тест заодно фиксирует, что отсутствующий
+    // ключ YAML оставляет инициализатор поля (1f), а не превращается в 0 — иначе вход во вторую
+    // фазу молча обнулял бы броню и выключал Дженифер.
+    [Test]
+    public void EveryPhaseEntryMultiplier_NeitherZeroesArmorNorStopsTheBoss()
+    {
+        foreach (var kit in LoadAllKits())
+        {
+            for (int i = 0; i < kit.phases.Count; i++)
+            {
+                var phase = kit.phases[i];
+                Assert.GreaterOrEqual(phase.enterArmorMultiplier, 0.5f,
+                    $"{kit.name}, фаза {i} ({phase.phaseName}): enterArmorMultiplier " +
+                    $"{phase.enterArmorMultiplier} режет броню больше чем вдвое — правило честности №4.");
+                Assert.LessOrEqual(phase.enterArmorMultiplier, 1f,
+                    $"{kit.name}, фаза {i} ({phase.phaseName}): enterArmorMultiplier " +
+                    $"{phase.enterArmorMultiplier} — фаза не должна НАРАЩИВАТЬ броню.");
+                Assert.Greater(phase.enterAttackSpeedMultiplier, 0f,
+                    $"{kit.name}, фаза {i} ({phase.phaseName}): enterAttackSpeedMultiplier " +
+                    $"{phase.enterAttackSpeedMultiplier} останавливает атаки босса.");
+            }
+        }
+    }
 }
