@@ -213,6 +213,10 @@ public static class CombatantFactory
             runtime.DisplayName = $"{MonsterModifierCatalog.AdjectiveFor(modifier, monster.gender)} {runtime.DisplayName}";
         }
 
+        // Этаж запоминается на сущности: спавн миньонов по ходу боя (план 8) обязан
+        // масштабировать их по тому же этажу, а CombatManager этажа не знает.
+        runtime.SourceFloorNumber = floorIndex;
+
         return runtime;
     }
 

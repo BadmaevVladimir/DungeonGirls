@@ -23,6 +23,11 @@ public static class BossStageLayout
     // участник схватки, и он не должен спорить за внимание с самим боссом.
     public const float AnchorSize = 150f;
 
+    // Миньон, поставленный на сцену по ходу боя (слизни Амальгама, паучата Паучихи). Мельче
+    // обычного врага намеренно: их бывает до трёх одновременно рядом с 518-пиксельным боссом, и в
+    // обычном размере они забивают сцену, а босс перестаёт читаться как главный противник.
+    public const float MinionSize = 190f;
+
     // stage — все враги боя. Размер зависит от состава сцены, поэтому считается по списку целиком,
     // а не по одному участнику.
     public static float SpriteSize(CombatantRuntime enemy, IReadOnlyList<CombatantRuntime> stage)
@@ -36,6 +41,13 @@ public static class BossStageLayout
         if (enemy.IsBossAnchor)
         {
             return AnchorSize;
+        }
+
+        // Миньон — сразу следом и по той же причине: кита у него нет, но и рядовым врагом он не
+        // отображается.
+        if (enemy.IsBossMinion)
+        {
+            return MinionSize;
         }
 
         if (enemy.BossEncounter == null)

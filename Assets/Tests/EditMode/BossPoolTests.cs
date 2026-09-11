@@ -167,4 +167,18 @@ public class BossStageLayoutTests
 
         Assert.LessOrEqual(total, 1200f, $"суммарная ширина сцены Свечника {total}px — свечи налезут на босса");
     }
+
+    [Test]
+    public void SpawnedMinion_IsSmallerThanARegularEnemy_AndDoesNotShrinkTheBoss()
+    {
+        var boss = Boss();
+        var minion = new CombatantRuntime { IsBossMinion = true };
+        var stage = new List<CombatantRuntime> { boss, minion, minion };
+
+        // У миньона нет кита, поэтому босс остаётся одиночным и крупным — мельчает не он, а мелочь.
+        Assert.AreEqual(BossStageLayout.SoloBossSize, BossStageLayout.SpriteSize(boss, stage), 0.01f);
+        Assert.AreEqual(BossStageLayout.MinionSize, BossStageLayout.SpriteSize(minion, stage), 0.01f);
+        Assert.Less(BossStageLayout.MinionSize, BossStageLayout.RegularEnemySize);
+        Assert.Greater(BossStageLayout.MinionSize, BossStageLayout.AnchorSize);
+    }
 }

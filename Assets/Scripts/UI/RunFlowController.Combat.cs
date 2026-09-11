@@ -591,6 +591,13 @@ public partial class RunFlowController
 
         PopulateStatusContainer(playerStatusContainer, player, hideStealth: true);
 
+        // План 8: босс может поставить на сцену миньонов ПО ХОДУ боя. Сверяем состав по количеству
+        // (сравнение int за кадр), и если он вырос — только ДОСТРАИВАЕМ недостающие карточки.
+        if (combatManager.Enemies != null && combatManager.Enemies.Count != enemyStageEntries.Count)
+        {
+            SyncEnemyStageEntries(combatManager.Enemies);
+        }
+
         // ФИКС 2026-09-11: карточки врагов больше не пересобираются каждый кадр — они построены
         // один раз в BuildEnemyStageEntries и здесь только обновляются. Пересборка ломала выбор
         // цели: ClickEvent требует PointerDown и PointerUp на ОДНОМ элементе, а элемент не
@@ -865,6 +872,41 @@ public partial class RunFlowController
         // 108 * 4.8 = 518 — при этом рост босса ~430px против 384px у игрока.
         foreach (var enemy in enemies)
         {
+            AddEnemyStageEntry(enemy, enemies);
+        }
+    }
+
+    // План 8: состав сцены впервые меняется ПО ХОДУ боя (кладка Паучихи, куски Амальгама).
+    // Карточки при этом ДОСТРАИВАЮТСЯ, а не пересобираются: BuildEnemyStageEntries начинается с
+    // Clear(), а пересборка карточек — ровно та причина, по которой выбор цели кликом когда-то не
+    // работал вообще (ClickEvent рождается, только если PointerDown и PointerUp пришли в ОДИН и тот
+    // же элемент). Существующие карточки и их обработчики здесь не трогаются.
+    //
+    // Размеры уже стоящих на сцене пересчитывать не нужно: у миньона нет кита, поэтому
+    // BossStageLayout.CountBossEntities не меняется и босс остаётся прежнего размера.
+    void SyncEnemyStageEntries(List<CombatantRuntime> stage)
+    {
+        if (stage == null) return;
+
+        for (int i = 0; i < stage.Count; i++)
+        {
+            var enemy = stage[i];
+            if (enemy == null) continue;
+
+            bool known = false;
+            for (int j = 0; j < enemyStageEntries.Count; j++)
+            {
+                if (enemyStageEntries[j].Combatant == enemy) { known = true; break; }
+            }
+
+            if (!known) AddEnemyStageEntry(enemy, stage);
+        }
+    }
+
+    // Одна карточка + один спрайт на сцене. Вынесено из тела цикла BuildEnemyStageEntries, чтобы
+    // тем же кодом достраивать участников, появившихся по ходу боя.
+    void AddEnemyStageEntry(CombatantRuntime enemy, List<CombatantRuntime> enemies)
+    {
             // Размер зависит от СОСТАВА сцены, а не только от самого участника: групповые
             // боссы (Близнецы, Свечник) сломали прежнее допущение «бой с боссом всегда 1 на 1».
             float spriteSize = BossStageLayout.SpriteSize(enemy, enemies);
@@ -986,7 +1028,6 @@ public partial class RunFlowController
                     entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(sprite, bossIdleFrames, 6f, loop: true));
                 }
             }
-        }
     }
 
     // Boss framework (минимальный слайс) — reusable UI-слой для "готовит особую атаку" ЛЮБОГО

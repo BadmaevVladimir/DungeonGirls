@@ -662,8 +662,35 @@ public class CombatManager : MonoBehaviour
         }
     }
 
+    // План 8: миньоны уходят вместе с боссом. Живут отдельным правилом, а не внутри TickBossGroups,
+    // потому что миньоны Амальгама в группу НЕ входят (у него нет «Кокона»), а исчезать за боссом
+    // обязаны всё равно. Иначе добитый босс оставляет на сцене живую мелочь, бой продолжается без
+    // него, и победа перестаёт совпадать со смертью босса.
+    void TickBossMinionOrphans()
+    {
+        bool anyMinionAlive = false;
+        bool anyBossAlive = false;
+        foreach (var enemy in Enemies)
+        {
+            if (enemy == null || !enemy.IsAlive) continue;
+            if (enemy.IsBossMinion) anyMinionAlive = true;
+            else if (enemy.BossEncounter != null) anyBossAlive = true;
+        }
+
+        if (!anyMinionAlive || anyBossAlive) return;
+
+        foreach (var enemy in Enemies)
+        {
+            if (enemy == null || !enemy.IsBossMinion || !enemy.IsAlive) continue;
+            enemy.CurrentHP = 0f;
+            Log($"[Combat] {enemy.DisplayName} рассыпается вслед за хозяином.");
+        }
+    }
+
     void TickBossGroups()
     {
+        TickBossMinionOrphans();
+
         foreach (var enemy in Enemies)
         {
             if (!enemy.InBossGroup || !enemy.IsAlive)
@@ -696,7 +723,17 @@ public class CombatManager : MonoBehaviour
 
             if (allyAlive)
             {
+                enemy.BossGroupAllyEverSeen = true;
                 enemy.BossGroupDamageReductionPercent = enemy.PendingGroupDamageReductionPercent;
+                continue;
+            }
+
+            // Группа, в которую союзники приходят СПАВНОМ (Паучиха), на старте состоит из одного
+            // босса. Без этой проверки «остался один» выдавалось бы ему на первом тике — до того,
+            // как хоть один паучонок вообще появился на сцене.
+            if (!enemy.BossGroupAllyEverSeen)
+            {
+                enemy.BossGroupDamageReductionPercent = 0f;
                 continue;
             }
 
@@ -724,11 +761,22 @@ public class CombatManager : MonoBehaviour
 
     void TickBossEncounters(float deltaTime)
     {
-        foreach (var enemy in Enemies)
+        // Обход ПО ИНДЕКСУ с зафиксированной длиной, а не foreach: способность SpawnMinions (план 8)
+        // дописывает миньонов в Enemies прямо отсюда, и foreach бросил бы «Collection was modified».
+        // Спавн только дописывает в конец, поэтому индексы уже пройденных не съезжают, а сами
+        // новички в этот же тик не обрабатываются — им нечего обрабатывать, кита у них нет.
+        int count = Enemies.Count;
+        for (int i = 0; i < count; i++)
         {
+            var enemy = Enemies[i];
             if (!IsCombatActive || !Player.IsAlive)
             {
                 return;
+            }
+
+            if (enemy == null)
+            {
+                continue;
             }
 
             if (!enemy.IsAlive || enemy.IsFrozen || enemy.BossEncounter == null)
@@ -993,7 +1041,90 @@ public class CombatManager : MonoBehaviour
                 ActiveSkillActivated?.Invoke(boss, ability.displayName);
                 Log($"[Combat] {boss.DisplayName} поднимает «{ability.displayName}»: щит {ability.shieldAmount:F0}, восстанавливается сам.");
                 break;
+
+            case BossAbilityEffectKind.SpawnMinions:
+                SpawnBossMinions(boss, ability);
+                break;
+
+            case BossAbilityEffectKind.ConsumeMinion:
+                ConsumeBossMinion(boss, ability);
+                break;
         }
+    }
+
+    // План 8: ставит миньонов на сцену ПО ХОДУ боя. Потолок живых проверяется перед каждой единицей,
+    // а не один раз на срабатывание, иначе spawnCount=2 при одном свободном месте перешагнул бы его.
+    // Способность при выбранном потолке уходит на кулдаун вхолостую — это намеренно: так игрок,
+    // который не чистит мелочь, получает передышку, а не бесконечно растущую сцену.
+    void SpawnBossMinions(CombatantRuntime boss, BossAbilityConfig ability)
+    {
+        if (ability.spawnMonster == null) return;
+
+        int cap = ability.spawnAliveCap > 0 ? ability.spawnAliveCap : int.MaxValue;
+        int spawned = 0;
+        for (int i = 0; i < Mathf.Max(0, ability.spawnCount); i++)
+        {
+            if (CountLivingBossMinions() >= cap) break;
+
+            var minion = CombatantFactory.CreateMonsterCombatant(
+                ability.spawnMonster, Mathf.Max(1, boss.SourceFloorNumber), suppressRandomModifiers: true);
+            minion.IsBossMinion = true;
+            minion.MaxHP = DamageCalculator.RoundPoints(minion.MaxHP);
+            minion.CurrentHP = DamageCalculator.RoundPoints(minion.CurrentHP);
+            ResetAttackTimers(minion);
+
+            // Миньон входит в группу босса, если группа вообще есть: это и есть «Кокон» Паучихи,
+            // выраженный механикой плана 3. Снижение урона при этом достаётся только боссу —
+            // паучатам живучесть не положена, иначе чистка мелочи перестаёт быть решением.
+            if (boss.InBossGroup)
+            {
+                minion.InBossGroup = true;
+                minion.PendingGroupDamageReductionPercent = 0f;
+                minion.PendingSoloDamageBonusPercent = 0f;
+                minion.PendingSoloAttackSpeedBonusPercent = 0f;
+            }
+
+            Enemies.Add(minion);
+            spawned++;
+        }
+
+        if (spawned == 0) return;
+
+        ActiveSkillActivated?.Invoke(boss, ability.displayName);
+        Log($"[Combat] {boss.DisplayName} применяет «{ability.displayName}»: на сцене +{spawned}.");
+    }
+
+    // План 8: Амальгам съедает собственного миньона и лечится. Без живых миньонов не лечит вообще —
+    // именно поэтому переключение цели на слизня отнимает у босса лечение, а не просто «немного
+    // помогает».
+    void ConsumeBossMinion(CombatantRuntime boss, BossAbilityConfig ability)
+    {
+        CombatantRuntime prey = null;
+        foreach (var enemy in Enemies)
+        {
+            if (enemy == null || !enemy.IsBossMinion || !enemy.IsAlive) continue;
+            prey = enemy;
+            break;
+        }
+
+        if (prey == null) return;
+
+        prey.CurrentHP = 0f;
+        float heal = boss.MaxHP * Mathf.Max(0f, ability.healPercentOfMaxHp) / 100f;
+        boss.Heal(heal);
+        ActiveSkillActivated?.Invoke(boss, ability.displayName);
+        Log($"[Combat] {boss.DisplayName} применяет «{ability.displayName}»: съедает {prey.DisplayName}, +{heal:F0} HP.");
+    }
+
+    int CountLivingBossMinions()
+    {
+        int count = 0;
+        foreach (var enemy in Enemies)
+        {
+            if (enemy != null && enemy.IsBossMinion && enemy.IsAlive) count++;
+        }
+
+        return count;
     }
 
     // 3.9 "Амбидекстрия": у каждого оружия персонажа свой независимый таймер атаки по своей
