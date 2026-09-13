@@ -22,8 +22,8 @@ MonoBehaviour:
   - phaseName: "\u0420\u0436\u0430\u0432\u044B\u0439 \u041A\u0443\u0437\u043D\u0435\u0446"
     hpThresholdPercent: 100
     phaseSprite: {fileID: 21300000, guid: 9aac766a677b4c1b8a7b71ea4a4e3a28, type: 3}
-    animationFolderKey:
-    floorPaddingFraction: 0
+    animationFolderKey: RustSmith_Phase1
+    floorPaddingFraction: 0.0625
     cycleAbilities: 0
     enterArmorMultiplier: 1
     enterAttackSpeedMultiplier: 1
@@ -91,8 +91,8 @@ MonoBehaviour:
   - phaseName: "\u0420\u0430\u0441\u043A\u0430\u043B\u0451\u043D\u043D\u0430\u044F \u043D\u0430\u043A\u043E\u0432\u0430\u043B\u044C\u043D\u044F"
     hpThresholdPercent: 40
     phaseSprite: {fileID: 21300000, guid: ce0e7ea457e64b7d9e45dab4e000ecad, type: 3}
-    animationFolderKey:
-    floorPaddingFraction: 0
+    animationFolderKey: RustSmith_Phase2
+    floorPaddingFraction: 0.0625
     cycleAbilities: 0
     enterArmorMultiplier: 1
     enterAttackSpeedMultiplier: 1

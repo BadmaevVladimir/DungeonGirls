@@ -1,6 +1,170 @@
 {
     "entries": [
         {
+            "key": "Boss_Amalgam_Phase1",
+            "value": 0.078125
+        },
+        {
+            "key": "Boss_Amalgam_Phase2",
+            "value": 0.078125
+        },
+        {
+            "key": "Boss_Amalgam_Phase3",
+            "value": 0.078125
+        },
+        {
+            "key": "Boss_AshInquisitor_Phase1",
+            "value": 0.03125
+        },
+        {
+            "key": "Boss_AshInquisitor_Phase2",
+            "value": 0.03125
+        },
+        {
+            "key": "Boss_BoneLeviathan_Phase1",
+            "value": 0.2734375
+        },
+        {
+            "key": "Boss_BoneLeviathan_Phase2",
+            "value": 0.2734375
+        },
+        {
+            "key": "Boss_Broodmother_Phase1",
+            "value": 0.109375
+        },
+        {
+            "key": "Boss_Broodmother_Phase2",
+            "value": 0.109375
+        },
+        {
+            "key": "Boss_Butcher_Phase1",
+            "value": 0.0390625
+        },
+        {
+            "key": "Boss_Butcher_Phase2",
+            "value": 0.0390625
+        },
+        {
+            "key": "Boss_CandleKeeper_Phase1",
+            "value": 0.0390625
+        },
+        {
+            "key": "Boss_CandleKeeper_Phase2",
+            "value": 0.0390625
+        },
+        {
+            "key": "Boss_ClockworkTitan_Phase1",
+            "value": 0.015625
+        },
+        {
+            "key": "Boss_ClockworkTitan_Phase2",
+            "value": 0.015625
+        },
+        {
+            "key": "Boss_DrunkGiant_Phase1",
+            "value": 0.046875
+        },
+        {
+            "key": "Boss_DrunkGiant_Phase2",
+            "value": 0.046875
+        },
+        {
+            "key": "Boss_DungeonHeart_Phase1",
+            "value": 0.078125
+        },
+        {
+            "key": "Boss_DungeonHeart_Phase2",
+            "value": 0.078125
+        },
+        {
+            "key": "Boss_FrostWraith_Phase1",
+            "value": 0.03125
+        },
+        {
+            "key": "Boss_FrostWraith_Phase2",
+            "value": 0.03125
+        },
+        {
+            "key": "Boss_GildedUsurer_Phase1",
+            "value": 0.046875
+        },
+        {
+            "key": "Boss_GildedUsurer_Phase2",
+            "value": 0.046875
+        },
+        {
+            "key": "Boss_Jailer_Phase1",
+            "value": 0.0234375
+        },
+        {
+            "key": "Boss_Jailer_Phase2",
+            "value": 0.0234375
+        },
+        {
+            "key": "Boss_MirrorTwin_Phase1",
+            "value": 0.0703125
+        },
+        {
+            "key": "Boss_MirrorTwin_Phase2",
+            "value": 0.0703125
+        },
+        {
+            "key": "Boss_PitHound_Phase1",
+            "value": 0.078125
+        },
+        {
+            "key": "Boss_PitLord_Phase1",
+            "value": 0.0078125
+        },
+        {
+            "key": "Boss_PitLord_Phase2",
+            "value": 0.0078125
+        },
+        {
+            "key": "Boss_RelicEater_Phase1",
+            "value": 0.0234375
+        },
+        {
+            "key": "Boss_RelicEater_Phase2",
+            "value": 0.0234375
+        },
+        {
+            "key": "Boss_RustSmith_Phase1",
+            "value": 0.0625
+        },
+        {
+            "key": "Boss_RustSmith_Phase2",
+            "value": 0.0625
+        },
+        {
+            "key": "Boss_SporeMother_Phase1",
+            "value": 0.0234375
+        },
+        {
+            "key": "Boss_SporeMother_Phase2",
+            "value": 0.0234375
+        },
+        {
+            "key": "Boss_StoneIdol_Phase1",
+            "value": 0.078125
+        },
+        {
+            "key": "Boss_StoneIdol_Phase2",
+            "value": 0.0859375
+        },
+        {
+            "key": "Boss_TwinShade_Phase1",
+            "value": 0.0078125
+        },
+        {
+            "key": "Boss_Warden_Phase1",
+            "value": 0.046296294778585437
+        },
+        {
+            "key": "Boss_Warden_Phase2",
+            "value": 0.046296294778585437
+        },
+        {
             "key": "Jennifer",
             "value": 0.0
         },
