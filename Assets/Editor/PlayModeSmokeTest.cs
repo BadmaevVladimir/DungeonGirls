@@ -129,6 +129,8 @@ public static class PlayModeSmokeTest
 
     static void RunPureLogicChecks()
     {
+        CheckCombatVfx();
+
         // 3.3: любой положительный физический удар изнашивает броню минимум на 1, даже при блоке.
         var target = new CombatantRuntime { PhysicalDefenseMax = 5f, PhysicalDefenseCurrent = 5f, MaxHP = 20f, CurrentHP = 20f };
         var blockedResult = DamageCalculator.ApplyPhysicalDamage(target, 2f);
@@ -2344,6 +2346,111 @@ public static class PlayModeSmokeTest
         var el = root.Q<VisualElement>(name);
         Check(el != null, $"UXML-элемент найден: {name}");
         return el;
+    }
+
+    // Боевые оверлеи (2026-09-14, см. CombatVfx) — три вещи, которые ломаются молча.
+    //
+    // Первая: кадры лежат в Resources и грузятся по имени папки. Опечатка или переименование
+    // enum'а не выдаёт ошибки — эффект просто не появляется.
+    //
+    // Вторая, важнее: удерживаемые оверлеи выбираются по ПОДПИСИ статуса из
+    // CombatantStatusEffects. Подписи — обычные строки на русском, и переименование
+    // «Барьер» или «Берсерк» тихо оборвёт связь. Поэтому проверка идёт от реального
+    // CombatantRuntime к реальным подписям, а не по захардкоженной строке: это ровно та
+    // рассинхронизация «имя против поля», на которой в BA-FULL-001 сгорели 25 способностей.
+    //
+    // Третья: каждый BossAbilityEffectKind обязан иметь хоть какой-то фидбэк — либо разовый
+    // оверлей, либо статус. Новый вид эффекта, добавленный в enum без проводки, здесь падает.
+    static void CheckCombatVfx()
+    {
+        foreach (CombatVfxKind kind in Enum.GetValues(typeof(CombatVfxKind)))
+        {
+            var frames = CombatVfx.Frames(kind);
+            if (!Check(frames != null && frames.Length > 0,
+                $"VFX: кадры эффекта {kind} загружаются из Resources/VFX/Effect_{kind}"))
+            {
+                continue;
+            }
+
+            bool sameCanvas = true;
+            var first = frames[0].rect;
+            foreach (var frame in frames)
+            {
+                if (frame == null || frame.rect.width != first.width || frame.rect.height != first.height)
+                {
+                    sameCanvas = false;
+                }
+            }
+            Check(sameCanvas, $"VFX: все кадры эффекта {kind} одного холста ({first.width}x{first.height})");
+        }
+
+        // Обволакивающий эффект, нарисованный уже рамки, оказывается ВНУТРИ силуэта бойца и
+        // читается как краска на фигуре, а не как защита вокруг неё.
+        Check(CombatVfx.LayoutFor(CombatVfxKind.Shield).SizePercent > 100f,
+            "VFX: щит рисуется шире рамки бойца, иначе барьер оказывается внутри силуэта");
+
+        CheckStatusOverlay(new CombatantRuntime { FreezeStacks = 3 }, CombatVfxKind.Frost, "заряды заморозки");
+        CheckStatusOverlay(new CombatantRuntime { IsFrozen = true }, CombatVfxKind.Frost, "заморожен");
+        CheckStatusOverlay(new CombatantRuntime { ShieldPoolCurrent = 40f, ShieldPoolMax = 40f }, CombatVfxKind.Shield, "барьер");
+        CheckStatusOverlay(new CombatantRuntime { IsBerserkActive = true }, CombatVfxKind.Rage, "берсерк");
+        CheckStatusOverlay(new CombatantRuntime { CritChanceDebuffPercent = 10f }, CombatVfxKind.Debuff, "оглушающий крик");
+        CheckStatusOverlay(
+            new CombatantRuntime { ActiveDebuffs = { new ActiveDebuff { Id = "warlock_slow", RemainingTime = 5f } } },
+            CombatVfxKind.Debuff, "проклятие замедления");
+
+        // Виды эффектов, у которых нет разового оверлея, потому что они уже выражены
+        // удерживаемым статусом; RoomTick — единственный намеренно немой: у него нет момента
+        // срабатывания, это фоновый урон по комнате.
+        var expressedAsStatus = new HashSet<BossAbilityEffectKind>
+        {
+            BossAbilityEffectKind.ShieldPool,
+            BossAbilityEffectKind.ShieldRegen,
+            BossAbilityEffectKind.SelfInvulnerable,
+            BossAbilityEffectKind.Enrage,
+            BossAbilityEffectKind.ApplyFreeze,
+            BossAbilityEffectKind.AttackSpeedDebuff,
+            BossAbilityEffectKind.StatDebuff,
+            BossAbilityEffectKind.HealCut,
+            BossAbilityEffectKind.ApplyDot,
+            BossAbilityEffectKind.RoomTick,
+        };
+
+        var unwired = new List<string>();
+        foreach (BossAbilityEffectKind kind in Enum.GetValues(typeof(BossAbilityEffectKind)))
+        {
+            if (CombatVfx.ForAbility(kind) == null && !expressedAsStatus.Contains(kind))
+            {
+                unwired.Add(kind.ToString());
+            }
+        }
+        Check(unwired.Count == 0,
+            unwired.Count == 0
+                ? "VFX: у каждого вида боссовой способности есть фидбэк — разовый оверлей или статус"
+                : "VFX: виды способностей без всякого фидбэка: " + string.Join(", ", unwired));
+
+        Check(CombatVfx.ForAbility(BossAbilityEffectKind.HeavyAttack) == CombatVfxKind.Impact,
+            "VFX: тяжёлая атака показывает удар");
+        Check(CombatVfx.ForAbility(BossAbilityEffectKind.SpawnMinions) == CombatVfxKind.Summon,
+            "VFX: призыв миньонов показывает руну");
+        Check(CombatVfx.ForAbility(BossAbilityEffectKind.DamageTakenBuff) == CombatVfxKind.Opening,
+            "VFX: открытая защита показывает знак уязвимости — окно, ради которого игрок жмёт навык");
+        Check(CombatVfx.ForAbility(BossAbilityEffectKind.RoomTick) == null,
+            "VFX: фоновый урон по комнате намеренно без оверлея");
+    }
+
+    static void CheckStatusOverlay(CombatantRuntime combatant, CombatVfxKind expected, string what)
+    {
+        var labels = new List<string>();
+        bool found = false;
+        foreach (var effect in CombatantStatusEffects.GetActiveEffects(combatant))
+        {
+            labels.Add(effect.label);
+            if (CombatVfx.ForStatus(effect.label) == expected) found = true;
+        }
+
+        Check(found, found
+            ? $"VFX: статус «{what}» даёт оверлей {expected}"
+            : $"VFX: статус «{what}» не дал оверлей {expected}; подписи бойца: [{string.Join(", ", labels)}]");
     }
 
     static bool Check(bool condition, string description)

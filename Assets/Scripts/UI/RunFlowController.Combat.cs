@@ -429,6 +429,7 @@ public partial class RunFlowController
         combatManager.HitResolved += OnHitResolved;
         combatManager.ActiveSkillActivated += OnActiveSkillActivated;
         combatManager.AttackPerformed += OnAttackPerformed;
+        combatManager.BossAbilityResolved += OnBossAbilityResolvedVfx;
         ShowOnly(combatPanel);
         // W11: тема героини уже играет с начала забега — обычный бой её НЕ перезапускает, он
         // только поднимает интенсивность и подмешивает слои. Бой босса — намеренная смена
@@ -533,6 +534,15 @@ public partial class RunFlowController
         combatManager.HitResolved -= OnHitResolved;
         combatManager.ActiveSkillActivated -= OnActiveSkillActivated;
         combatManager.AttackPerformed -= OnAttackPerformed;
+        combatManager.BossAbilityResolved -= OnBossAbilityResolvedVfx;
+
+        // Удерживаемые оверлеи живут в иерархии боевой панели: если бой закончился, пока статус
+        // ещё висел, элемент остался бы висеть и в следующем бою — панель переиспользуется.
+        foreach (var overlay in playerVfxOverlays.Values)
+        {
+            if (overlay?.parent != null) overlay.RemoveFromHierarchy();
+        }
+        playerVfxOverlays.Clear();
     }
 
     void OnCombatLog(string message)
@@ -715,7 +725,10 @@ public partial class RunFlowController
             }
 
             UpdateBossTelegraph(entry);
+            UpdateSustainedVfx(entry.Wrapper, entry.VfxOverlays, entry.Combatant);
         }
+
+        UpdateSustainedVfx(playerStageSprite?.parent, playerVfxOverlays, player);
 
         UpdateSkillPanel();
     }
@@ -1297,6 +1310,115 @@ public partial class RunFlowController
     // (доп.) "3 быстрые атаки": вместо анимирования трёх отдельных ударов на самой Дженифер,
     // навык проигрывает один удар + это наложение на ЦЕЛИ — единая картинка с тремя линиями
     // разреза уже визуально читается как "три попадания" (см. обсуждение выбора подхода).
+    // Боевые оверлеи (2026-09-14) — общая библиотека эффектов поверх спрайта ЛЮБОГО бойца, см.
+    // CombatVfx. Заменяет анимационные клипы способностей: PixelLab не смог дать читаемый замах с
+    // сохранением идентичности босса (см. Docs/Art/BossAnimations/2026-09-13-pipeline-postmortem.md),
+    // поэтому действие показывается оверлеем и кодовым фидбэком, а спрайт босса продолжает крутить idle.
+    Image BuildVfxOverlay(VisualElement wrapper, CombatVfxKind kind)
+    {
+        var frames = CombatVfx.Frames(kind);
+        if (wrapper == null || frames == null || frames.Length == 0)
+        {
+            return null;
+        }
+
+        var layout = CombatVfx.LayoutFor(kind);
+        var vfx = new Image { sprite = frames[0] };
+        vfx.pickingMode = PickingMode.Ignore;
+        vfx.style.position = Position.Absolute;
+        vfx.style.width = new Length(layout.SizePercent, LengthUnit.Percent);
+        vfx.style.height = new Length(layout.SizePercent, LengthUnit.Percent);
+        vfx.style.left = new Length((100f - layout.SizePercent) / 2f, LengthUnit.Percent);
+        vfx.style.top = new Length(layout.TopPercent, LengthUnit.Percent);
+        vfx.style.opacity = layout.Opacity;
+        vfx.tintColor = CombatVfx.Tint(kind);
+        wrapper.Add(vfx);
+        return vfx;
+    }
+
+    // Разовый эффект: проигрывает кадры один раз и снимает себя.
+    void SpawnCombatVfx(VisualElement wrapper, CombatVfxKind kind)
+    {
+        var vfx = BuildVfxOverlay(wrapper, kind);
+        if (vfx == null) return;
+
+        var frames = CombatVfx.Frames(kind);
+        var layout = CombatVfx.LayoutFor(kind);
+        StartCoroutine(SpriteFlipbook.Play(vfx, frames, layout.Fps, loop: false, onComplete: () =>
+        {
+            if (vfx.parent != null)
+            {
+                vfx.RemoveFromHierarchy();
+            }
+        }));
+    }
+
+    // Удерживаемые эффекты: состав оверлеев равен составу статусов бойца. Поллинг за кадр тем же
+    // паттерном, что HP-бары и статус-баджи рядом — отдельная событийная подсистема здесь только
+    // плодила бы механизм там, где уже есть работающий.
+    void UpdateSustainedVfx(VisualElement wrapper, Dictionary<CombatVfxKind, Image> overlays, CombatantRuntime combatant)
+    {
+        if (wrapper == null || overlays == null) return;
+
+        wanted.Clear();
+        if (combatant != null && combatant.IsAlive)
+        {
+            foreach (var effect in CombatantStatusEffects.GetActiveEffects(combatant))
+            {
+                var kind = CombatVfx.ForStatus(effect.label);
+                if (kind.HasValue) wanted.Add(kind.Value);
+            }
+        }
+
+        foreach (var kind in wanted)
+        {
+            if (overlays.ContainsKey(kind)) continue;
+            var vfx = BuildVfxOverlay(wrapper, kind);
+            if (vfx == null) continue;
+            overlays[kind] = vfx;
+            var layout = CombatVfx.LayoutFor(kind);
+            StartCoroutine(SpriteFlipbook.Play(vfx, CombatVfx.Frames(kind), layout.Fps, loop: layout.Loop));
+        }
+
+        stale.Clear();
+        foreach (var pair in overlays)
+        {
+            if (!wanted.Contains(pair.Key)) stale.Add(pair.Key);
+        }
+        foreach (var kind in stale)
+        {
+            if (overlays[kind]?.parent != null)
+            {
+                overlays[kind].RemoveFromHierarchy();
+            }
+            overlays.Remove(kind);
+        }
+    }
+
+    // Переиспользуемые буферы: UpdateSustainedVfx зовётся для каждого бойца каждый кадр, и
+    // аллокация двух коллекций на вызов давала бы мусор на ровном месте.
+    readonly HashSet<CombatVfxKind> wanted = new HashSet<CombatVfxKind>();
+    readonly List<CombatVfxKind> stale = new List<CombatVfxKind>();
+
+    // Разовый эффект в момент резолва способности босса. То, что выражено статусом (щит,
+    // заморозка, ярость), сюда не попадает — см. CombatVfx.ForAbility.
+    void OnBossAbilityResolvedVfx(CombatantRuntime boss, BossAbilityConfig ability)
+    {
+        if (boss == null || ability == null) return;
+
+        var kind = CombatVfx.ForAbility(ability.effectKind);
+        if (!kind.HasValue) return;
+
+        foreach (var entry in enemyStageEntries)
+        {
+            if (entry.Combatant == boss)
+            {
+                SpawnCombatVfx(entry.Wrapper, kind.Value);
+                return;
+            }
+        }
+    }
+
     IEnumerator SpawnSkillImpactVfx(VisualElement wrapper)
     {
         var vfxSprite = SkillImpactVfxSprite;

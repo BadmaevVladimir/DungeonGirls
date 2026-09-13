@@ -107,6 +107,11 @@ public partial class RunFlowController : MonoBehaviour
 
     // --- Бой ---
     Image playerStageSprite;
+
+    // Удерживаемые боевые оверлеи игрока — тот же механизм, что у врагов (см. EnemyStageEntry.
+    // VfxOverlays). Статусы одинаковы для всех бойцов, поэтому заморозка или барьер показываются
+    // и на героине, и на монстре, и на боссе одним и тем же кодом.
+    readonly Dictionary<CombatVfxKind, Image> playerVfxOverlays = new Dictionary<CombatVfxKind, Image>();
     VisualElement playerStageWrapper;
     VisualElement enemyStageRow;
     Label skillActivationBanner;
@@ -162,6 +167,12 @@ public partial class RunFlowController : MonoBehaviour
         public VisualElement Wrapper;
         public Image Sprite;
         public Label StatusLabel;
+
+        // Удерживаемые боевые оверлеи (барьер, заморозка, ярость, дебафф) — по одному Image на
+        // вид эффекта, живут ровно столько, сколько висит соответствующий статус. Разовые эффекты
+        // (удар, призыв, цепи) сюда не попадают: они создаются и сами себя удаляют, см.
+        // RunFlowController.Combat.SpawnCombatVfx.
+        public Dictionary<CombatVfxKind, Image> VfxOverlays = new Dictionary<CombatVfxKind, Image>();
 
         // Boss framework (минимальный слайс) — reusable-телеграф специальной атаки: показывает
         // "готовит: <имя способности>" + полоску обратного отсчёта ДО того, как способность
