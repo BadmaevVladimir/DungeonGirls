@@ -18,6 +18,7 @@ MonoBehaviour:
   soloDamageBonusPercent: 0
   soloAttackSpeedBonusPercent: 0
   soloTransitionName: 
+  mirrorPlayerStatsPercent: 0
   phases:
   - phaseName: "\u0413\u043E\u043D\u0447\u0430\u044F \u042F\u043C\u044B"
     hpThresholdPercent: 100
@@ -44,3 +45,31 @@ MonoBehaviour:
       attackSpeedMultiplier: 1
       debuffSeconds: 0
       selfDamagePercentOfMaxHp: 0
+      damagePercentOfTargetMaxHp: 0
+      dotStacks: 1
+      dotMaxStacks: 3
+      dotSeconds: 3
+      healCutPercent: 0
+      healCutSeconds: 0
+      executeBelowHpPercent: 0
+      executeMaxDamageMultiplier: 0
+      armorDebuffPercent: 0
+      armorDebuffMaxStacks: 1
+      armorDebuffSeconds: 8
+      roomTickPercentOfMaxHp: 0
+      roomTickGrowthPercentPerTrigger: 0
+      enrageDamagePercentPerTrigger: 0
+      selfInvulnerableSeconds: 0
+      shieldRegenPercentPerSecond: 0
+      shieldRegenDelaySeconds: 2
+      shieldRegenDecayPercentPer20Seconds: 20
+      shieldIntactDamageBonusPercent: 0
+      shieldBrokenDamagePenaltyPercent: 0
+      shieldBrokenPenaltySeconds: 0
+      spawnMonster: {fileID: 0}
+      spawnCount: 1
+      spawnAliveCap: 3
+      healPercentOfMaxHp: 0
+      slotDisableSeconds: 0
+      slotDisableOrder: 
+      minionDeathRoomTickSlowPercent: 0

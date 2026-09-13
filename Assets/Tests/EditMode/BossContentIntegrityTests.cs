@@ -443,18 +443,24 @@ public class BossContentIntegrityTests
                     // вовсе (BossKit_Warden). Ни то, ни другое не является осознанной настройкой.
                     Check(a.disruptSeconds != 0f && a.disruptSeconds != 5f, a, where,
                         "disruptSeconds", BossAbilityEffectKind.DisruptSkills);
-                    Check(a.damageTakenBonusPercent != 0f, a, where, "damageTakenBonusPercent", BossAbilityEffectKind.DamageTakenBuff);
+                    Check(a.damageTakenBonusPercent != 0f, a, where, "damageTakenBonusPercent",
+                        BossAbilityEffectKind.DamageTakenBuff, BossAbilityEffectKind.SlotDisable);
                     Check(a.freezeStacks != 0, a, where, "freezeStacks", BossAbilityEffectKind.ApplyFreeze);
                     Check(a.attackSpeedMultiplier != 1f, a, where, "attackSpeedMultiplier", BossAbilityEffectKind.AttackSpeedDebuff);
                     Check(a.selfDamagePercentOfMaxHp != 0f, a, where, "selfDamagePercentOfMaxHp", BossAbilityEffectKind.SelfDamage);
                     Check(a.healCutPercent != 0f, a, where, "healCutPercent", BossAbilityEffectKind.HealCut);
                     Check(a.armorDebuffPercent != 0f, a, where, "armorDebuffPercent", BossAbilityEffectKind.StatDebuff);
                     Check(a.roomTickPercentOfMaxHp != 0f, a, where, "roomTickPercentOfMaxHp", BossAbilityEffectKind.RoomTick);
+                    Check(a.roomTickGrowthPercentPerTrigger != 0f, a, where, "roomTickGrowthPercentPerTrigger",
+                        BossAbilityEffectKind.RoomTick);
                     Check(a.enrageDamagePercentPerTrigger != 0f, a, where, "enrageDamagePercentPerTrigger", BossAbilityEffectKind.Enrage);
                     Check(a.selfInvulnerableSeconds != 0f, a, where, "selfInvulnerableSeconds", BossAbilityEffectKind.SelfInvulnerable);
                     Check(a.shieldRegenPercentPerSecond != 0f, a, where, "shieldRegenPercentPerSecond", BossAbilityEffectKind.ShieldRegen);
                     Check(a.spawnMonster != null, a, where, "spawnMonster", BossAbilityEffectKind.SpawnMinions);
+                    Check(a.minionDeathRoomTickSlowPercent != 0f, a, where, "minionDeathRoomTickSlowPercent",
+                        BossAbilityEffectKind.SpawnDefeatedBoss);
                     Check(a.healPercentOfMaxHp != 0f, a, where, "healPercentOfMaxHp", BossAbilityEffectKind.ConsumeMinion);
+                    Check(a.slotDisableSeconds != 0f, a, where, "slotDisableSeconds", BossAbilityEffectKind.SlotDisable);
                 }
             }
         }
@@ -505,14 +511,38 @@ public class BossContentIntegrityTests
             {
                 foreach (var a in kit.phases[p].abilities)
                 {
-                    if (a.effectKind != BossAbilityEffectKind.SpawnMinions) continue;
+                    if (a.effectKind != BossAbilityEffectKind.SpawnMinions &&
+                        a.effectKind != BossAbilityEffectKind.SpawnDefeatedBoss) continue;
 
                     string where = $"{kit.name}, фаза {p}, «{a.displayName}»";
-                    Assert.IsNotNull(a.spawnMonster, $"{where}: SpawnMinions без spawnMonster ничего не ставит.");
+                    if (a.effectKind == BossAbilityEffectKind.SpawnMinions)
+                        Assert.IsNotNull(a.spawnMonster, $"{where}: SpawnMinions без spawnMonster ничего не ставит.");
                     Assert.GreaterOrEqual(a.spawnAliveCap, 1, $"{where}: spawnAliveCap {a.spawnAliveCap} — ноль это «без потолка».");
                     Assert.LessOrEqual(a.spawnAliveCap, 3,
                         $"{where}: spawnAliveCap {a.spawnAliveCap} — больше трёх добавок Вайолет не переживёт.");
                     Assert.GreaterOrEqual(a.spawnCount, 1, $"{where}: spawnCount {a.spawnCount}.");
+                }
+            }
+        }
+    }
+
+    [Test]
+    public void EverySlotDisableAbility_UsesOnlySafeSlots()
+    {
+        foreach (var kit in LoadAllKits())
+        {
+            for (int p = 0; p < kit.phases.Count; p++)
+            {
+                foreach (var ability in kit.phases[p].abilities)
+                {
+                    if (ability.effectKind != BossAbilityEffectKind.SlotDisable) continue;
+                    string where = $"{kit.name}, фаза {p}, «{ability.displayName}»";
+                    Assert.Greater(ability.slotDisableSeconds, 0f, $"{where}: длительность должна быть положительной.");
+                    foreach (var slot in ability.slotDisableOrder)
+                    {
+                        Assert.IsTrue(CombatManager.IsSlotDisableAllowed(slot),
+                            $"{where}: слот {slot} запрещён правилом проходимости.");
+                    }
                 }
             }
         }

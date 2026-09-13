@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 23,
+  "status": "reviewed",
+  "purpose": "Recovered review of eight completed generic P1 active-action jobs. Jobs were originally submitted without durable boss-to-job mapping; mapping below was reconstructed from frame 00 before QA.",
+  "jobs": [
+    {"boss":"Butcher","phase":"P1","clip":"Action","jobId":"cbd4289e-74ab-459a-b05f-2fe0b86a4b9f","status":"approved","review":"Clear hook-forward threat gesture; silhouette and weapon stay stable; no visible artifacts."},
+    {"boss":"RustSmith","phase":"P1","clip":"Action","jobId":"8737dedb-5f13-4352-8026-18b5408a7fc7","status":"approved","review":"Readable self-stoking/heat-up gesture: chest forge flares while both arms brace; stable silhouette and no detached pixels."},
+    {"boss":"BoneLeviathan","phase":"P1","clip":"Action","jobId":"7a105738-f6e9-41e3-95b0-0b4fac435466","status":"rejected","review":"Head and mouth deform into an inconsistent face; not a reliable ability read."},
+    {"boss":"GildedUsurer","phase":"P1","clip":"Action","jobId":"fb351b45-e3cc-42ed-9ee7-d4a062ccfaa9","status":"rejected","review":"Small hand motion is contaminated by detached white/pink wrist particles."},
+    {"boss":"Amalgam","phase":"P1","clip":"Action","jobId":"7f886c69-bf45-4b01-ab5c-077e122de410","status":"rejected","review":"Only an ambiguous body bob/eye shift; no readable active ability."},
+    {"boss":"Broodmother","phase":"P1","clip":"Action","jobId":"0c7cfc98-f93a-46c8-8b7d-be242bc53f08","status":"rejected","review":"Minor leg/body jitter only; does not communicate an action."},
+    {"boss":"MirrorTwin","phase":"P1","clip":"Action","jobId":"771b80d7-84ff-4ed2-969b-e084d2353ae0","status":"approved","review":"Clean sword-raise preparation with stable face, armour and blade; distinct from idle."},
+    {"boss":"RelicEater","phase":"P1","clip":"Action","jobId":"0b1f3241-5a3f-48d5-8457-5119f8120bda","status":"rejected","review":"Small arm drift only; not a sufficiently legible active action."}
+  ]
+}

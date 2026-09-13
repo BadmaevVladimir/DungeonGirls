@@ -96,7 +96,83 @@ public static class CombatantFactory
             ApplyCharacterSkills(runtime, progress, items);
         }
 
+        BindPlayerEquipmentContext(runtime, character, level, progress,
+            equipment ?? character.startingEquipment, tavernLevel, forgeLevel, templeLevel);
+
         return runtime;
+    }
+
+    public static void BindPlayerEquipmentContext(CombatantRuntime runtime, CharacterData character,
+        int level, RunCharacterProgress progress, IReadOnlyList<ItemData> equipment,
+        int tavernLevel = 0, int forgeLevel = 0, int templeLevel = 0)
+    {
+        if (runtime == null) return;
+        runtime.EquipmentSourceCharacter = character;
+        runtime.EquipmentSourceProgress = progress;
+        runtime.EquippedItems = equipment;
+        runtime.EquipmentLevel = Mathf.Max(1, level);
+        runtime.EquipmentTavernLevel = tavernLevel;
+        runtime.EquipmentForgeLevel = forgeLevel;
+        runtime.EquipmentTempleLevel = templeLevel;
+        runtime.DisabledEquipmentSlots ??= new Dictionary<EquipmentSlot, float>();
+    }
+
+    // Пересчитывает только производные от экипировки поля. Текущее HP, износ брони/щита,
+    // временные эффекты и таймеры атак сохраняются; при уменьшении максимума текущее значение
+    // лишь клампится. Возврат слота поэтому не лечит и не ремонтирует персонажа.
+    public static bool RecalculatePlayerEquipmentStats(CombatantRuntime runtime)
+    {
+        if (runtime == null || runtime.EquipmentSourceCharacter == null || runtime.EquippedItems == null)
+            return false;
+
+        var activeItems = new List<ItemData>();
+        foreach (var item in runtime.EquippedItems)
+        {
+            if (item == null) continue;
+            if (runtime.DisabledEquipmentSlots != null && runtime.DisabledEquipmentSlots.ContainsKey(item.slot))
+                continue;
+            activeItems.Add(item);
+        }
+
+        var rebuilt = CreatePlayerCombatant(runtime.EquipmentSourceCharacter,
+            runtime.EquipmentLevel,
+            runtime.EquipmentSourceProgress, activeItems, runtime.EquipmentTavernLevel,
+            runtime.EquipmentForgeLevel, runtime.EquipmentTempleLevel);
+
+        float currentHp = runtime.CurrentHP;
+        float currentArmor = runtime.PhysicalDefenseCurrent;
+        float currentMagicShield = runtime.MagicShieldCurrent;
+        var oldWeapons = runtime.Weapons;
+
+        runtime.MaxHP = rebuilt.MaxHP;
+        runtime.CurrentHP = Mathf.Clamp(currentHp, 0f, runtime.MaxHP);
+        runtime.PhysicalDefenseMax = rebuilt.PhysicalDefenseMax;
+        runtime.PhysicalDefenseCurrent = Mathf.Clamp(currentArmor, 0f, runtime.PhysicalDefenseMax);
+        runtime.MagicShieldMax = rebuilt.MagicShieldMax;
+        runtime.MagicShieldCurrent = Mathf.Clamp(currentMagicShield, 0f, runtime.MagicShieldMax);
+        runtime.CritChanceBonusFromItems = rebuilt.CritChanceBonusFromItems;
+        runtime.ItemAttackSpeedBonusPercent = rebuilt.ItemAttackSpeedBonusPercent;
+        runtime.ItemDamageBonusPercent = rebuilt.ItemDamageBonusPercent;
+        runtime.ItemEvasionBonusPercent = rebuilt.ItemEvasionBonusPercent;
+        runtime.ItemElusivenessLevel = rebuilt.ItemElusivenessLevel;
+        runtime.ItemGoldenTouchLevel = rebuilt.ItemGoldenTouchLevel;
+        runtime.ItemToughSoleLevel = rebuilt.ItemToughSoleLevel;
+        runtime.ItemRepairLevel = rebuilt.ItemRepairLevel;
+        runtime.ItemRiposteLevel = rebuilt.ItemRiposteLevel;
+        runtime.ItemEmbraceOfNightLevel = rebuilt.ItemEmbraceOfNightLevel;
+        runtime.ItemJustAScratchLevel = rebuilt.ItemJustAScratchLevel;
+        runtime.RageFlatBonusPercent = rebuilt.RageFlatBonusPercent;
+
+        for (int i = 0; i < rebuilt.Weapons.Count && i < oldWeapons.Count; i++)
+        {
+            rebuilt.Weapons[i].AttackTimer = oldWeapons[i].AttackTimer;
+            rebuilt.Weapons[i].SecondsSinceLastAttack = oldWeapons[i].SecondsSinceLastAttack;
+            rebuilt.Weapons[i].PrototypeCounter = oldWeapons[i].PrototypeCounter;
+            rebuilt.Weapons[i].PrototypeAccumulatedDamage = oldWeapons[i].PrototypeAccumulatedDamage;
+            rebuilt.Weapons[i].CursedStacks = oldWeapons[i].CursedStacks;
+        }
+        runtime.Weapons = rebuilt.Weapons;
+        return true;
     }
 
     // 2.6 [ОБНОВЛЕНО 2026-08-25]: HP x1.25/этаж, урон x1.15/этаж, физ. защита ТЕПЕРЬ ТОЖЕ x1.15/этаж
@@ -271,6 +347,30 @@ public static class CombatantFactory
             float spread = weapon.DamageMax > 0f ? weapon.DamageMin / weapon.DamageMax : 1f;
             weapon.DamageMax = damageFloor;
             weapon.DamageMin = DamageCalculator.RoundPoints(damageFloor * spread);
+        }
+    }
+
+    // План 11: «орган» — не полноценный повтор босса. Это потолок от уже собранных статов
+    // оригинала: после масштабирования текущего этажа оставляем лишь безопасную долю, отключаем
+    // его BossEncounter в вызывающем коде и сохраняем обычные оружейные правила.
+    public static void ApplyDefeatedBossMinionCeiling(CombatantRuntime minion)
+    {
+        if (minion == null) return;
+        const float hpScale = 0.45f;
+        const float damageScale = 0.40f;
+        const float defenseScale = 0.50f;
+        minion.MaxHP = DamageCalculator.RoundPoints(minion.MaxHP * hpScale);
+        minion.CurrentHP = minion.MaxHP;
+        minion.PhysicalDefenseMax = DamageCalculator.RoundPoints(minion.PhysicalDefenseMax * defenseScale);
+        minion.PhysicalDefenseCurrent = minion.PhysicalDefenseMax;
+        minion.MagicShieldMax = DamageCalculator.RoundPoints(minion.MagicShieldMax * defenseScale);
+        minion.MagicShieldCurrent = minion.MagicShieldMax;
+        minion.ShieldPoolMax = DamageCalculator.RoundPoints(minion.ShieldPoolMax * defenseScale);
+        minion.ShieldPoolCurrent = minion.ShieldPoolMax;
+        foreach (var weapon in minion.Weapons)
+        {
+            weapon.DamageMin = DamageCalculator.RoundPoints(weapon.DamageMin * damageScale);
+            weapon.DamageMax = DamageCalculator.RoundPoints(weapon.DamageMax * damageScale);
         }
     }
 

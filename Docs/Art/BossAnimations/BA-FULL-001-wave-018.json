@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 18,
+  "status": "reviewed",
+  "purpose": "Large phase-two attack batch with explicit contact poses and targeted artifact constraints.",
+  "jobs": [
+    { "clipId": "Jailer_P2_Attack", "jobId": "dc8af454-efcb-4bf9-ae2d-0827c27de3f3", "status": "rejected", "frames": 8, "rejection": "Weapon becomes a bright green block and the pose does not yield a readable attack." },
+    { "clipId": "ClockworkTitan_P2_Attack", "jobId": "15affbed-6e7c-4073-8a16-c5cb26ad0c28", "status": "rejected", "frames": 4, "qaFocus": "Dial and steam.", "rejection": "Dial and steam are intact, but there is no readable attack movement." },
+    { "clipId": "CandleKeeper_P2_Attack", "jobId": "a26db8b9-20e3-4e7e-b80a-515d94591b37", "status": "rejected", "frames": 8, "rejection": "The head is replaced by a large generated flame and the body is substantially recolored." },
+    { "clipId": "StoneIdol_P2_Attack", "jobId": "2b3efff2-e698-461a-a548-95f0817583b2", "status": "rejected", "frames": 8, "rejection": "Hands move but no heavy impact/contact pose is readable." },
+    { "clipId": "DrunkGiant_P2_Attack", "jobId": "d694e699-1aa7-49a7-b912-f8b1c2dfe5eb", "status": "rejected", "frames": 8, "rejection": "A detached white impact burst appears at the hand." },
+    { "clipId": "FrostWraith_P2_Attack", "jobId": "811df3b4-eb2d-4961-ac7d-5f1efd69a55c", "status": "approved_review", "frames": 4 },
+    { "clipId": "SporeMother_P2_Attack", "jobId": "652ee6ef-fae2-4a24-a9d1-e7c56c2405bf", "status": "rejected", "frames": 8, "rejection": "A detached white growth appears at the hand and the contact is unclear." },
+    { "clipId": "AshInquisitor_P2_Attack", "jobId": "c62ce0bc-54ac-492b-bfed-c3592d4be9ae", "status": "rejected", "frames": 8, "rejection": "Generated fire bursts, fragments and sprite disappearance break the silhouette." }
+  ]
+}

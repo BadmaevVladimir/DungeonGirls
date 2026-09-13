@@ -1,0 +1,21 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 14,
+  "status": "reviewed",
+  "purpose": "Next clean phase-one to phase-two transition pair; every frame awaits visual QA.",
+  "jobs": [
+    {
+      "clipId": "PitLord_P2_PhaseEnter",
+      "jobId": "a66790d0-1cf4-4a03-9787-531277e4033e",
+      "status": "approved_review",
+      "qaFocus": "No fire, magic, particles, or detached body parts."
+    },
+    {
+      "clipId": "DungeonHeart_P2_PhaseEnter",
+      "jobId": "e523fa70-b823-478c-a1c3-2526b83053bf",
+      "status": "rejected",
+      "qaFocus": "Connected veins and organs; no generated effects or fragments.",
+      "rejection": "The penultimate frame blows out the entire heart to solid white, a generated flash not present in either source frame."
+    }
+  ]
+}

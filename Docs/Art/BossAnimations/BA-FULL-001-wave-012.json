@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 12,
+  "status": "approved_review",
+  "purpose": "Source-locked fallback for RelicEater after three generative attempts introduced unwanted effects.",
+  "jobs": [
+    {
+      "clipId": "RelicEater_P2_PhaseEnter_SourceLocked",
+      "jobId": null,
+      "status": "approved_review",
+      "method": "source_locked_phase_snap",
+      "frames": ["P1", "P1", "P1", "P2", "P2"],
+      "qaFocus": "All frames are exact approved phase-source pixels; no generated artifacts."
+    }
+  ]
+}

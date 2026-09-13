@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 16,
+  "status": "reviewed",
+  "purpose": "Second large attack batch: eight phase-one attacks with explicit wind-up, contact pose, recovery, and frame-by-frame QA.",
+  "jobs": [
+    { "clipId": "SporeMother_P1_Attack", "jobId": "3fa1c3e2-11b2-4bf1-b325-187f5851190b", "status": "rejected", "frames": 8, "rejection": "No readable lash contact pose; loose spores appear above the head." },
+    { "clipId": "AshInquisitor_P1_Attack", "jobId": "c6aa4899-6160-45bb-8e07-bb9a729ecde7", "status": "rejected", "frames": 8, "rejection": "Generated fire bursts, loose fragments and a full-body spin violate the source-locked silhouette." },
+    { "clipId": "Butcher_P1_Attack", "jobId": "45055f90-702c-48bb-889b-b2edcd698233", "status": "approved_review", "frames": 8 },
+    { "clipId": "RustSmith_P1_Attack", "jobId": "0bcd3dcd-3fa8-43e0-8840-86aa8ff478ee", "status": "rejected", "frames": 8, "rejection": "Hammer materializes in intermediate frames and disappears again; equipment continuity is broken." },
+    { "clipId": "BoneLeviathan_P1_Attack", "jobId": "f15d9af8-aa38-4b82-916b-e31bd620e2cd", "status": "rejected", "frames": 4, "rejection": "Detached red particles appear below the body." },
+    { "clipId": "GildedUsurer_P1_Attack", "jobId": "5efa86d9-51dc-4c69-aed9-e66b4999fd32", "status": "rejected", "frames": 8, "rejection": "A large white impact burst and detached pixels were added." },
+    { "clipId": "Amalgam_P1_Attack", "jobId": "abb3aee9-a0f3-41d2-9e32-f88eca8ebd0c", "status": "approved_review", "frames": 8 },
+    { "clipId": "Broodmother_P1_Attack", "jobId": "36672860-2a53-4946-9af2-1d8ae7561ab3", "status": "rejected", "frames": 8, "rejection": "The lunge/contact remains too subtle to read as an attack." }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "orderId":"BA-FULL-001","wave":28,"status":"reviewed",
+  "purpose":"Eight P2 attack orders tied to approved gameplay timing; each excludes gameplay-owned impact effects.",
+  "jobs":[
+    {"boss":"DrunkGiant","clip":"P2_Attack","jobId":"58ea0cb1-2f10-4096-b782-23da5ebbe03e","status":"rejected","review":"White barrel-breath/impact artifact and barrel redraw."},
+    {"boss":"StoneIdol","clip":"P2_Attack","jobId":"3c12244e-d854-4a2b-8a66-cbeff7e48ad8","status":"rejected","review":"Head cracks and palette change; attack is unreadable."},
+    {"boss":"SporeMother","clip":"P2_Attack","jobId":"37a8da94-a2cb-4e8f-a8e6-aca6da77444c","status":"rejected","review":"Star-shaped particles and body effect."},
+    {"boss":"AshInquisitor","clip":"P2_Attack","jobId":"86f56b0c-7951-430c-8266-7381d3b5b7e6","status":"rejected","review":"Fire and ground-flame artifacts added."},
+    {"boss":"RustSmith","clip":"P2_Attack","jobId":"1e577922-e072-4343-b048-f8ec6dbbf4b2","status":"rejected","review":"Chest glow and body redraw; no clean hammer strike."},
+    {"boss":"BoneLeviathan","clip":"P2_Attack","jobId":"921a8083-91d2-4fc2-8208-bdb466185c03","status":"rejected","review":"New eyes, skull deformation and detached orange debris."},
+    {"boss":"GildedUsurer","clip":"P2_Attack","jobId":"bc8aca1e-f4a0-433a-a84e-19cc1e1842b3","status":"rejected","review":"White impact burst and curved trail artifacts."},
+    {"boss":"Broodmother","clip":"P2_Attack","jobId":"91492663-66b1-456c-aaa2-562b688e2e07","status":"rejected","review":"Face/eyes alter substantially; bite silhouette is not source-safe."}
+  ]
+}

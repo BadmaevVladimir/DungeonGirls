@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 21,
+  "status": "reviewed",
+  "purpose": "Eight phase-one active actions with strict silhouette and artifact QA.",
+  "jobs": [
+    {"clipId":"ClockworkTitan_P1_Action_Третья_шестерня_0","jobId":"1b956f51-7241-4c8b-b10c-ebb1e220cb27","status":"rejected","rejection":"A blue fill covers the dial and detached steam blobs appear."},
+    {"clipId":"TwinShade_P1_Action_Согласие_0","jobId":"aa73c948-6775-47f9-a79d-3290202eabc1","status":"approved_review"},
+    {"clipId":"CandleKeeper_P1_Action_Зажечь_4","jobId":"1b4937eb-9b1f-4695-a976-eb2d88ae9018","status":"approved_review"},
+    {"clipId":"CandleKeeper_P1_Action_Воск_0","jobId":"728f9558-e13e-465d-9ded-4c12a1289185","status":"rejected","rejection":"The hooded head turns into an exposed face in intermediate frames."},
+    {"clipId":"PitHound_P1_Action_Рывок_0","jobId":"d8dd23d8-6d4b-49f4-8ee1-fcc619dd396f","status":"approved_review"},
+    {"clipId":"StoneIdol_P1_Action_Обвал_0","jobId":"0c409194-62d6-4e69-a978-295858fab2a2","status":"rejected","rejection":"The head plate opens into a new form and detached debris appears."},
+    {"clipId":"DrunkGiant_P1_Action_Замах_бочкой_0","jobId":"e18f523c-36b2-4de9-8cf5-7810401dfc2a","status":"approved_review"},
+    {"clipId":"DrunkGiant_P1_Action_Пошатнулся_7","jobId":"1633045f-f0bf-48dd-a97c-e50778580616","status":"approved_review"}
+  ]
+}

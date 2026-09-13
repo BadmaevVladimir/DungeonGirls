@@ -299,9 +299,11 @@ public partial class RunFlowController
     IEnumerator CombatRoomFlow(bool isBoss, FloorMapNode roomNode = null)
     {
         var enemies = new List<CombatantRuntime>();
+        MonsterData defeatedBossForHistory = null;
         if (isBoss)
         {
             var bossForFloor = BossPoolSelector.Select(bossPool, dungeonManager.CurrentFloorNumber, bossData);
+            defeatedBossForHistory = bossForFloor;
             // План 9: единственное место, где класс игрока влияет на состав боя — Зеркальный Двойник
             // выбирает по нему ветку кита. Для всех остальных боссов CreateBossCombatant ведёт себя
             // ровно как CreateMonsterCombatant: веток нет, пол статов выключен.
@@ -440,6 +442,7 @@ public partial class RunFlowController
             characterManager.Character != null ? characterManager.Character.characterId : null,
             isBoss,
             combatMusicIntensity.Target);
+        combatManager.SetDefeatedBossesThisRun(characterManager.Progress.DefeatedBosses);
         combatManager.StartCombat(characterManager.Combatant, enemies);
         BuildEnemyStageEntries(enemies);
         StartPlayerIdleFlipbook();
@@ -512,6 +515,9 @@ public partial class RunFlowController
         {
             yield break;
         }
+
+        if (defeatedBossForHistory != null)
+            characterManager.Progress.RecordDefeatedBoss(defeatedBossForHistory);
 
         // 8.2 (НОВОЕ): короткая пауза после победного удара — игрок успевает увидеть последний
         // эффект/всплывающее число урона (см. 4.7) до того, как сцена начнёт темнеть под награду.

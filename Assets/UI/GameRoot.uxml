@@ -319,11 +319,14 @@
 
             <ui:VisualElement name="EventPopup" class="run-panel hidden">
                 <ui:VisualElement class="run-panel-header run-panel-header-event">
-                    <ui:Label text="Событие" class="run-panel-header-title" />
+                    <ui:Label name="EventPopupTitle" text="Событие" class="run-panel-header-title" />
                 </ui:VisualElement>
-                <ui:VisualElement class="run-panel-body">
-                    <ui:Label name="EventDescriptionLabel" text="" class="body-label" />
-                    <ui:VisualElement name="EventChoicesContainer" />
+                <ui:VisualElement class="run-panel-body event-trap-layout">
+                    <ui:VisualElement class="event-trap-copy-column">
+                        <ui:Label name="EventDescriptionLabel" text="" class="body-label" />
+                        <ui:VisualElement name="EventChoicesContainer" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="EventIllustration" class="event-trap-illustration" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
@@ -331,15 +334,18 @@
                 <ui:VisualElement class="run-panel-header run-panel-header-trap">
                     <ui:Label name="TrapPopupTitle" text="Ловушка" class="run-panel-header-title" />
                 </ui:VisualElement>
-                <ui:VisualElement class="run-panel-body">
-                    <ui:Label name="TrapDescriptionLabel" text="" class="body-label" />
-                    <ui:Label name="TrapChanceLabel" text="Шанс успеха: 50%" class="body-label" />
-                    <ui:VisualElement name="TrapChoiceRow" style="flex-direction: row;">
-                        <ui:Button name="TrapAttemptButton" text="Попытаться пройти ловушку" class="button-primary" />
-                        <ui:Button name="TrapSkipButton" text="Пойти дальше" class="button-secondary" />
+                <ui:VisualElement class="run-panel-body event-trap-layout">
+                    <ui:VisualElement class="event-trap-copy-column">
+                        <ui:Label name="TrapDescriptionLabel" text="" class="body-label" />
+                        <ui:Label name="TrapChanceLabel" text="Шанс успеха: 50%" class="body-label" />
+                        <ui:VisualElement name="TrapChoiceRow" class="event-trap-choice-row">
+                            <ui:Button name="TrapAttemptButton" text="Попытаться пройти ловушку" class="button-primary" />
+                            <ui:Button name="TrapSkipButton" text="Пойти дальше" class="button-secondary" />
+                        </ui:VisualElement>
+                        <ui:Label name="TrapOutcomeLabel" text="" class="body-label hidden" />
+                        <ui:Button name="TrapContinueButton" text="Продолжить" class="button-primary hidden" />
                     </ui:VisualElement>
-                    <ui:Label name="TrapOutcomeLabel" text="" class="body-label hidden" />
-                    <ui:Button name="TrapContinueButton" text="Продолжить" class="button-primary hidden" />
+                    <ui:VisualElement name="TrapIllustration" class="event-trap-illustration" />
                 </ui:VisualElement>
             </ui:VisualElement>
 

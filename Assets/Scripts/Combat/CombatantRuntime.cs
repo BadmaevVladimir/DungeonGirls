@@ -105,6 +105,12 @@ public class CombatantRuntime
     // конкретного боя — см. BossEncounterState, CombatManager.TickBossEncounters.
     [NonSerialized] public BossEncounterState BossEncounter;
 
+    // План 11: ослабленный «орган» Сердца помнит хозяина и награду за свою смерть. Обрабатывается
+    // поллингом в CombatManager: смерть может прийти от атаки, яда, кровотечения или шипов.
+    [NonSerialized] public CombatantRuntime BossMinionOwner;
+    public float BossMinionDeathRoomTickSlowPercent;
+    public bool BossMinionDeathHandled;
+
     // Boss framework (минимальный слайс) — отдельный shield pool способности (BossAbilityEffectKind.
     // ShieldPool), НЕ путать с MagicShieldCurrent/Max выше (тот — экипировка/маг. щит персонажа,
     // блокирует только Magical урон). Этот пул поглощает урон ЛЮБОГО типа ДО HP — см.
@@ -154,6 +160,18 @@ public class CombatantRuntime
     // — иначе добитый босс оставлял бы на сцене живую мелочь, и победа перестала бы совпадать со
     // смертью босса.
     public bool IsBossMinion;
+
+    // План 10 (Пожиратель Реликвий): контекст исходной сборки нужен, чтобы временно исключить
+    // слот и пересчитать только производные статы, не пересоздавая живое состояние боя.
+    [NonSerialized] public CharacterData EquipmentSourceCharacter;
+    [NonSerialized] public RunCharacterProgress EquipmentSourceProgress;
+    [NonSerialized] public IReadOnlyList<ItemData> EquippedItems;
+    [NonSerialized] public int EquipmentLevel = 1;
+    [NonSerialized] public int EquipmentTavernLevel;
+    [NonSerialized] public int EquipmentForgeLevel;
+    [NonSerialized] public int EquipmentTempleLevel;
+    [NonSerialized] public Dictionary<EquipmentSlot, float> DisabledEquipmentSlots =
+        new Dictionary<EquipmentSlot, float>();
 
     // На каком этаже собрана эта сущность. Нужно ровно для спавна по ходу боя: миньон обязан
     // масштабироваться по тому же этажу, что и вызвавший его босс, а CombatManager этажа не знает.

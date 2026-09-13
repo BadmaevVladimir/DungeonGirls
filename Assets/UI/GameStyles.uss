@@ -153,6 +153,17 @@ Button {
     -unity-background-scale-mode: scale-to-fit;
 }
 
+.equipment-slot-disabled {
+    opacity: 0.48;
+    border-color: rgb(210, 72, 58);
+}
+
+.equipment-slot-disabled-label {
+    color: rgb(255, 118, 92);
+    font-size: 8px;
+    -unity-font-style: bold;
+}
+
 .item-tag-strip {
     flex-direction: row;
     flex-wrap: wrap;
@@ -387,6 +398,43 @@ Button {
 .run-panel-body {
     padding: 16px 18px;
     flex-grow: 1;
+}
+
+/* Квесты, ловушки и прочие не-VN события: текст и выбор всегда остаются слева,
+   сюжетная иллюстрация занимает примерно две трети доступной ширины справа. */
+.event-trap-layout {
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 420px;
+}
+
+.event-trap-copy-column {
+    width: 36%;
+    min-width: 300px;
+    flex-shrink: 0;
+    padding-right: 18px;
+    flex-direction: column;
+}
+
+.event-trap-illustration {
+    flex-grow: 1;
+    min-width: 0;
+    border-width: 1px;
+    border-color: rgb(102, 83, 76);
+    border-radius: 6px;
+    overflow: hidden;
+    -unity-background-scale-mode: scale-and-crop;
+    background-color: rgb(14, 14, 19);
+}
+
+.event-trap-choice-row {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.event-trap-choice-row > Button {
+    margin-left: 0;
+    margin-right: 0;
 }
 
 .run-panel-header-item {

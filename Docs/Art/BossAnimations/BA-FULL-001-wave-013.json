@@ -1,0 +1,15 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 13,
+  "status": "approved_review",
+  "purpose": "Replacement for an expired, unreviewed Jailer phase-transition job; all frames require fresh QA.",
+  "jobs": [
+    {
+      "clipId": "Jailer_P2_PhaseEnter",
+      "jobId": "cc1a7985-c35c-4f67-a7fd-2c2e5cb78374",
+      "status": "approved_review",
+      "replaces": "20802742-7fa0-42ee-9611-cc44f434d9cc",
+      "qaFocus": "Connected head, hands, weapon and chains; no generated effects."
+    }
+  ]
+}

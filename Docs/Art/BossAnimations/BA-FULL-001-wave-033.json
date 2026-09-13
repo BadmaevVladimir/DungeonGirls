@@ -1,0 +1,69 @@
+{
+ "orderId": "BA-FULL-001",
+ "wave": 33,
+ "status": "submission_unknown",
+ "purpose": "Ten independent source-pinned second attempts without gameplay effects.",
+ "jobs": [
+  {
+   "clipId": "PitHound_P1_Attack",
+   "sourcePath": "Assets/Art/Enemies/Bosses/PitHound.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  },
+  {
+   "clipId": "StoneIdol_P1_Attack",
+   "sourcePath": "Assets/Art/Enemies/Bosses/StoneIdol.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  },
+  {
+   "clipId": "FrostWraith_P1_Attack",
+   "sourcePath": "Assets/Art/Enemies/Bosses/FrostWraith.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  },
+  {
+   "clipId": "SporeMother_P1_Attack",
+   "sourcePath": "Assets/Art/Enemies/Bosses/SporeMother.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  },
+  {
+   "clipId": "AshInquisitor_P1_Attack",
+   "sourcePath": "Assets/Art/Enemies/Bosses/AshInquisitor.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  },
+  {
+   "clipId": "RustSmith_P1_Attack",
+   "sourcePath": "Assets/Art/Enemies/Bosses/RustSmith.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  },
+  {
+   "clipId": "GildedUsurer_P1_Attack",
+   "sourcePath": "Assets/Art/Enemies/Bosses/GildedUsurer.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  },
+  {
+   "clipId": "Broodmother_P1_Attack",
+   "sourcePath": "Assets/Art/Enemies/Bosses/Broodmother.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  },
+  {
+   "clipId": "MirrorTwin_P1_Attack",
+   "sourcePath": "Assets/Art/Enemies/Bosses/MirrorTwin.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  },
+  {
+   "clipId": "RelicEater_P1_Action_Отрыжка_0",
+   "sourcePath": "Assets/ArtSource/PixelLab/Bosses/RelicEater/RelicEater_128.png",
+   "frameCount": 8,
+   "status": "submission_unknown"
+  }
+ ],
+ "resolution": "No jobId was ever recorded for any item and PixelLab reports no active or recent jobs, so it cannot be proven whether these ten orders were created. Left unresolved rather than resubmitted; superseded by the character-based pipeline decided on 2026-09-13."
+}

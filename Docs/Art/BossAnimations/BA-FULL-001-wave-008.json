@@ -1,0 +1,14 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 8,
+  "status": "processing",
+  "purpose": "Next phase-one to phase-two transition set; all clips await frame-by-frame QA.",
+  "jobs": [
+    { "clipId": "AshInquisitor_P2_PhaseEnter", "jobId": "7ac00906-bc61-41a5-b47f-346913bc62e6", "status": "approved_review" },
+    { "clipId": "Butcher_P2_PhaseEnter", "jobId": "06052d0a-cc25-4e04-9a92-b2709df2396f", "status": "approved_review" },
+    { "clipId": "RustSmith_P2_PhaseEnter", "jobId": "38ee184b-284e-4991-93b3-03737a5991bd", "status": "approved_review" },
+    { "clipId": "BoneLeviathan_P2_PhaseEnter", "jobId": "35c54b0b-f415-4a2f-8210-d7cefa9d4899", "status": "rejected", "rejection": "В промежуточных кадрах появились отделённые красные частицы под телом." },
+    { "clipId": "GildedUsurer_P2_PhaseEnter", "jobId": "b1514de1-9d75-4cb2-8203-4408aa306e0f", "status": "approved_review" },
+    { "clipId": "Amalgam_P2_PhaseEnter", "jobId": "aba8b9af-ddaa-4bd5-a299-f0a1919d2027", "status": "rejected", "rejection": "В промежуточных кадрах появились яркие звёздные вспышки над телом." }
+  ]
+}

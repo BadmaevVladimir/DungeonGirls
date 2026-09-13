@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 11,
+  "status": "reviewed",
+  "purpose": "Alternate animation model for the twice-rejected RelicEater phase transition; exact endpoints, no effects.",
+  "jobs": [
+    {
+      "clipId": "RelicEater_P2_PhaseEnter_Clean_Alt",
+      "jobId": "b061fd6e-9802-412a-aea2-750532f96458",
+      "status": "rejected",
+      "replaces": "RelicEater_P2_PhaseEnter_Clean",
+      "qaFocus": "Endpoint fidelity; no bright bursts, detached pixels, or visual effects.",
+      "rejection": "Frames 03–04 introduce a large generated burst and particle streaks before the endpoint; not source-faithful."
+    }
+  ]
+}

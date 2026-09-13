@@ -1,0 +1,119 @@
+{
+ "orderId": "BA-FULL-001",
+ "wave": 32,
+ "status": "reviewed",
+ "purpose": "Ten simplified second attempts for previously rejected clips; source-pinned, no gameplay effects.",
+ "jobs": [
+  {
+   "boss": "Jailer",
+   "clip": "P1_Attack",
+   "clipId": "Jailer_P1_Attack",
+   "jobId": "9dce01cf-487b-4cf3-81a6-862fe5cf3631",
+   "sourcePath": "Assets/Art/Enemies/Bosses/Jailer.png",
+   "frameCount": 8,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "Identity intact, but the club never leaves the rest pose: no wind-up, no contact frame. Reads as an idle."
+  },
+  {
+   "boss": "Jailer",
+   "clip": "P2_Attack",
+   "clipId": "Jailer_P2_Attack",
+   "jobId": "799b185f-d765-4f3e-88db-3c06d1eab031",
+   "sourcePath": "Assets/Art/Enemies/Bosses/Jailer_P2.png",
+   "frameCount": 8,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "Same as phase 1 - torso shifts only, no swing or contact pose."
+  },
+  {
+   "boss": "Jailer",
+   "clip": "P2_Action_Дубинка_0",
+   "clipId": "Jailer_P2_Action_Дубинка_0",
+   "jobId": "100ada9d-db7a-4bc6-ba33-0b20271df6b0",
+   "sourcePath": "Assets/Art/Enemies/Bosses/Jailer_P2.png",
+   "frameCount": 8,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "No readable club action; motion 0.084 against the 0.22 of the shipped Warden attack."
+  },
+  {
+   "boss": "CandleKeeper",
+   "clip": "P1_Attack",
+   "clipId": "CandleKeeper_P1_Attack",
+   "jobId": "e5b245fa-dc22-4427-80f1-40b8bfc6f0a6",
+   "sourcePath": "Assets/Art/Enemies/Bosses/CandleKeeper.png",
+   "frameCount": 8,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "Clean sprite, but no readable attack gesture."
+  },
+  {
+   "boss": "CandleKeeper",
+   "clip": "P2_Attack",
+   "clipId": "CandleKeeper_P2_Attack",
+   "jobId": "790e8842-87a1-4cc5-9617-4a68ea61ef77",
+   "sourcePath": "Assets/Art/Enemies/Bosses/CandleKeeper_P2.png",
+   "frameCount": 8,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "Clean sprite, but no readable attack gesture."
+  },
+  {
+   "boss": "Butcher",
+   "clip": "P1_Action_Крюк_0",
+   "clipId": "Butcher_P1_Action_Крюк_0",
+   "jobId": "1c9c4be7-e194-4253-b6bf-540df9a1dc68",
+   "sourcePath": "Assets/Art/Enemies/Bosses/Butcher.png",
+   "frameCount": 8,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "Torso lean only; the hook never thrusts."
+  },
+  {
+   "boss": "Butcher",
+   "clip": "P2_Action_Разделка_8",
+   "clipId": "Butcher_P2_Action_Разделка_8",
+   "jobId": "b067da4d-0871-49c3-ac26-7c894fdd2c12",
+   "sourcePath": "Assets/Art/Enemies/Bosses/Butcher_P2.png",
+   "frameCount": 4,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "Auto-QA flags a 153 px flash blob; cleaver action not readable."
+  },
+  {
+   "boss": "RelicEater",
+   "clip": "P3_Idle",
+   "clipId": "RelicEater_P3_Idle",
+   "jobId": "a0e52797-9baf-43b2-9f7a-90dc81606dde",
+   "sourcePath": "Assets/ArtSource/PixelLab/Bosses/RelicEater_P2/RelicEater_P2_128.png",
+   "frameCount": 4,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "Detached 6 px artifact beside the body."
+  },
+  {
+   "boss": "MirrorTwin",
+   "clip": "P2_Idle",
+   "clipId": "MirrorTwin_P2_Idle",
+   "jobId": "74e99332-da2c-41fe-909f-e530d54e2632",
+   "sourcePath": "Assets/Art/Enemies/Bosses/MirrorTwin_P2.png",
+   "frameCount": 4,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "Helmet silhouette grows by 321 px (area up to 1.17); identity not source-safe."
+  },
+  {
+   "boss": "RelicEater",
+   "clip": "P2_Attack",
+   "clipId": "RelicEater_P2_Attack",
+   "jobId": "9aa5339e-00ed-429d-8bda-a65b0d6ff966",
+   "sourcePath": "Assets/ArtSource/PixelLab/Bosses/RelicEater_P2/RelicEater_P2_128.png",
+   "frameCount": 8,
+   "attempt": 2,
+   "status": "rejected",
+   "review": "Source phase-2 crackle preserved, but there is no attack motion."
+  }
+ ],
+ "reviewNote": "Frames were downloaded but never reviewed by the previous run. Reviewed 2026-09-13 with Tools/boss_anim_qa.py plus frame-by-frame inspection. Every clip fails the same way: animate_image cannot produce a readable weapon action while preserving identity."
+}

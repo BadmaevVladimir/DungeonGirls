@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37c73bb7b20f0774db1d325b77fd4879, type: 3}
+  m_Name: Monster_DungeonHeart
+  monsterName: "\u0421\u0435\u0440\u0434\u0446\u0435 \u041F\u043E\u0434\u0437\u0435\u043C\u0435\u043B\u044C\u044F"
+  sprite: {fileID: 21300000, guid: fac62d7efac54cb8a23ab95fbdba8c0f, type: 3}
+  isBoss: 1
+  hp: 700
+  damageMin: 0
+  damageMax: 0
+  damageType: 1
+  attackSpeed: 0
+  physicalDefense: 18
+  magicDefense: 0
+  universalShield: 0
+  frontlinePriority: 0
+  doesNotAttack: 1
+  passiveSkill: {fileID: 0}
+  bossKit: {fileID: 11400000, guid: 7025e64b43a04dacad7f1911e0f00518, type: 2}
+  classVariantKits: []
+  gender: 2
+  minFloorTier: 10

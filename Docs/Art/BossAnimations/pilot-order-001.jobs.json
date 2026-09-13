@@ -1,0 +1,96 @@
+{
+  "orderId": "BA-PILOT-001",
+  "provider": "PixelLab animate_image",
+  "queuedAt": "2026-09-12",
+  "balanceBefore": 4484,
+  "jobs": [
+    {
+      "clipId": "PH-P1-IDLE-A",
+      "jobId": "e6880deb-6fb6-4a4b-a608-a6d07881a1ea",
+      "framesIncludingSource": 5,
+      "costGenerations": 1,
+      "status": "selected",
+      "review": "preferred idle; identity preserved"
+    },
+    {
+      "clipId": "PH-P1-IDLE-B",
+      "jobId": "6ccb3d2d-2d78-4407-84a6-473c36aafa15",
+      "framesIncludingSource": 5,
+      "costGenerations": 1,
+      "status": "completed",
+      "review": "acceptable alternate; more visible head/tail motion"
+    },
+    {
+      "clipId": "PH-P1-IDLE-BASE-RELAXED",
+      "jobId": "4a86ed66-0868-4547-abce-47cc6ae6a1cc",
+      "framesIncludingSource": 1,
+      "costGenerations": 20,
+      "status": "selected_as_idle_base",
+      "review": "closed mouth and lowered relaxed head distinguish idle from the attack silhouette"
+    },
+    {
+      "clipId": "PH-P1-IDLE-RELAXED",
+      "jobId": "f83363e5-4986-4b98-98b3-57c7145f98f7",
+      "framesIncludingSource": 5,
+      "costGenerations": 1,
+      "status": "selected",
+      "review": "replaces Idle A; passive breathing on relaxed base pose, closed loop"
+    },
+    {
+      "clipId": "PH-P1-ATTACK-A",
+      "jobId": "ff2c2b00-ab77-494b-b20d-d8ac3303bb70",
+      "framesIncludingSource": 5,
+      "costGenerations": 1,
+      "status": "rejected",
+      "review": "does not return exactly to source stance; reroll with source pinned as last frame"
+    },
+    {
+      "clipId": "PH-P1-ATTACK-B",
+      "jobId": "5fc55829-8379-440f-98f6-11ea5d493469",
+      "framesIncludingSource": 5,
+      "costGenerations": 1,
+      "status": "rejected",
+      "review": "stronger facial motion but weak body contact and no exact recovery; reroll pinned"
+    },
+    {
+      "clipId": "PH-P1-CHARGE-A",
+      "jobId": "d691c482-b6dc-4d82-9edf-9b561c8c71a7",
+      "framesIncludingSource": 9,
+      "costGenerations": 2,
+      "status": "selected_with_recovery_fix",
+      "review": "best body coil and lunge; selected frames 0-7 plus exact source as frame 8"
+    },
+    {
+      "clipId": "PH-P1-CHARGE-B",
+      "jobId": "52ce37b1-9c0e-48b3-85ea-dc2378f6cb10",
+      "framesIncludingSource": 9,
+      "costGenerations": 2,
+      "status": "rejected",
+      "review": "movement is mostly in the head; preparation silhouette is too weak"
+    },
+    {
+      "clipId": "PH-P1-ATTACK-C",
+      "jobId": "7efa8114-2af7-49e2-b097-8055605a21b1",
+      "framesIncludingSource": 5,
+      "costGenerations": 1,
+      "status": "rejected",
+      "review": "exact recovery but movement is too close to idle"
+    },
+    {
+      "clipId": "PH-P1-ATTACK-D",
+      "jobId": "e11d5933-1a01-42fe-b26e-916690869491",
+      "framesIncludingSource": 5,
+      "costGenerations": 1,
+      "status": "selected",
+      "review": "best regular attack: readable shoulder dip and forepaw contact; exact source recovery"
+    },
+    {
+      "clipId": "PH-P1-CHARGE-C",
+      "jobId": "b6697389-1305-4a7a-b43f-07aacc9f31c9",
+      "framesIncludingSource": 9,
+      "costGenerations": 2,
+      "status": "rejected",
+      "review": "exact recovery but body amplitude is too weak for a 1.5 second telegraph"
+    }
+  ]
+}

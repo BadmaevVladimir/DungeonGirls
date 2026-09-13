@@ -89,6 +89,7 @@ public static class RunStateClone
             Level = source.Level,
             Experience = source.Experience,
             KnownSkillLevels = new Dictionary<PassiveSkillData, int>(source.KnownSkillLevels),
+            DefeatedBosses = new List<MonsterData>(source.DefeatedBosses),
             UniquePassiveLevel = source.UniquePassiveLevel,
             UniqueActiveLevel = source.UniqueActiveLevel,
             MentorMagicDamageBonusPercent = source.MentorMagicDamageBonusPercent,

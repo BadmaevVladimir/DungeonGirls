@@ -233,6 +233,8 @@ public class CharacterManager : MonoBehaviour
 
         Combatant = CombatRuntimeClone.Clone(snapshot.Combatant);
         ClearRoomScopedModifiers(Combatant);
+        CombatantFactory.BindPlayerEquipmentContext(Combatant, Character, Progress.Level, Progress, EquippedItems,
+            tavernLevelThisRun, forgeLevelThisRun, templeLevelThisRun);
         BindRuntimeServicesAndCurses();
     }
 

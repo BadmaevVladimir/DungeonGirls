@@ -1,0 +1,14 @@
+{
+  "orderId":"BA-FULL-001","wave":29,"status":"reviewed",
+  "purpose":"Eight source-locked attacks and weapon actions; all frames downloaded and visually reviewed after completion.",
+  "jobs":[
+    {"boss":"Butcher","clip":"P1_Action_Крюк_0","jobId":"5e04249d-092f-4c85-b8c9-81dcb3b9b731","sourcePath":"Assets/Art/Enemies/Bosses/Butcher.png","status":"rejected","review":"Red detached pixel/impact artifacts appear around the hook during the swing; gameplay effects must not be baked into the sprite."},
+    {"boss":"Butcher","clip":"P2_Action_Разделка_8","jobId":"3f9dcc4e-ff90-440b-8a5b-c1eaa30fee41","sourcePath":"Assets/Art/Enemies/Bosses/Butcher_P2.png","status":"rejected","review":"The cleaver is redrawn into an unrelated thin blue weapon in the contact frames; weapon identity is not source-safe."},
+    {"boss":"Jailer","clip":"P1_Attack","jobId":"01ddcb33-c695-4e54-a798-22a467c24bb3","sourcePath":"Assets/Art/Enemies/Bosses/Jailer.png","status":"rejected","review":"A large white impact burst is introduced over the torso; impact effects belong in Unity, not in the character animation."},
+    {"boss":"Jailer","clip":"P2_Attack","jobId":"17551142-65ad-4e80-be82-b4e89d0a215b","sourcePath":"Assets/Art/Enemies/Bosses/Jailer_P2.png","status":"rejected","review":"Bright green magical blobs, glow, and detached particles are generated throughout the attack."},
+    {"boss":"Jailer","clip":"P1_Action_Дубинка_0","jobId":"42aa990e-7a22-4d05-b301-866869a34a96","sourcePath":"Assets/Art/Enemies/Bosses/Jailer.png","status":"approved_review","review":"All 9 frames reviewed. The body, head, club, chain, palette, transparency, and planted silhouette remain intact; a readable club raise, contact pose, and return are present without gameplay effects."},
+    {"boss":"Jailer","clip":"P2_Action_Дубинка_0","jobId":"f2b32513-758c-47fb-b0fb-1680a37ff0c9","sourcePath":"Assets/Art/Enemies/Bosses/Jailer_P2.png","status":"rejected","review":"Bright green glow, trails, and a detached horizontal energy bar are added to the club action."},
+    {"boss":"CandleKeeper","clip":"P1_Attack","jobId":"e7db489d-f515-46e0-a19b-acaf88165543","sourcePath":"Assets/Art/Enemies/Bosses/CandleKeeper.png","status":"rejected","review":"The candle attack contains generated fire arcs and projectile-like flame bursts; only body motion and the contact pose are allowed."},
+    {"boss":"CandleKeeper","clip":"P2_Attack","jobId":"5171b56a-6101-4630-8468-c05d6a8a8ae9","sourcePath":"Assets/Art/Enemies/Bosses/CandleKeeper_P2.png","status":"rejected","review":"Blue/yellow magical trails, particle pixels, and an altered face appear across the intermediate frames."}
+  ]
+}

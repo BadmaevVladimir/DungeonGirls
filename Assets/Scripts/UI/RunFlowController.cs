@@ -235,8 +235,10 @@ public partial class RunFlowController : MonoBehaviour
     bool runLogCollapsed = true;
 
     // --- Событие (квест, MultipleChoice) ---
+    Label eventPopupTitle;
     Label eventDescriptionLabel;
     VisualElement eventChoicesContainer;
+    VisualElement eventIllustration;
 
     // --- Ловушка / квест TryOrSkip (общий попап) ---
     Label trapPopupTitle;
@@ -247,6 +249,7 @@ public partial class RunFlowController : MonoBehaviour
     Button trapSkipButton;
     Label trapOutcomeLabel;
     Button trapContinueButton;
+    VisualElement trapIllustration;
 
     // --- Левел-ап ---
     VisualElement levelUpCardsContainer;
@@ -542,8 +545,10 @@ public partial class RunFlowController : MonoBehaviour
         runLogToggleButton.clicked += ToggleRunLog;
         skillPanelContainer = root.Q<VisualElement>("SkillPanelContainer");
 
+        eventPopupTitle = root.Q<Label>("EventPopupTitle");
         eventDescriptionLabel = root.Q<Label>("EventDescriptionLabel");
         eventChoicesContainer = root.Q<VisualElement>("EventChoicesContainer");
+        eventIllustration = root.Q<VisualElement>("EventIllustration");
 
         trapPopupTitle = root.Q<Label>("TrapPopupTitle");
         trapDescriptionLabel = root.Q<Label>("TrapDescriptionLabel");
@@ -553,6 +558,7 @@ public partial class RunFlowController : MonoBehaviour
         trapSkipButton = root.Q<Button>("TrapSkipButton");
         trapOutcomeLabel = root.Q<Label>("TrapOutcomeLabel");
         trapContinueButton = root.Q<Button>("TrapContinueButton");
+        trapIllustration = root.Q<VisualElement>("TrapIllustration");
 
         levelUpCardsContainer = root.Q<VisualElement>("LevelUpCardsContainer");
         levelUpTitle = root.Q<Label>("LevelUpTitle");

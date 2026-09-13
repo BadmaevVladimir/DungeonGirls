@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 17,
+  "status": "reviewed",
+  "purpose": "Eight-clip mixed combat batch: remaining P1 attacks plus Jailer and ClockworkTitan active actions.",
+  "jobs": [
+    { "clipId": "MirrorTwin_P1_Attack", "jobId": "209b98da-1bb3-458b-a069-c208dbb7c76b", "status": "rejected", "frames": 8, "qaFocus": "Both heads and no white artifacts.", "rejection": "A detached white slash arc appears in the contact frame." },
+    { "clipId": "RelicEater_P1_Attack", "jobId": "59272241-4bbc-4054-b473-5c6559f612a6", "status": "approved_review", "frames": 8 },
+    { "clipId": "PitLord_P1_Attack", "jobId": "9e997e21-1757-44ff-82dd-68df6c813b22", "status": "rejected", "frames": 8, "rejection": "Large detached white sword-trail arcs were generated." },
+    { "clipId": "Jailer_P1_Action_Кандалы_2", "jobId": "1435dec4-15a0-4490-b04b-7e302c65efd0", "status": "approved_review", "frames": 8 },
+    { "clipId": "Jailer_P1_Action_Дубинка_0", "jobId": "b18d7917-850a-4a50-b920-3faa61c1d8b4", "status": "rejected", "frames": 8, "rejection": "Arm motion never reaches a heavy, readable club contact pose." },
+    { "clipId": "ClockworkTitan_P1_Action_Первая_шестерня_0", "jobId": "902694e5-d090-413b-8f0a-1e9d67fc21fe", "status": "approved_review", "frames": 8, "qaFocus": "Dial and steam." },
+    { "clipId": "ClockworkTitan_P1_Action_Вторая_шестерня_1", "jobId": "cca1bdbe-7abf-4d53-8c53-79106e65ba76", "status": "rejected", "frames": 4, "qaFocus": "Dial and steam.", "rejection": "Contact frame washes the dial out to a solid white burst." },
+    { "clipId": "ClockworkTitan_P1_Action_Третья_шестерня_3", "jobId": "6a158aa2-2ade-4723-a64f-f7ff14dd0280", "status": "approved_review", "frames": 4, "qaFocus": "Dial and steam." }
+  ]
+}

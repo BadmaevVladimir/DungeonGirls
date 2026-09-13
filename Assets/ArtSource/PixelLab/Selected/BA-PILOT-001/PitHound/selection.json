@@ -1,0 +1,34 @@
+{
+  "boss": "PitHound",
+  "phase": 1,
+  "source": "Assets/Art/Enemies/Bosses/PitHound.png",
+  "clips": [
+    {
+      "name": "Idle",
+      "sourceJob": "f83363e5-4986-4b98-98b3-57c7145f98f7",
+      "frames": 5,
+      "fps": 6,
+      "loop": true,
+      "notes": "Generated from a dedicated relaxed base pose (job 4a86ed66-0868-4547-abce-47cc6ae6a1cc); start/end pinned to that pose."
+    },
+    {
+      "name": "Attack",
+      "sourceJob": "e11d5933-1a01-42fe-b26e-916690869491",
+      "frames": 5,
+      "fps": 10,
+      "loop": false,
+      "impactFrameCandidate": 2,
+      "maximumGameplayDurationSeconds": 0.526,
+      "notes": "Final frame is the pinned source pose"
+    },
+    {
+      "name": "Charge",
+      "sourceJob": "d691c482-b6dc-4d82-9edf-9b561c8c71a7",
+      "frames": 9,
+      "loop": false,
+      "telegraphSeconds": 1.5,
+      "impactFrameCandidate": 6,
+      "notes": "Frames 0-7 selected from Charge A; frame 8 is a byte-identical copy of generated frame 0. Telegraph timing requires hold/stretch metadata in runtime."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 20,
+  "status": "reviewed",
+  "purpose": "Eight phase-two active actions with strict silhouette QA.",
+  "jobs": [
+    { "clipId": "Jailer_P2_Action_Кандалы_2", "jobId": "3e9f9e07-48ba-45e4-ae20-6f097ed086b2", "status": "approved_review" },
+    { "clipId": "Jailer_P2_Action_Дубинка_0", "jobId": "3e9d38ae-8050-47c9-b181-9721148c432d", "status": "rejected", "rejection": "A large detached green ring appears and the eye color changes." },
+    { "clipId": "ClockworkTitan_P2_Action_Первая_шестерня_0", "jobId": "2fc36160-022c-4184-9ebc-31d00f6558ff", "status": "approved_review" },
+    { "clipId": "ClockworkTitan_P2_Action_Вторая_шестерня_1", "jobId": "019d29d4-2403-4d19-abd2-fa93c6432cb5", "status": "approved_review" },
+    { "clipId": "ClockworkTitan_P2_Action_Третья_шестерня_3", "jobId": "3e85ac67-42c7-4849-a30d-1b6a441b45e3", "status": "rejected", "rejection": "White burst/smoke blobs detach around the chest in contact frames." },
+    { "clipId": "ClockworkTitan_P2_Action_Третья_шестерня_0", "jobId": "677b6701-b5e4-4ec6-8d9e-c1b1fcab83b8", "status": "approved_review" },
+    { "clipId": "CandleKeeper_P2_Action_Зажечь_4", "jobId": "983b0fa5-5d25-4229-b5f6-324fe61c0953", "status": "approved_review" },
+    { "clipId": "CandleKeeper_P2_Action_Воск_0", "jobId": "0630ae26-68dc-4ff0-bac5-c05170f4c51e", "status": "approved_review" }
+  ]
+}

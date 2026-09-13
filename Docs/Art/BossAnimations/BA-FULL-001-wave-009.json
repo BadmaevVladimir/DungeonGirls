@@ -1,0 +1,21 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 9,
+  "status": "reviewed",
+  "purpose": "Conservative phase-one to phase-two transitions with distinct approved source art; every generated frame awaits visual QA.",
+  "jobs": [
+    {
+      "clipId": "Broodmother_P2_PhaseEnter",
+      "jobId": "c183c047-5984-4b50-a1ec-2d5496f6a1b0",
+      "status": "approved_review",
+      "qaFocus": "Connected limbs and egg sacs; no detached fragments."
+    },
+    {
+      "clipId": "RelicEater_P2_PhaseEnter",
+      "jobId": "645e477a-2cb1-4cca-be6e-35fa265d558d",
+      "status": "rejected",
+      "qaFocus": "Whole silhouette; no floating sparks or debris.",
+      "rejection": "In frames 02–04, a bright purple energy burst and detached particle streaks cover the torso and limbs; this violates the clean-silhouette rule."
+    }
+  ]
+}

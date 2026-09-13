@@ -1,0 +1,18 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 1,
+  "status": "completed",
+  "purpose": "One phase-one Idle from ten distinct bosses for a broad visual review.",
+  "jobs": [
+    { "clipId": "Boss_P1_Idle", "boss": "Страж", "jobId": "e0dcd1a5-e77f-4ac0-9324-9d1b478b8673", "reviewDisposition": "do_not_use", "note": "Страж уже готов; этот черновой результат не подключать и не заменять им существующие анимации." },
+    { "clipId": "PitHound_P1_Idle", "boss": "Гончая Ямы", "jobId": "4a30aeef-e9ef-4b0e-9e97-e7836d38a483", "reviewDisposition": "superseded", "replacement": "BA-PILOT-001 calm idle selection" },
+    { "clipId": "StoneIdol_P1_Idle", "boss": "Каменный Идол", "jobId": "8907f443-ded6-4605-9973-b6d08fd1ec05" },
+    { "clipId": "SporeMother_P1_Idle", "boss": "Матерь Спор", "jobId": "8015b559-0835-41f3-9610-f6714f2747e0" },
+    { "clipId": "Jailer_P1_Idle", "boss": "Тюремщик", "jobId": "576bacad-53ed-4c44-ac3d-fbfcf74a81e9" },
+    { "clipId": "DrunkGiant_P1_Idle", "boss": "Пьяный Великан Ямы", "jobId": "0d21c415-bca4-4707-b64a-6206eeab200e" },
+    { "clipId": "TwinShade_P1_Idle", "boss": "Тень-близнец", "jobId": "ae53eef9-3d9d-4824-9b5c-5efa99cc04a6" },
+    { "clipId": "RustSmith_P1_Idle", "boss": "Ржавый Кузнец", "jobId": "49ec00c1-ced6-467c-b0af-1ca809f3e554" },
+    { "clipId": "ClockworkTitan_P1_Idle", "boss": "Часовой Титан", "jobId": "edd189d5-e7cc-430a-bb09-90ff82c5d082", "reviewDisposition": "superseded", "replacementJobId": "f13014e2-b84c-45cb-8ecf-839752b24437", "replacementPath": "Assets/ArtSource/PixelLab/Reviews/BA-FULL-001/Wave01/ClockworkTitan_P1_Idle_Steam", "note": "Пар из обеих плечевых труб — главный, отчётливо меняющийся индикатор idle." },
+    { "clipId": "FrostWraith_P1_Idle", "boss": "Ледяная Плакальщица", "jobId": "585e19cc-94e0-450f-9579-adf8940dda60" }
+  ]
+}

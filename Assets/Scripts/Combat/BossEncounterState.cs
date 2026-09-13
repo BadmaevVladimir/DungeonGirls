@@ -13,10 +13,12 @@ public class BossEncounterState
 
     readonly Dictionary<BossAbilityConfig, float> cooldownTimers = new Dictionary<BossAbilityConfig, float>();
     readonly HashSet<BossAbilityConfig> firedOnCombatStart = new HashSet<BossAbilityConfig>();
+    int roomTickExecutionCount;
 
     // Позиция в жёстком цикле способностей фазы (BossPhaseData.cycleAbilities). Для обычных фаз
     // не используется вовсе.
     int cycleIndex;
+    float roomTickCooldownMultiplier = 1f;
 
     // Индекс шага цикла для UI: игрок должен видеть, где сейчас стрелка на циферблате.
     public int CurrentCycleIndex => CurrentPhase.cycleAbilities ? cycleIndex : -1;
@@ -70,7 +72,8 @@ public class BossEncounterState
         {
             if (CurrentPhase.abilities.Count > 0)
             {
-                cooldownTimers[CurrentPhase.abilities[0]] = CurrentPhase.abilities[0].initialDelaySeconds;
+                var first = CurrentPhase.abilities[0];
+                cooldownTimers[first] = ScaleCooldown(first, first.initialDelaySeconds);
             }
 
             return;
@@ -80,7 +83,7 @@ public class BossEncounterState
         {
             if (ability.triggerKind == BossAbilityTriggerKind.Periodic)
             {
-                cooldownTimers[ability] = ability.initialDelaySeconds;
+                cooldownTimers[ability] = ScaleCooldown(ability, ability.initialDelaySeconds);
             }
         }
     }
@@ -194,13 +197,43 @@ public class BossEncounterState
         if (CurrentPhase.cycleAbilities)
         {
             cycleIndex = (cycleIndex + 1) % CurrentPhase.abilities.Count;
-            cooldownTimers[CurrentPhase.abilities[cycleIndex]] = ability.cooldownSeconds;
+            var next = CurrentPhase.abilities[cycleIndex];
+            cooldownTimers[next] = ScaleCooldown(next, ability.cooldownSeconds);
             return;
         }
 
         if (ability.triggerKind == BossAbilityTriggerKind.Periodic)
         {
-            cooldownTimers[ability] = ability.cooldownSeconds;
+            cooldownTimers[ability] = ScaleCooldown(ability, ability.cooldownSeconds);
         }
     }
+
+    // Сердце Подземелья: уничтожение конечности замедляет только будущие «Биения».
+    // Умножаем и уже идущий отсчёт, поэтому награда ощущается сразу, а не после следующего тика.
+    public void SlowRoomTicks(float percent)
+    {
+        float clamped = UnityEngine.Mathf.Clamp(percent, 0f, 90f);
+        if (clamped <= 0f) return;
+        float multiplier = 1f / (1f - clamped / 100f);
+        roomTickCooldownMultiplier *= multiplier;
+        var keys = new List<BossAbilityConfig>(cooldownTimers.Keys);
+        foreach (var ability in keys)
+        {
+            if (ability.effectKind == BossAbilityEffectKind.RoomTick)
+                cooldownTimers[ability] *= multiplier;
+        }
+    }
+
+    public float ConsumeRoomTickPercent(BossAbilityConfig ability)
+    {
+        if (ability == null) return 0f;
+        int previousCount = roomTickExecutionCount++;
+        float growthMultiplier = 1f + UnityEngine.Mathf.Max(0f, ability.roomTickGrowthPercentPerTrigger) / 100f;
+        return ability.roomTickPercentOfMaxHp * UnityEngine.Mathf.Pow(growthMultiplier, previousCount);
+    }
+
+    float ScaleCooldown(BossAbilityConfig ability, float seconds) =>
+        ability != null && ability.effectKind == BossAbilityEffectKind.RoomTick
+            ? seconds * roomTickCooldownMultiplier
+            : seconds;
 }

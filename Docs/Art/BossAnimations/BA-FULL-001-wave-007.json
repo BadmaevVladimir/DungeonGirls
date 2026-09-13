@@ -1,0 +1,14 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 7,
+  "status": "processing",
+  "purpose": "Phase-one to phase-two transitions with anchored final poses; all await frame-by-frame QA.",
+  "jobs": [
+    { "clipId": "ClockworkTitan_P2_PhaseEnter", "jobId": "423b3946-6668-40d2-9f2f-243a63f48bd9", "status": "approved_review", "identityLock": "Циферблат и трубы" },
+    { "clipId": "CandleKeeper_P2_PhaseEnter", "jobId": "1aa8351d-89ca-4749-94fc-e022fb2f666c", "status": "approved_review" },
+    { "clipId": "StoneIdol_P2_PhaseEnter", "jobId": "b0a2718b-2d43-4dc5-b002-fd75ddeec4c5", "status": "rejected", "rejection": "В промежуточных кадрах появились лишние отделённые зелёные частицы у ног." },
+    { "clipId": "DrunkGiant_P2_PhaseEnter", "jobId": "50302097-37a6-4234-b99f-d8c1148424bf", "status": "approved_review" },
+    { "clipId": "FrostWraith_P2_PhaseEnter", "jobId": "1cf51d50-afb6-42d8-9e9e-4fa2766fce22", "status": "approved_review" },
+    { "clipId": "SporeMother_P2_PhaseEnter", "jobId": "bd852dff-143b-4861-a833-3e698d96da57", "status": "approved_review" }
+  ]
+}

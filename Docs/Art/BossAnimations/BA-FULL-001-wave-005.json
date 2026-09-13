@@ -1,0 +1,18 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 5,
+  "status": "processing",
+  "purpose": "Remaining phase-two and phase-three idle clips, all pending frame-by-frame QA.",
+  "jobs": [
+    { "clipId": "BoneLeviathan_P2_Idle", "jobId": "735e02be-a575-414b-a14f-839eefdb42d9", "status": "approved_review" },
+    { "clipId": "GildedUsurer_P2_Idle", "jobId": "395ebf04-737c-46d3-8878-35b83da97f73", "status": "approved_review" },
+    { "clipId": "Amalgam_P2_Idle", "jobId": "eb945354-1abc-433e-ad26-b9855a4910df", "status": "rejected", "rejection": "В промежуточных кадрах появились лишние светлые частицы над телом." },
+    { "clipId": "Amalgam_P3_Idle", "jobId": "3523254c-1591-4388-8b1d-b91256ceee9e", "status": "approved_review" },
+    { "clipId": "Broodmother_P2_Idle", "jobId": "ce988d09-f35b-44f0-a51c-41f9528ea70b", "status": "approved_review" },
+    { "clipId": "MirrorTwin_P2_Idle", "jobId": "f985de8d-7b12-4bde-b357-79d2c7975aa1", "status": "rejected", "rejection": "В кадрах 1–3 добавлены белые вспышки у головы; это артефакты, не эффект idle." },
+    { "clipId": "RelicEater_P2_Idle", "jobId": "9f2080f3-035f-44ba-b8bc-231a9ef3fb1d", "status": "approved_review" },
+    { "clipId": "RelicEater_P3_Idle", "jobId": "d947d5eb-2449-4dc5-a365-e0bd5f58aaa1", "status": "rejected", "rejection": "Для фазы 3 использован тот же исходный спрайт, что и для фазы 2; фазовая вариация отсутствует." },
+    { "clipId": "PitLord_P2_Idle", "jobId": "8ce70bca-80b9-46d8-8a07-5ed9d626e9de", "status": "approved_review" },
+    { "clipId": "PitLord_P3_Idle", "jobId": "d3701519-d2f6-468d-9706-fdd9232cbda1", "status": "rejected", "rejection": "Для фазы 3 использован тот же исходный спрайт, что и для фазы 2; фазовая вариация отсутствует." }
+  ]
+}

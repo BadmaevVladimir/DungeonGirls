@@ -1,0 +1,12 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 6,
+  "status": "processing",
+  "purpose": "Correct two rejected idles and complete the last unsubmitted idle clips. All clips await frame-by-frame QA.",
+  "jobs": [
+    { "clipId": "Amalgam_P2_Idle", "jobId": "2d3c49fb-f1f0-44e7-878a-cfeb1947441c", "supersedesJobId": "eb945354-1abc-433e-ad26-b9855a4910df", "status": "rejected", "rejection": "Повторная генерация снова добавила яркие вспышки и частицы над телом." },
+    { "clipId": "MirrorTwin_P2_Idle", "jobId": "a3152b38-4d5a-4a44-901f-c280d1f1f27b", "supersedesJobId": "f985de8d-7b12-4bde-b357-79d2c7975aa1", "status": "rejected", "rejection": "Повторная генерация снова добавила белые вспышки у головы." },
+    { "clipId": "DungeonHeart_P1_Idle", "jobId": "d7f53c2f-f998-436c-be63-3866664e9a53", "status": "approved_review" },
+    { "clipId": "DungeonHeart_P2_Idle", "jobId": "3babc6f0-d85f-4b3f-bfce-091c444bff59", "status": "approved_review" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 2,
+  "status": "processing",
+  "purpose": "One phase-one Idle from ten additional bosses for broad visual review.",
+  "jobs": [
+    { "clipId": "GildedUsurer_P1_Idle", "boss": "Позолоченный Ростовщик", "jobId": "c0aa0536-e758-4fc6-9619-e479f8a6ecbe" },
+    { "clipId": "Amalgam_P1_Idle", "boss": "Пожирающий Амальгам", "jobId": "fad90007-22e2-4158-ac9e-7256c6125990" },
+    { "clipId": "Broodmother_P1_Idle", "boss": "Паучиха-Прародительница", "jobId": "008f2c32-b6c1-4457-af26-c8b3bec55d5c" },
+    { "clipId": "Butcher_P1_Idle", "boss": "Мясник Глубин", "jobId": "8e0b4a19-252b-4647-bebe-d6e9c8524bd0" },
+    { "clipId": "CandleKeeper_P1_Idle", "boss": "Свечник", "jobId": "b356791d-fc5c-4b8f-8f5c-25e8dfc93fc0" },
+    { "clipId": "MirrorTwin_P1_Idle", "boss": "Зеркальный Двойник", "jobId": "4b2952ae-4193-402d-abfb-dfef7878f0b5" },
+    { "clipId": "RelicEater_P1_Idle", "boss": "Пожиратель Реликвий", "jobId": "de577a06-1a7c-4b93-949a-7509880009d1" },
+    { "clipId": "AshInquisitor_P1_Idle", "boss": "Пепельный Инквизитор", "jobId": "977a3e97-23a7-4b2c-bb00-bbd1d724d6cc" },
+    { "clipId": "BoneLeviathan_P1_Idle", "boss": "Костяной Левиафан", "jobId": "1d1225b1-5c4e-4861-9ae1-f1d35c2c2e2e" },
+    { "clipId": "PitLord_P1_Idle", "boss": "Владыка Ямы", "jobId": "683a79b4-a310-4031-ab24-0a5f6019bfd3" }
+  ]
+}

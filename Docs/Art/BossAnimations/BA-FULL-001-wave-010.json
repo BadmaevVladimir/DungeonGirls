@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 10,
+  "status": "reviewed",
+  "purpose": "Conservative correction for a rejected RelicEater phase transition; forbids all energy and particle effects.",
+  "jobs": [
+    {
+      "clipId": "RelicEater_P2_PhaseEnter_Clean",
+      "jobId": "e90422d3-d639-459d-a16d-2a3efc7a3055",
+      "status": "rejected",
+      "replaces": "RelicEater_P2_PhaseEnter",
+      "qaFocus": "No glow, particles, detached pixels, or silhouette damage.",
+      "rejection": "The final generated frame again adds a large purple burst and detached specks around the torso; endpoint fidelity was not preserved."
+    }
+  ]
+}

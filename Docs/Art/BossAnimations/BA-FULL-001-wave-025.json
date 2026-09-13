@@ -1,0 +1,16 @@
+{
+  "orderId":"BA-FULL-001",
+  "wave":25,
+  "status":"reviewed",
+  "purpose":"Source-locked corrective P1 action batch. Prompts constrain animation to rigid movements of existing pixels; all external effects are gameplay-owned.",
+  "jobs":[
+    {"boss":"BoneLeviathan","clip":"P1_Action_Захлёст_0","jobId":"2455a515-8927-4e91-a525-7453b187f16b","status":"rejected","review":"Even the rigid-movement request redraws the skull as a toothy face."},
+    {"boss":"GildedUsurer","clip":"P1_Action_Обесценивание_0","jobId":"41820fec-1a60-49a5-a49a-b557f898005e","status":"rejected","review":"Purple detached pixels remain near the hands."},
+    {"boss":"Amalgam","clip":"P1_Action_Кислотный_плевок_0","jobId":"468709c8-3dd5-4934-ae26-b602227dd6b8","status":"rejected","review":"Detached green pixels remain and the eye shape drifts."},
+    {"boss":"Broodmother","clip":"P1_Action_Ядовитый_укус_0","jobId":"0ebb1ce1-5aa2-4b99-9a28-42efc66e6d59","status":"rejected","review":"The clip is nearly static; bite/action is not readable."},
+    {"boss":"RelicEater","clip":"P1_Action_Отрыжка_0","jobId":"06033c3d-4ece-452e-a559-ff92da296f2a","status":"rejected","review":"Tongue is again stretched into an unintended appendage."},
+    {"boss":"DrunkGiant","clip":"P1_Action_Отрыжка_0","jobId":"1d5436a7-8000-414a-be4c-5abd2a3761d4","status":"rejected","review":"White detached arrow-shaped artifacts appear at the barrel."},
+    {"boss":"FrostWraith","clip":"P1_Action_Ледяной_крик_0","jobId":"b8652330-fb7c-4aa7-bda3-9603cfac534d","status":"approved_review","review":"Clean lean-back and arm-lift scream windup; silhouette and palette stay coherent, with no detached artifacts."},
+    {"boss":"StoneIdol","clip":"P1_Action_Камнепад_0","jobId":"21d67414-6367-454d-b8fa-81f7d4e664e7","status":"rejected","review":"Adds floating/ground debris and changes the intended body pose; unsafe for a source-locked windup."}
+  ]
+}

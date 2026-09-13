@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#17151d"/><stop offset="1" stop-color="#090a0e"/></linearGradient>
+    <linearGradient id="art" x2="1" y2="1"><stop stop-color="#4c1e24"/><stop offset=".55" stop-color="#201925"/><stop offset="1" stop-color="#10151e"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="28" y="28" width="1544" height="844" rx="10" fill="#1a1a20" stroke="#756143" stroke-width="3"/>
+  <rect x="28" y="28" width="1544" height="72" rx="10" fill="#4a2929"/>
+  <rect x="28" y="97" width="1544" height="3" fill="#d26858"/>
+  <text x="70" y="75" fill="#ffe0d6" font-family="monospace" font-size="30" font-weight="bold">ЛОВУШКА</text>
+  <text x="1452" y="73" fill="#d7b7ad" font-family="monospace" font-size="18" text-anchor="end">ЭТАЖ 3  •  КОМНАТА 5</text>
+  <rect x="56" y="130" width="500" height="700" rx="6" fill="#222129" stroke="#4d4955" stroke-width="2"/>
+  <text x="90" y="188" fill="#ffd06b" font-family="monospace" font-size="26" font-weight="bold">ЗАМИНИРОВАННЫЙ СУНДУК</text>
+  <rect x="90" y="215" width="102" height="27" rx="3" fill="#7a3237"/><text x="141" y="235" fill="#fff0e7" font-family="monospace" font-size="15" text-anchor="middle">РИСК</text>
+  <text x="90" y="286" fill="#e6e2e8" font-family="sans-serif" font-size="22">При входе в комнату вы замечаете</text>
+  <text x="90" y="319" fill="#e6e2e8" font-family="sans-serif" font-size="22">сундук прямо посередине. Что-то</text>
+  <text x="90" y="352" fill="#e6e2e8" font-family="sans-serif" font-size="22">подсказывает: это точно ловушка…</text>
+  <line x1="90" x2="520" y1="400" y2="400" stroke="#4e4a54" stroke-width="2"/>
+  <text x="90" y="440" fill="#ffce83" font-family="monospace" font-size="20">ШАНС УСПЕХА  65%</text>
+  <rect x="90" y="480" width="430" height="70" rx="6" fill="#466aa8" stroke="#8faeec" stroke-width="2"/>
+  <text x="305" y="524" fill="white" font-family="sans-serif" font-size="23" font-weight="bold" text-anchor="middle">Осмотреть сундук</text>
+  <rect x="90" y="566" width="430" height="70" rx="6" fill="#44434d" stroke="#767581" stroke-width="2"/>
+  <text x="305" y="610" fill="#f0edf2" font-family="sans-serif" font-size="23" text-anchor="middle">Пойти дальше</text>
+  <text x="90" y="724" fill="#aaa6af" font-family="sans-serif" font-size="17">Выборы остаются в одной вертикальной</text>
+  <text x="90" y="750" fill="#aaa6af" font-family="sans-serif" font-size="17">колонке, доступной без прокрутки.</text>
+  <rect x="580" y="130" width="956" height="700" rx="6" fill="url(#art)" stroke="#6e554e" stroke-width="2"/>
+  <rect x="610" y="160" width="896" height="640" fill="#0b0d12" opacity=".24"/>
+  <circle cx="1100" cy="376" r="160" fill="#e08a47" opacity=".22" filter="url(#glow)"/>
+  <path d="M610 678 L790 530 L900 615 L1050 436 L1220 595 L1400 425 L1506 500 L1506 800 L610 800Z" fill="#17161d"/>
+  <path d="M610 736 L765 670 L920 730 L1080 640 L1230 715 L1400 610 L1506 680 L1506 800 L610 800Z" fill="#24232a"/>
+  <rect x="996" y="486" width="270" height="145" rx="12" fill="#4a2417" stroke="#d99a52" stroke-width="9"/>
+  <path d="M1000 553H1262M1131 490V630" stroke="#d99a52" stroke-width="10"/>
+  <rect x="1110" y="535" width="44" height="35" rx="4" fill="#f4c35a"/>
+  <path d="M935 688 C1010 640 1090 658 1160 688" fill="none" stroke="#b94c42" stroke-width="8" stroke-dasharray="16 14"/>
+  <text x="636" y="198" fill="#ffffff" font-family="monospace" font-size="17" opacity=".85">ИЛЛЮСТРАЦИЯ СОБЫТИЯ • 16:9</text>
+  <text x="636" y="775" fill="#d7c9c4" font-family="sans-serif" font-size="17">Иллюстрация занимает 64% рабочей области; текстовая колонка — 36%.</text>
+</svg>

@@ -14,6 +14,17 @@ public class RunCharacterProgress
     // Общие/классовые навыки (3.9), известные персонажу в этом забеге, и их текущий уровень.
     public Dictionary<PassiveSkillData, int> KnownSkillLevels = new Dictionary<PassiveSkillData, int>();
 
+    // План 11: Сердце Подземелья призывает органы из боссов, уже побеждённых в текущем забеге.
+    // Это намеренно живёт в run-progress, а не в сцене/CombatManager: список должен переживать
+    // переход между этажами, но новый RunCharacterProgress при BeginRun очищает его автоматически.
+    public List<MonsterData> DefeatedBosses = new List<MonsterData>();
+
+    public void RecordDefeatedBoss(MonsterData boss)
+    {
+        if (boss == null || !boss.isBoss || DefeatedBosses.Contains(boss)) return;
+        DefeatedBosses.Add(boss);
+    }
+
     public int UniquePassiveLevel = 1;
     public int UniqueActiveLevel = 1;
     public int LevelUpRerollsRemaining { get; private set; }

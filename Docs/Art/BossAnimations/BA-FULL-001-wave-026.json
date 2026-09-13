@@ -1,0 +1,16 @@
+{
+  "orderId":"BA-FULL-001",
+  "wave":26,
+  "status":"reviewed",
+  "purpose":"Eight independent P1 active-action orders, with exact job mapping recorded on submission.",
+  "jobs":[
+    {"boss":"BoneLeviathan","clip":"P1_Action_Осыпь_11","jobId":"1aaab7d2-5321-4062-8879-139cb8ac9136","status":"rejected","review":"Jaw animation redraws the skull into an incompatible face."},
+    {"boss":"GildedUsurer","clip":"P1_Action_Монетный_панцирь_14","jobId":"d6cf6b27-8619-4763-9aa3-06d0501795ec","status":"rejected","review":"Persistent purple detached pixels under both wrists."},
+    {"boss":"Amalgam","clip":"P1_Action_Поглощение_16","jobId":"92f612ee-49d0-4619-ba61-ae76d82eaafc","status":"rejected","review":"Eye and face morph substantially; no source identity lock."},
+    {"boss":"Broodmother","clip":"P1_Action_Кладка_15","jobId":"255b421d-e0ba-4257-bc93-b44cca269b39","status":"approved_review","review":"Leg rearing is distinct and readable; anatomy, egg-sac and palette remain stable."},
+    {"boss":"RelicEater","clip":"P1_Action_Заглатывание_17","jobId":"4fcf6e0c-9dc3-49c9-a6b6-e6a91bd8c606","status":"approved_review","review":"Clear hunch-and-hands-to-chest preparation; no tongue stretch or detached artifacts."},
+    {"boss":"DrunkGiant","clip":"P1_Action_Пьяный_размах_0","jobId":"664fcc1a-e6cb-4238-ac8a-8c2ec9f6f267","status":"approved_review","review":"Readable barrel-arm windup; silhouette and props stay stable."},
+    {"boss":"StoneIdol","clip":"P1_Action_Каменный_щит_0","jobId":"a7a59f5f-ce24-404c-a91f-3170b1fee207","status":"rejected","review":"Small detached grey debris pixels appear at the feet."},
+    {"boss":"Jailer","clip":"P1_Action_Цепи_0","jobId":"5fb8928d-f0f3-4fd1-9e30-5cd5a8a20dda","status":"approved_review","review":"Clear chain-pull, consistent head, armour, weapon and chain geometry."}
+  ]
+}

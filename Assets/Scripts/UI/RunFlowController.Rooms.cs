@@ -16,7 +16,9 @@ public partial class RunFlowController
         }
 
         var trap = GetResolvedTrap(roomNode);
-        trapPopupTitle.text = "Ловушка";
+        SetTrapIllustration(trap == TrapCatalog.MinedChest ? "MinedChest" :
+            trap == TrapCatalog.Alarm ? "Alarm" : "Idol");
+        trapPopupTitle.text = trap.Name;
         yield return ShowChancePopupAndWait(trap.DescriptionText, trap.Level, trap.SuccessText, trap.FailText, "Попытаться пройти ловушку", "Пойти дальше");
 
         if (!chanceAttempted)
@@ -76,6 +78,7 @@ public partial class RunFlowController
     IEnumerator HarpyNestRoomFlow(FloorMapNode roomNode)
     {
         ResourceAmount successReward = default;
+        SetTrapIllustration("HarpyNest");
         trapPopupTitle.text = HarpyNestContent.Title;
         yield return ShowChancePopupAndWait(
             HarpyNestContent.Description,
@@ -114,6 +117,8 @@ public partial class RunFlowController
 
     IEnumerator ShowHarpyNestVictory(int amount)
     {
+        SetEventIllustration("HarpyNest");
+        eventPopupTitle.text = HarpyNestContent.Title;
         ShowOnly(eventPopup);
         eventChoicesContainer.Clear();
         eventDescriptionLabel.text = HarpyNestContent.Victory(amount);
@@ -238,6 +243,10 @@ public partial class RunFlowController
 
     IEnumerator QuestRoomFlow(QuestDefinition quest)
     {
+        SetEventIllustration(quest == QuestCatalog.Sphinx ? "Sphinx" :
+            quest == QuestCatalog.FairyRing ? "FairyRing" :
+            quest == QuestCatalog.SwordInStone ? "SwordInStone" : "Hunt");
+        eventPopupTitle.text = quest.Name;
         if (quest == QuestCatalog.Hunt) huntQuestTriggeredThisRun = true;
 
         if (quest.InteractionType == QuestInteractionType.MultipleChoice)
@@ -357,6 +366,8 @@ public partial class RunFlowController
 
     IEnumerator MushroomCaveRoomFlow()
     {
+        SetEventIllustration("MushroomCave");
+        eventPopupTitle.text = "Пещера грибов";
         ShowOnly(eventPopup);
         tutorialManager?.QueueOnce(TutorialContent.EventRoom);
         eventDescriptionLabel.text = "В пещере растут редкие съедобные грибы. Можно собрать немного безопасно или рискнуть ради большей добычи.";
@@ -388,6 +399,8 @@ public partial class RunFlowController
 
     IEnumerator AbandonedForgeRoomFlow()
     {
+        SetEventIllustration("AbandonedForge");
+        eventPopupTitle.text = "Заброшенная кузница";
         var materials = rewardManager.RollAbandonedForgeMaterials(RareRoomConfig, new UnityRewardRandom());
         saveManager.AddResources(materials);
         ShowOnly(eventPopup);
@@ -400,6 +413,28 @@ public partial class RunFlowController
         continueButton.AddToClassList("button-primary");
         eventChoicesContainer.Add(continueButton);
         yield return WaitForClick(continueButton);
+    }
+
+    // Ресурсы именуются по контенту комнаты, а не по тексту заголовка: один и тот же попап
+    // используется для нескольких типов событий и не должен хранить ссылки на арты в инспекторе.
+    void SetEventIllustration(string artId) => SetIllustration(eventIllustration, artId);
+    void SetTrapIllustration(string artId) => SetIllustration(trapIllustration, artId);
+
+    static void SetIllustration(VisualElement target, string artId)
+    {
+        if (target == null) return;
+        // Арты импортированы как Sprite, поэтому грузим именно основной Sprite ресурса. Загрузка
+        // Texture2D от Sprite-ассета может вернуть не тот sub-asset после реимпорта Unity.
+        var sprite = Resources.Load<Sprite>($"EventArt/EventArt_{artId}");
+        if (sprite != null)
+        {
+            target.style.backgroundImage = new StyleBackground(sprite);
+        }
+        else
+        {
+            target.style.backgroundImage = new StyleBackground();
+            Debug.LogWarning($"[Rooms] Не найдена иллюстрация события EventArt_{artId}.");
+        }
     }
 
     bool TryReservePersonalRestRoom()

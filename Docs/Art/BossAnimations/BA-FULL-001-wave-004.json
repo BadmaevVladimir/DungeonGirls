@@ -1,0 +1,18 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 4,
+  "status": "processing",
+  "purpose": "Phase-two idle set with identity-locked prompts; every completed clip requires frame-by-frame QC.",
+  "jobs": [
+    { "clipId": "Jailer_P2_Idle", "jobId": "8ef50439-09d7-4980-8cdd-52d8a28a833f", "status": "approved_review" },
+    { "clipId": "ClockworkTitan_P2_Idle", "jobId": "f0ca76b8-51ad-400d-bec1-535edbb1cea4", "status": "approved_review", "reviewPath": "Assets/ArtSource/PixelLab/Reviews/BA-FULL-001/Wave04/ClockworkTitan_P2_Idle", "identityLock": "Циферблат и паровые трубы", "reviewNotes": "Циферблат цел во всех кадрах; пар меняет объём и силуэт." },
+    { "clipId": "CandleKeeper_P2_Idle", "jobId": "a77c5b60-f3db-4d57-9dda-4736469390a7", "status": "approved_review" },
+    { "clipId": "StoneIdol_P2_Idle", "jobId": "485e44a3-a703-422d-b68e-54ab7a343b86", "status": "approved_review" },
+    { "clipId": "DrunkGiant_P2_Idle", "jobId": "a38f0f56-cc86-45c2-893b-ad2679f03291", "status": "approved_review" },
+    { "clipId": "FrostWraith_P2_Idle", "jobId": "625bc551-d2f8-45e2-9063-cff35711123d", "status": "approved_review" },
+    { "clipId": "SporeMother_P2_Idle", "jobId": "d2c24b10-c399-4773-9bef-664b6200332c", "status": "approved_review" },
+    { "clipId": "AshInquisitor_P2_Idle", "jobId": "1055af9a-86f5-4d02-8bc2-84df130400a3", "status": "approved_review" },
+    { "clipId": "Butcher_P2_Idle", "jobId": "3e2803d0-386a-4c12-ae8e-ac959b96523a", "status": "approved_review" },
+    { "clipId": "RustSmith_P2_Idle", "jobId": "e5751217-12ca-4d7e-a9e5-54917bd8dbe7", "status": "approved_review" }
+  ]
+}

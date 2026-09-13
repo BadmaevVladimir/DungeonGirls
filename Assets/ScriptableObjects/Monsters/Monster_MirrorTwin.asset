@@ -16,8 +16,8 @@ MonoBehaviour:
   sprite: {fileID: 21300000, guid: 744c9358cf6344ebb892f8da479138ce, type: 3}
   isBoss: 1
   hp: 250
-  damageMin: 20
-  damageMax: 26
+  damageMin: 16
+  damageMax: 20
   damageType: 0
   attackSpeed: 1.1
   physicalDefense: 16

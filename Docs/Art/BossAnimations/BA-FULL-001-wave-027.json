@@ -1,0 +1,14 @@
+{
+  "orderId":"BA-FULL-001","wave":27,"status":"reviewed",
+  "purpose":"Eight P2 active-action orders, submitted with locked boss-to-job mapping and no-effect constraints.",
+  "jobs":[
+    {"boss":"BoneLeviathan","clip":"P2_Action_Захлёст_0","jobId":"4fe6c30f-11f4-4fe6-b970-6a9bfc24b166","status":"rejected","review":"Adds new eyes and detaches the tail end."},
+    {"boss":"GildedUsurer","clip":"P2_Action_Обесценивание_0","jobId":"294b4faa-6713-43da-86b6-7a61051a6490","status":"rejected","review":"Purple artifact chain remains under the hands."},
+    {"boss":"Amalgam","clip":"P2_Action_Отделяется_15","jobId":"d715ff4d-7862-46bc-9ade-e640ce47cf35","status":"rejected","review":"Introduces a bright crack/effect and alters face detail."},
+    {"boss":"StoneIdol","clip":"P2_Action_Каменный_щит_0","jobId":"bf76a1a0-0af6-45df-9cbf-f09796bf165d","status":"approved_review","review":"Clean two-arm guard gesture; slab head, cracks and silhouette remain stable."},
+    {"boss":"Butcher","clip":"P2_Action_Разделка_8","jobId":"a8fdb542-674d-4aab-9cee-fe97528acc96","status":"rejected","review":"Hook movement is too small to read as an active action."},
+    {"boss":"RustSmith","clip":"P2_Action_Ковка_0","jobId":"685b57cc-52bf-4a86-9f87-5a7801bd88ce","status":"rejected","review":"Arm/hand structure changes and the result does not communicate a hammer windup."},
+    {"boss":"MirrorTwin","clip":"P2_Action_Отражение_0","jobId":"58b39f4c-f182-4e58-a233-3135b3d0bce9","status":"rejected","review":"Blue glow, duplicate blade and ghosted silhouette violate the no-effect constraint."},
+    {"boss":"RelicEater","clip":"P2_Action_Заглатывание_17","jobId":"1569be82-dce8-4e23-be1a-cd96fada7a8e","status":"rejected","review":"Purple electrical particles and head/body contamination."}
+  ]
+}

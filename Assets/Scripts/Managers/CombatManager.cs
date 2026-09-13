@@ -13,6 +13,7 @@ public class CombatManager : MonoBehaviour
     public List<CombatantRuntime> Enemies { get; private set; } = new List<CombatantRuntime>();
     public bool IsCombatActive { get; private set; }
     public CombatTelemetrySnapshot LastCombatTelemetry { get; private set; }
+    IReadOnlyList<MonsterData> defeatedBossesThisRun;
 
     float currentCombatDurationSeconds;
     float currentCombatPlayerStartHP;
@@ -51,6 +52,12 @@ public class CombatManager : MonoBehaviour
     // Emitted after evasion has failed but before damage is applied. The attestation scenarios use
     // this to count real connected hits (blocked hits included) without duplicating hit resolution.
     public event System.Action<CombatantRuntime, CombatantRuntime> AttackConnected;
+
+    // Инструментация баланса: уведомляет ровно в момент, когда способность босса действительно
+    // разрешилась (после телеграфа), а не когда она лишь начала готовиться. UI не зависит от этого
+    // сигнала; он нужен headless-прогонам, чтобы разнести обычный урон, тяжёлые удары, DoT и
+    // фоновые RoomTick без угадывания по тексту боевого лога.
+    public event System.Action<CombatantRuntime, BossAbilityConfig> BossAbilityResolved;
 
     void EmitHitResolved(CombatantRuntime target, float damageToHP, bool isCritical, bool wasBlocked)
     {
@@ -132,6 +139,10 @@ public class CombatManager : MonoBehaviour
 
     public void SetRandomSource(ICombatRandom randomSource) =>
         combatRandom = randomSource ?? new UnityCombatRandom();
+
+    // План 11: CombatManager не владеет run-state, он получает только read-only источник для
+    // SpawnDefeatedBoss. Так состояние не протекает между тестами/забегами.
+    public void SetDefeatedBossesThisRun(IReadOnlyList<MonsterData> bosses) => defeatedBossesThisRun = bosses;
 
     public void ConfigureActiveSkills(IEnumerable<ActiveSkillConfigEntry> skills)
     {
@@ -369,6 +380,11 @@ public class CombatManager : MonoBehaviour
         };
 
         // 3.3: магический щит восстанавливается до максимума после каждого боя; физ. защита — нет.
+        if (Player.DisabledEquipmentSlots != null && Player.DisabledEquipmentSlots.Count > 0)
+        {
+            Player.DisabledEquipmentSlots.Clear();
+            CombatantFactory.RecalculatePlayerEquipmentStats(Player);
+        }
         Player.RestoreMagicShield();
         ResetTemporaryStatuses(Player);
         ResetPrototypeCombatState(Player);
@@ -508,6 +524,7 @@ public class CombatManager : MonoBehaviour
         TickMonsterPeriodicPassives(deltaTime); // "Тёмное исцеление" / "Двойной удар" (2.4)
         TickBossHeavyAttacks(deltaTime); // легаси-путь: боссы БЕЗ BossKitData (см. BossEncounter ниже)
         TickBossEncounters(deltaTime); // boss framework: боссы С BossKitData
+        TickDefeatedBossMinionDeaths(); // Сердце: погибшая конечность замедляет следующее Биение
         TickBossGroups(); // boss framework: правила связки нескольких сущностей одного босс-боя
         TickBossShieldRegen(deltaTime); // boss framework: самовосстанавливающийся щит Ростовщика
 
@@ -835,6 +852,7 @@ public class CombatManager : MonoBehaviour
     // появляется механика, которую нельзя выразить существующими двумя.
     void ExecuteBossAbility(CombatantRuntime boss, BossAbilityConfig ability)
     {
+        BossAbilityResolved?.Invoke(boss, ability);
         switch (ability.effectKind)
         {
             case BossAbilityEffectKind.HeavyAttack:
@@ -992,7 +1010,10 @@ public class CombatManager : MonoBehaviour
                 break;
 
             case BossAbilityEffectKind.RoomTick:
-                float tickDamage = Player.MaxHP * Mathf.Max(0f, ability.roomTickPercentOfMaxHp) / 100f;
+                float roomTickPercent = boss.BossEncounter != null
+                    ? boss.BossEncounter.ConsumeRoomTickPercent(ability)
+                    : ability.roomTickPercentOfMaxHp;
+                float tickDamage = Player.MaxHP * Mathf.Max(0f, roomTickPercent) / 100f;
                 if (tickDamage <= 0f)
                 {
                     break;
@@ -1051,8 +1072,67 @@ public class CombatManager : MonoBehaviour
             case BossAbilityEffectKind.ConsumeMinion:
                 ConsumeBossMinion(boss, ability);
                 break;
+
+            case BossAbilityEffectKind.SlotDisable:
+                ExecuteSlotDisable(boss, ability);
+                break;
+
+            case BossAbilityEffectKind.SpawnDefeatedBoss:
+                SpawnDefeatedBossMinion(boss, ability);
+                break;
         }
     }
+
+    static readonly EquipmentSlot[] DefaultSlotDisableOrder =
+    {
+        EquipmentSlot.Helmet, EquipmentSlot.Boots, EquipmentSlot.Ring, EquipmentSlot.Accessory
+    };
+
+    public static bool IsSlotDisableAllowed(EquipmentSlot slot) =>
+        slot != EquipmentSlot.Weapon && slot != EquipmentSlot.Armor;
+
+    void ExecuteSlotDisable(CombatantRuntime boss, BossAbilityConfig ability)
+    {
+        if (Player == null || Player.EquippedItems == null) return;
+
+        IReadOnlyList<EquipmentSlot> order = ability.slotDisableOrder != null && ability.slotDisableOrder.Count > 0
+            ? ability.slotDisableOrder
+            : DefaultSlotDisableOrder;
+        EquipmentSlot? selected = null;
+        foreach (var slot in order)
+        {
+            if (!IsSlotDisableAllowed(slot)) continue;
+            if (Player.DisabledEquipmentSlots.ContainsKey(slot)) continue;
+
+            bool occupied = false;
+            foreach (var item in Player.EquippedItems)
+            {
+                if (item != null && item.slot == slot) { occupied = true; break; }
+            }
+            if (occupied) { selected = slot; break; }
+        }
+
+        if (!selected.HasValue) return;
+
+        float duration = Mathf.Max(0f, ability.slotDisableSeconds);
+        Player.DisabledEquipmentSlots[selected.Value] = duration;
+        CombatantFactory.RecalculatePlayerEquipmentStats(Player);
+
+        boss.DamageTakenBonusPercent = Mathf.Max(0f, ability.damageTakenBonusPercent);
+        boss.DamageTakenBonusTimer = duration;
+        string slotName = SlotDisableDisplayName(selected.Value);
+        ActiveSkillActivated?.Invoke(boss, $"{ability.displayName}: {slotName}");
+        Log($"[Combat] {boss.DisplayName} применяет «{ability.displayName}»: слот «{slotName}» отключён на {duration:F0} с; получаемый боссом урон +{boss.DamageTakenBonusPercent:F0}%.");
+    }
+
+    static string SlotDisableDisplayName(EquipmentSlot slot) => slot switch
+    {
+        EquipmentSlot.Helmet => "Шлем",
+        EquipmentSlot.Boots => "Сапоги",
+        EquipmentSlot.Ring => "Кольцо",
+        EquipmentSlot.Accessory => "Аксессуар",
+        _ => slot.ToString()
+    };
 
     // План 8: ставит миньонов на сцену ПО ХОДУ боя. Потолок живых проверяется перед каждой единицей,
     // а не один раз на срабатывание, иначе spawnCount=2 при одном свободном месте перешагнул бы его.
@@ -1094,6 +1174,47 @@ public class CombatManager : MonoBehaviour
 
         ActiveSkillActivated?.Invoke(boss, ability.displayName);
         Log($"[Combat] {boss.DisplayName} применяет «{ability.displayName}»: на сцене +{spawned}.");
+    }
+
+    void SpawnDefeatedBossMinion(CombatantRuntime boss, BossAbilityConfig ability)
+    {
+        if (defeatedBossesThisRun == null || defeatedBossesThisRun.Count == 0) return;
+        int cap = ability.spawnAliveCap > 0 ? ability.spawnAliveCap : int.MaxValue;
+        if (CountLivingBossMinions() >= cap) return;
+
+        // Копируем выбор: владелец списка — прогресс забега, а бой не должен зависеть от того,
+        // изменится ли список между телеграфом и фактическим призывом.
+        var eligible = defeatedBossesThisRun.Where(candidate => candidate != null).ToList();
+        if (eligible.Count == 0) return;
+        int index = Mathf.Clamp(Mathf.FloorToInt(combatRandom.Range(0f, eligible.Count)), 0, eligible.Count - 1);
+        var source = eligible[index];
+        var minion = CombatantFactory.CreateMonsterCombatant(source, Mathf.Max(1, boss.SourceFloorNumber),
+            suppressRandomModifiers: true);
+        minion.IsBoss = false;
+        minion.BossEncounter = null;
+        minion.IsBossMinion = true;
+        minion.BossMinionOwner = boss;
+        minion.BossMinionDeathRoomTickSlowPercent = Mathf.Clamp(ability.minionDeathRoomTickSlowPercent, 0f, 90f);
+        CombatantFactory.ApplyDefeatedBossMinionCeiling(minion);
+        ResetAttackTimers(minion);
+        Enemies.Add(minion);
+        ActiveSkillActivated?.Invoke(boss, ability.displayName);
+        Log($"[Combat] {boss.DisplayName} применяет «{ability.displayName}»: орган «{minion.DisplayName}» выходит на сцену.");
+    }
+
+    void TickDefeatedBossMinionDeaths()
+    {
+        foreach (var enemy in Enemies)
+        {
+            if (enemy == null || !enemy.IsBossMinion || enemy.IsAlive || enemy.BossMinionDeathHandled) continue;
+            enemy.BossMinionDeathHandled = true;
+            if (enemy.BossMinionOwner == null || enemy.BossMinionOwner.BossEncounter == null) continue;
+            float slow = enemy.BossMinionDeathRoomTickSlowPercent;
+            if (slow <= 0f) continue;
+            enemy.BossMinionOwner.BossEncounter.SlowRoomTicks(slow);
+            ActiveSkillActivated?.Invoke(enemy.BossMinionOwner, "Биение замедлено");
+            Log($"[Combat] Орган «{enemy.DisplayName}» уничтожен: Биение замедлено на {slow:F0}%.");
+        }
     }
 
     // План 8: Амальгам съедает собственного миньона и лечится. Без живых миньонов не лечит вообще —
@@ -1164,6 +1285,23 @@ public class CombatManager : MonoBehaviour
         // R05: восстановление после активного навыка истекает по боевому времени, а не по концу
         // UI-анимации — иначе бой без сцены (симуляция аттестации) блокировки вообще не видел.
         combatant.AttackLockRemaining = Mathf.Max(0f, combatant.AttackLockRemaining - deltaTime);
+
+        if (combatant.DisabledEquipmentSlots != null && combatant.DisabledEquipmentSlots.Count > 0)
+        {
+            var expired = new List<EquipmentSlot>();
+            var slots = new List<EquipmentSlot>(combatant.DisabledEquipmentSlots.Keys);
+            foreach (var slot in slots)
+            {
+                float remaining = combatant.DisabledEquipmentSlots[slot] - deltaTime;
+                if (remaining <= 0f) expired.Add(slot);
+                else combatant.DisabledEquipmentSlots[slot] = remaining;
+            }
+            if (expired.Count > 0)
+            {
+                foreach (var slot in expired) combatant.DisabledEquipmentSlots.Remove(slot);
+                CombatantFactory.RecalculatePlayerEquipmentStats(combatant);
+            }
+        }
 
         // Boss framework: окно повышенного получаемого урона истекает по боевому времени и
         // ОБНУЛЯЕТ процент, а не только таймер — иначе просроченное окно продолжило бы работать.

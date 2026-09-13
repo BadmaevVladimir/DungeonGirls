@@ -1,0 +1,9 @@
+{"orderId":"BA-FULL-001","wave":22,"status":"reviewed","purpose":"Fast batch of eight P1 active actions.","jobs":[
+{"clipId":"DrunkGiant_P1_Action_Открылся_3","jobId":"fcb96e3d-92b1-4d77-b772-4e93727109a9","status":"rejected","review":"No readable opening gesture."},
+{"clipId":"DrunkGiant_P1_Action_Отрыжка_6","jobId":"fba5c314-fc8a-4b39-b7e6-50061d50e093","status":"rejected","review":"No readable belch action."},
+{"clipId":"FrostWraith_P1_Action_Плач_5","jobId":"dcf92bed-24ca-46de-9a4d-b290a8ebe700","status":"rejected","review":"Detached particles."},
+{"clipId":"FrostWraith_P1_Action_Иней_6","jobId":"d070629f-fd99-47a0-97b2-96737c3062a5","status":"rejected","review":"No readable ability."},
+{"clipId":"SporeMother_P1_Action_Споровое_облако_8","jobId":"9ef4248c-08a7-451e-a032-bc4642156c4e","status":"rejected","review":"No readable cast."},
+{"clipId":"SporeMother_P1_Action_Гниль_9","jobId":"bdeab2fd-58e2-486f-8255-f23d55e80f3e","status":"rejected","review":"No readable action."},
+{"clipId":"AshInquisitor_P1_Action_Приговор_9","jobId":"9ec10de5-3ccd-4f3d-9c73-d759851cfe9a","status":"rejected","review":"No readable verdict gesture."},
+{"clipId":"AshInquisitor_P1_Action_Клеймо_8","jobId":"50ac72d1-4040-4fcb-9c57-5aee38b89751","status":"rejected","review":"No readable branding gesture."}]}

@@ -18,7 +18,7 @@ MonoBehaviour:
   soloDamageBonusPercent: 0
   soloAttackSpeedBonusPercent: 0
   soloTransitionName: 
-  mirrorPlayerStatsPercent: 120
+  mirrorPlayerStatsPercent: 85
   phases:
   - phaseName: "\u0417\u0435\u0440\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0414\u0432\u043E\u0439\u043D\u0438\u043A"
     hpThresholdPercent: 100
@@ -35,7 +35,7 @@ MonoBehaviour:
       cooldownSeconds: 12
       initialDelaySeconds: 5
       telegraphSeconds: 2
-      damageMultiplier: 1.0
+      damageMultiplier: 1
       shieldAmount: 0
       shieldDurationSeconds: 0
       disruptSeconds: 0
@@ -45,7 +45,7 @@ MonoBehaviour:
       attackSpeedMultiplier: 1
       debuffSeconds: 0
       selfDamagePercentOfMaxHp: 0
-      damagePercentOfTargetMaxHp: 20
+      damagePercentOfTargetMaxHp: 16
       dotStacks: 1
       dotMaxStacks: 3
       dotSeconds: 3
@@ -57,6 +57,7 @@ MonoBehaviour:
       armorDebuffMaxStacks: 1
       armorDebuffSeconds: 8
       roomTickPercentOfMaxHp: 0
+      roomTickGrowthPercentPerTrigger: 0
       enrageDamagePercentPerTrigger: 0
       selfInvulnerableSeconds: 0
       shieldRegenPercentPerSecond: 0
@@ -65,17 +66,21 @@ MonoBehaviour:
       shieldIntactDamageBonusPercent: 0
       shieldBrokenDamagePenaltyPercent: 0
       shieldBrokenPenaltySeconds: 0
+      spawnMonster: {fileID: 0}
       spawnCount: 1
       spawnAliveCap: 3
       healPercentOfMaxHp: 0
-      spawnMonster: {fileID: 0}
-    - displayName: "\u0417\u0435\u0440\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u044F\u0434"
+      slotDisableSeconds: 0
+      slotDisableOrder: 
+      minionDeathRoomTickSlowPercent: 0
+    - displayName: "\u0417\u0435\u0440\u043A\u0430\u043B\u044C\u043D\u044B\u0439
+        \u044F\u0434"
       effectKind: 8
       triggerKind: 1
       cooldownSeconds: 8
       initialDelaySeconds: 4
       telegraphSeconds: 1.5
-      damageMultiplier: 1.0
+      damageMultiplier: 1
       shieldAmount: 0
       shieldDurationSeconds: 0
       disruptSeconds: 0
@@ -97,6 +102,7 @@ MonoBehaviour:
       armorDebuffMaxStacks: 1
       armorDebuffSeconds: 8
       roomTickPercentOfMaxHp: 0
+      roomTickGrowthPercentPerTrigger: 0
       enrageDamagePercentPerTrigger: 0
       selfInvulnerableSeconds: 0
       shieldRegenPercentPerSecond: 0
@@ -105,17 +111,20 @@ MonoBehaviour:
       shieldIntactDamageBonusPercent: 0
       shieldBrokenDamagePenaltyPercent: 0
       shieldBrokenPenaltySeconds: 0
+      spawnMonster: {fileID: 0}
       spawnCount: 1
       spawnAliveCap: 3
       healPercentOfMaxHp: 0
-      spawnMonster: {fileID: 0}
+      slotDisableSeconds: 0
+      slotDisableOrder: 
+      minionDeathRoomTickSlowPercent: 0
     - displayName: "\u0421\u043C\u0430\u0437\u0430\u043D\u043D\u044B\u0439 \u0448\u0430\u0433"
       effectKind: 6
       triggerKind: 1
       cooldownSeconds: 14
       initialDelaySeconds: 8
       telegraphSeconds: 2
-      damageMultiplier: 1.0
+      damageMultiplier: 1
       shieldAmount: 0
       shieldDurationSeconds: 0
       disruptSeconds: 0
@@ -137,6 +146,7 @@ MonoBehaviour:
       armorDebuffMaxStacks: 1
       armorDebuffSeconds: 8
       roomTickPercentOfMaxHp: 0
+      roomTickGrowthPercentPerTrigger: 0
       enrageDamagePercentPerTrigger: 0
       selfInvulnerableSeconds: 0
       shieldRegenPercentPerSecond: 0
@@ -145,10 +155,13 @@ MonoBehaviour:
       shieldIntactDamageBonusPercent: 0
       shieldBrokenDamagePenaltyPercent: 0
       shieldBrokenPenaltySeconds: 0
+      spawnMonster: {fileID: 0}
       spawnCount: 1
       spawnAliveCap: 3
       healPercentOfMaxHp: 0
-      spawnMonster: {fileID: 0}
+      slotDisableSeconds: 0
+      slotDisableOrder: 
+      minionDeathRoomTickSlowPercent: 0
   - phaseName: "\u0417\u0435\u0440\u043A\u0430\u043B\u043E \u0442\u0440\u0435\u0441\u043D\u0443\u043B\u043E"
     hpThresholdPercent: 50
     phaseSprite: {fileID: 21300000, guid: 099c3a188b5e47d08eb4431e95e8a3c5, type: 3}
@@ -156,7 +169,7 @@ MonoBehaviour:
     floorPaddingFraction: 0.0703125
     cycleAbilities: 0
     enterArmorMultiplier: 1
-    enterAttackSpeedMultiplier: 1.25
+    enterAttackSpeedMultiplier: 1.15
     abilities:
     - displayName: "\u041E\u0442\u0440\u0430\u0436\u0435\u043D\u0438\u0435"
       effectKind: 0
@@ -164,7 +177,7 @@ MonoBehaviour:
       cooldownSeconds: 9
       initialDelaySeconds: 5
       telegraphSeconds: 2
-      damageMultiplier: 1.0
+      damageMultiplier: 1
       shieldAmount: 0
       shieldDurationSeconds: 0
       disruptSeconds: 0
@@ -174,7 +187,7 @@ MonoBehaviour:
       attackSpeedMultiplier: 1
       debuffSeconds: 0
       selfDamagePercentOfMaxHp: 0
-      damagePercentOfTargetMaxHp: 22
+      damagePercentOfTargetMaxHp: 18
       dotStacks: 1
       dotMaxStacks: 3
       dotSeconds: 3
@@ -186,6 +199,7 @@ MonoBehaviour:
       armorDebuffMaxStacks: 1
       armorDebuffSeconds: 8
       roomTickPercentOfMaxHp: 0
+      roomTickGrowthPercentPerTrigger: 0
       enrageDamagePercentPerTrigger: 0
       selfInvulnerableSeconds: 0
       shieldRegenPercentPerSecond: 0
@@ -194,17 +208,21 @@ MonoBehaviour:
       shieldIntactDamageBonusPercent: 0
       shieldBrokenDamagePenaltyPercent: 0
       shieldBrokenPenaltySeconds: 0
+      spawnMonster: {fileID: 0}
       spawnCount: 1
       spawnAliveCap: 3
       healPercentOfMaxHp: 0
-      spawnMonster: {fileID: 0}
-    - displayName: "\u0417\u0435\u0440\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u044F\u0434"
+      slotDisableSeconds: 0
+      slotDisableOrder: 
+      minionDeathRoomTickSlowPercent: 0
+    - displayName: "\u0417\u0435\u0440\u043A\u0430\u043B\u044C\u043D\u044B\u0439
+        \u044F\u0434"
       effectKind: 8
       triggerKind: 1
       cooldownSeconds: 6
       initialDelaySeconds: 3
       telegraphSeconds: 1.5
-      damageMultiplier: 1.0
+      damageMultiplier: 1
       shieldAmount: 0
       shieldDurationSeconds: 0
       disruptSeconds: 0
@@ -226,6 +244,7 @@ MonoBehaviour:
       armorDebuffMaxStacks: 1
       armorDebuffSeconds: 8
       roomTickPercentOfMaxHp: 0
+      roomTickGrowthPercentPerTrigger: 0
       enrageDamagePercentPerTrigger: 0
       selfInvulnerableSeconds: 0
       shieldRegenPercentPerSecond: 0
@@ -234,7 +253,10 @@ MonoBehaviour:
       shieldIntactDamageBonusPercent: 0
       shieldBrokenDamagePenaltyPercent: 0
       shieldBrokenPenaltySeconds: 0
+      spawnMonster: {fileID: 0}
       spawnCount: 1
       spawnAliveCap: 3
       healPercentOfMaxHp: 0
-      spawnMonster: {fileID: 0}
+      slotDisableSeconds: 0
+      slotDisableOrder: 
+      minionDeathRoomTickSlowPercent: 0

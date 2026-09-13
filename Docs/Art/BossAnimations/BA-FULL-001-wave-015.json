@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 15,
+  "status": "reviewed",
+  "purpose": "First large attack batch: eight phase-one attacks with explicit wind-up, contact pose, recovery, and full-frame QA.",
+  "jobs": [
+    { "clipId": "Jailer_P1_Attack", "jobId": "f7606258-83aa-46c1-972a-4db93bed905b", "status": "rejected", "frames": 8, "rejection": "The club never reaches a readable wind-up or contact pose." },
+    { "clipId": "ClockworkTitan_P1_Attack", "jobId": "b27cbb38-f2cb-4062-b21d-a4f93dc455f6", "status": "rejected", "frames": 4, "qaFocus": "Dial and steam.", "rejection": "Dial is intact, but the arm movement remains too small to read as an attack." },
+    { "clipId": "TwinShade_P1_Attack", "jobId": "3cd6a47b-816b-4f59-b5f1-08d2987171e7", "status": "approved_review", "frames": 8, "qaFocus": "Hood and head." },
+    { "clipId": "CandleKeeper_P1_Attack", "jobId": "664a3fdd-b317-4f73-98da-866848bb2173", "status": "rejected", "frames": 8, "rejection": "Only the flame changes; there is no readable attack gesture." },
+    { "clipId": "PitHound_P1_Attack", "jobId": "de6eb46e-22a1-4e57-a553-e4fdadd3a427", "status": "rejected", "frames": 4, "rejection": "The bite-lunge is too subtle to separate it from idle." },
+    { "clipId": "StoneIdol_P1_Attack", "jobId": "1ffe1955-a875-4881-a4fd-a6876f183d76", "status": "rejected", "frames": 8, "rejection": "The hands move, but no weighty impact/contact pose is readable." },
+    { "clipId": "DrunkGiant_P1_Attack", "jobId": "98dfe105-04b4-4cb2-aa0d-60256e6e35d5", "status": "approved_review", "frames": 8 },
+    { "clipId": "FrostWraith_P1_Attack", "jobId": "5c746e58-f7cc-4ca3-a6e1-6770402ddcd6", "status": "rejected", "frames": 4, "rejection": "The swipe adds detached ice particles around the hand." }
+  ]
+}

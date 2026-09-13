@@ -1,0 +1,19 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 3,
+  "status": "reviewed",
+  "purpose": "Corrected Twin Shade idle and the next action-focused batch. All jobs require visual QC before selection.",
+  "qualityGate": ["No broken or missing pixels", "No detached limbs or weapon/chain artifacts", "Head and key identity details stay intact", "No unrequested particles/effects", "Frame 0 and final frame match supplied anchors"],
+  "jobs": [
+    { "clipId": "TwinShade_P1_Idle", "boss": "Тень-близнец", "jobId": "b83125c7-a7bd-4f11-a654-8650905ef37e", "supersedesJobId": "ae53eef9-3d9d-4824-9b5c-5efa99cc04a6", "status": "rejected", "rejection": "PixelLab снова добавил белые пиксели и нарушил капюшон в промежуточных кадрах.", "approvedReplacement": "Assets/ArtSource/PixelLab/Reviews/BA-FULL-001/Wave03/TwinShade_P1_Idle_ManualSafe", "replacementMethod": "Conservative local cloak-hem motion with source-locked head and hood." },
+    { "clipId": "Jailer_P1_Attack", "boss": "Тюремщик", "jobId": "fb3b3ecc-a55b-4030-b245-f55606b5d8cc", "status": "needs_contact_pose", "rejection": "Движение слишком слабое для читаемой атаки." },
+    { "clipId": "Jailer_P1_Action_Кандалы", "boss": "Тюремщик", "jobId": "9d59e60a-7298-4522-bfc5-c4b601bdc507", "status": "needs_contact_pose", "rejection": "Нет читаемого жеста активной способности." },
+    { "clipId": "Jailer_P1_Action_Дубинка", "boss": "Тюремщик", "jobId": "3ee2cb9e-e8b8-44f7-8fda-6122a1785e4f", "status": "needs_contact_pose", "rejection": "Нет читаемого замаха и удара." },
+    { "clipId": "Jailer_P2_Idle", "boss": "Тюремщик", "jobId": "5cd93003-c985-40fc-ab7d-bc2306221c98", "status": "stale_replaced", "review": "Superseded by approved Wave 04 P2 idle." },
+    { "clipId": "Jailer_P2_Attack", "boss": "Тюремщик", "jobId": "a36020a4-3900-410f-acbf-1ccec4f9ef38", "status": "stale_rejected", "review": "Expired/unreviewed legacy job; needs a fresh source-locked order." },
+    { "clipId": "Jailer_P2_Action_Кандалы", "boss": "Тюремщик", "jobId": "07f4762a-2255-4be0-83bd-bd75bb4e6c9d", "status": "stale_rejected", "review": "Expired/unreviewed legacy job; needs a fresh source-locked order." },
+    { "clipId": "Jailer_P2_Action_Дубинка", "boss": "Тюремщик", "jobId": "ffba1ee4-2128-4b52-95cf-64a628aa8cba", "status": "stale_rejected", "review": "Expired/unreviewed legacy job; needs a fresh source-locked order." },
+    { "clipId": "Jailer_P2_PhaseEnter", "boss": "Тюремщик", "jobId": "20802742-7fa0-42ee-9611-cc44f434d9cc", "status": "stale_replaced", "review": "Superseded by approved Wave 13 phase transition." },
+    { "clipId": "ClockworkTitan_P1_Attack", "boss": "Часовой Титан", "jobId": "dc8de714-ca8b-45b9-893c-f9e40e562a3f", "status": "rejected", "rejection": "В промежуточных кадрах повреждены корпус и циферблат.", "identityLock": "Циферблат, цифры, стрелки, обод и стекло должны быть целыми и неизменными.", "replacementContactJobId": "315fc959-7774-42c2-bdde-9515925bb082", "replacementContactStatus": "needs_stronger_pose", "replacementContactReview": "Циферблат цел, но поза недостаточно отличается от исходной." }
+  ]
+}

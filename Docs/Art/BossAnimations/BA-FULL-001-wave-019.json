@@ -1,0 +1,16 @@
+{
+  "orderId": "BA-FULL-001",
+  "wave": 19,
+  "status": "reviewed",
+  "purpose": "Second large phase-two attack batch with exact-silhouette and anti-particle constraints.",
+  "jobs": [
+    { "clipId": "Butcher_P2_Attack", "jobId": "bd36eea6-c384-45dd-b983-36658cc49d93", "status": "approved_review", "frames": 8 },
+    { "clipId": "RustSmith_P2_Attack", "jobId": "f9e3850f-fb88-4369-82ad-e8d89746dbc2", "status": "rejected", "frames": 8, "rejection": "Fire and spark effects were generated around the hammer." },
+    { "clipId": "BoneLeviathan_P2_Attack", "jobId": "80493c81-4aad-4f3f-b696-3140d09f2751", "status": "rejected", "frames": 4, "rejection": "The tail grows into a new shape instead of producing a readable strike." },
+    { "clipId": "GildedUsurer_P2_Attack", "jobId": "0508e61e-0754-4d7c-aaf0-60a2b790ab0b", "status": "rejected", "frames": 4, "rejection": "No readable thrust or contact movement." },
+    { "clipId": "Amalgam_P2_Attack", "jobId": "e744a1d0-1f64-496a-bbe4-b0ae2408343c", "status": "approved_review", "frames": 8 },
+    { "clipId": "Broodmother_P2_Attack", "jobId": "102e1e45-493d-4d26-aa45-1163664031ad", "status": "rejected", "frames": 8, "rejection": "Movement is too subtle to read as a strike." },
+    { "clipId": "MirrorTwin_P2_Attack", "jobId": "e168c317-65e6-4462-a81e-8a2f7a785bf7", "status": "rejected", "frames": 8, "rejection": "Detached white blade-trail effects are present." },
+    { "clipId": "RelicEater_P2_Attack", "jobId": "217e1d55-393d-4830-a2ed-461770c40c01", "status": "rejected", "frames": 8, "rejection": "Large energy bursts and particle streaks cover the torso." }
+  ]
+}

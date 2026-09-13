@@ -137,6 +137,16 @@ public partial class RunFlowController
         slot.AddToClassList("equipment-slot");
         if (item != null)
         {
+            bool disabled = characterManager.Combatant != null &&
+                characterManager.Combatant.DisabledEquipmentSlots != null &&
+                characterManager.Combatant.DisabledEquipmentSlots.ContainsKey(item.slot);
+            if (disabled)
+            {
+                slot.AddToClassList("equipment-slot-disabled");
+                var disabledLabel = new Label("ОТКЛЮЧЕНО");
+                disabledLabel.AddToClassList("equipment-slot-disabled-label");
+                slot.Add(disabledLabel);
+            }
             if (item.icon != null)
             {
                 var icon = new Image { sprite = item.icon, scaleMode = ScaleMode.ScaleToFit };
