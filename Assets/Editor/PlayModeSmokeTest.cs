@@ -2393,14 +2393,18 @@ public static class PlayModeSmokeTest
         CheckStatusOverlay(new CombatantRuntime { IsFrozen = true }, CombatVfxKind.Frost, "заморожен");
         CheckStatusOverlay(new CombatantRuntime { ShieldPoolCurrent = 40f, ShieldPoolMax = 40f }, CombatVfxKind.Shield, "барьер");
         CheckStatusOverlay(new CombatantRuntime { IsBerserkActive = true }, CombatVfxKind.Rage, "берсерк");
-        CheckStatusOverlay(new CombatantRuntime { CritChanceDebuffPercent = 10f }, CombatVfxKind.Debuff, "оглушающий крик");
-        CheckStatusOverlay(
+        // Дебаффы сознательно оставлены без оверлея: их много, висят они подолгу, и общий значок
+        // поверх фигуры мусорил силуэт, ничего не добавляя к баджу статуса. Проверка ловит обратное
+        // — если кто-то вернёт дебаффам оверлей, это увидят здесь, а не в бою.
+        CheckNoStatusOverlay(new CombatantRuntime { CritChanceDebuffPercent = 10f }, "оглушающий крик");
+        CheckNoStatusOverlay(
             new CombatantRuntime { ActiveDebuffs = { new ActiveDebuff { Id = "warlock_slow", RemainingTime = 5f } } },
-            CombatVfxKind.Debuff, "проклятие замедления");
+            "проклятие замедления");
 
-        // Виды эффектов, у которых нет разового оверлея, потому что они уже выражены
-        // удерживаемым статусом; RoomTick — единственный намеренно немой: у него нет момента
-        // срабатывания, это фоновый урон по комнате.
+        // Виды эффектов, у которых нет разового оверлея, потому что они уже читаются в UI как
+        // удерживаемый статус. Часть из них (StatDebuff, AttackSpeedDebuff, HealCut, ApplyDot)
+        // после отказа от дебафф-оверлея выражена только баджем — это осознанный выбор, см.
+        // CheckNoStatusOverlay выше. RoomTick намеренно немой: у него нет момента срабатывания.
         var expressedAsStatus = new HashSet<BossAbilityEffectKind>
         {
             BossAbilityEffectKind.ShieldPool,
@@ -2451,6 +2455,20 @@ public static class PlayModeSmokeTest
         Check(found, found
             ? $"VFX: статус «{what}» даёт оверлей {expected}"
             : $"VFX: статус «{what}» не дал оверлей {expected}; подписи бойца: [{string.Join(", ", labels)}]");
+    }
+
+    static void CheckNoStatusOverlay(CombatantRuntime combatant, string what)
+    {
+        var got = new List<string>();
+        foreach (var effect in CombatantStatusEffects.GetActiveEffects(combatant))
+        {
+            var kind = CombatVfx.ForStatus(effect.label);
+            if (kind.HasValue) got.Add($"{effect.label} -> {kind.Value}");
+        }
+
+        Check(got.Count == 0, got.Count == 0
+            ? $"VFX: статус «{what}» намеренно без оверлея — читается баджем"
+            : $"VFX: статус «{what}» неожиданно даёт оверлей: [{string.Join(", ", got)}]");
     }
 
     static bool Check(bool condition, string description)

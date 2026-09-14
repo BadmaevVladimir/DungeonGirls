@@ -253,8 +253,18 @@ public partial class RunFlowController
             }
         }
 
-        if (entry == null || !entry.Combatant.IsAlive || entry.AttackFrames == null || entry.AttackFrames.Length == 0)
+        if (entry == null || !entry.Combatant.IsAlive)
         {
+            return;
+        }
+
+        // Клипов замаха нет ни у одного босса, кроме Стража: PixelLab не смог дать читаемое
+        // действие с сохранением идентичности (см. постмортем), и мы договорились показывать
+        // удар кодом. Без этой ветки атака босса не показывала вообще ничего — на пустых кадрах
+        // метод просто выходил, а разовый Impact висит только на способностях, не на обычном ритме.
+        if (entry.AttackFrames == null || entry.AttackFrames.Length == 0)
+        {
+            PlayCodeAttack(entry, heavy: false);
             return;
         }
 
@@ -281,8 +291,16 @@ public partial class RunFlowController
             }
         }
 
-        if (entry == null || !entry.Combatant.IsAlive || entry.HeavyAttackFrames == null || entry.HeavyAttackFrames.Length == 0)
+        if (entry == null || !entry.Combatant.IsAlive)
         {
+            return;
+        }
+
+        // Без клипа тяжёлой атаки — только выпад, без вспышки: Impact на тяжёлую уже вешает
+        // OnBossAbilityResolvedVfx по событию способности, и вторая вспышка легла бы поверх первой.
+        if (entry.HeavyAttackFrames == null || entry.HeavyAttackFrames.Length == 0)
+        {
+            PlayCodeAttack(entry, heavy: true);
             return;
         }
 
@@ -292,6 +310,25 @@ public partial class RunFlowController
             if (!entry.Combatant.IsAlive || entry.IdleFrames == null || entry.IdleFrames.Length == 0) return;
             entry.FlipbookCoroutine = StartCoroutine(SpriteFlipbook.Play(entry.Sprite, entry.IdleFrames, 6f, loop: true));
         }));
+    }
+
+    // (доп.) Кодовая атака для бойца без клипа замаха: выпад спрайта навстречу игроку плюс
+    // вспышка удара с передней стороны. Направление жёстко влево и не зависит от бойца — вражеская
+    // сцена всегда справа, спрайты всегда смотрят влево, рантайм-отражения в проекте нет.
+    // Цель при попадании и так трясётся и краснеет (см. ShowHitFeedback), поэтому здесь показывается
+    // только замах: иначе на один удар пришлось бы два одинаковых всплеска по обе стороны экрана.
+    void PlayCodeAttack(EnemyStageEntry entry, bool heavy)
+    {
+        if (entry?.Wrapper == null) return;
+
+        float reach = heavy ? 22f : 13f;
+        StartCoroutine(ChestRevealAnimator.Shake(entry.Wrapper, heavy ? 0.32f : 0.22f,
+            new Vector3(-reach, 0f, 0f), 2));
+
+        if (!heavy)
+        {
+            SpawnCombatVfx(entry.Wrapper, CombatVfxKind.Impact, leftPercent: 4f);
+        }
     }
 
     int RollMonsterCount(int level) => MonsterEncounterBudget.RollMonsterCount(level);
@@ -1314,7 +1351,9 @@ public partial class RunFlowController
     // CombatVfx. Заменяет анимационные клипы способностей: PixelLab не смог дать читаемый замах с
     // сохранением идентичности босса (см. Docs/Art/BossAnimations/2026-09-13-pipeline-postmortem.md),
     // поэтому действие показывается оверлеем и кодовым фидбэком, а спрайт босса продолжает крутить idle.
-    Image BuildVfxOverlay(VisualElement wrapper, CombatVfxKind kind)
+    // leftPercent сдвигает оверлей от центра рамки: удар должен вылетать с той стороны, куда
+    // бьёт боец, а не висеть у него по центру груди. null — центрировать, как все статусные эффекты.
+    Image BuildVfxOverlay(VisualElement wrapper, CombatVfxKind kind, float? leftPercent = null)
     {
         var frames = CombatVfx.Frames(kind);
         if (wrapper == null || frames == null || frames.Length == 0)
@@ -1328,7 +1367,7 @@ public partial class RunFlowController
         vfx.style.position = Position.Absolute;
         vfx.style.width = new Length(layout.SizePercent, LengthUnit.Percent);
         vfx.style.height = new Length(layout.SizePercent, LengthUnit.Percent);
-        vfx.style.left = new Length((100f - layout.SizePercent) / 2f, LengthUnit.Percent);
+        vfx.style.left = new Length(leftPercent ?? (100f - layout.SizePercent) / 2f, LengthUnit.Percent);
         vfx.style.top = new Length(layout.TopPercent, LengthUnit.Percent);
         vfx.style.opacity = layout.Opacity;
         vfx.tintColor = CombatVfx.Tint(kind);
@@ -1337,9 +1376,9 @@ public partial class RunFlowController
     }
 
     // Разовый эффект: проигрывает кадры один раз и снимает себя.
-    void SpawnCombatVfx(VisualElement wrapper, CombatVfxKind kind)
+    void SpawnCombatVfx(VisualElement wrapper, CombatVfxKind kind, float? leftPercent = null)
     {
-        var vfx = BuildVfxOverlay(wrapper, kind);
+        var vfx = BuildVfxOverlay(wrapper, kind, leftPercent);
         if (vfx == null) return;
 
         var frames = CombatVfx.Frames(kind);

@@ -18,8 +18,7 @@ public enum CombatVfxKind
     Summon,
     Chains,
     Frost,
-    Opening,
-    Debuff
+    Opening
 }
 
 public static class CombatVfx
@@ -83,11 +82,9 @@ public static class CombatVfx
         if (label.StartsWith("Заморо")) return CombatVfxKind.Frost;
         if (label.StartsWith("Барьер")) return CombatVfxKind.Shield;
         if (label.StartsWith("Берсерк")) return CombatVfxKind.Rage;
-        if (label.StartsWith("Оглушающий крик")) return CombatVfxKind.Debuff;
-        if (label.StartsWith("Проклятие замедления")) return CombatVfxKind.Debuff;
-        if (label.StartsWith("Запугивание")) return CombatVfxKind.Debuff;
-        if (label.StartsWith("Скорость атаки снижена")) return CombatVfxKind.Debuff;
-        if (label.StartsWith("Урон снижен")) return CombatVfxKind.Debuff;
+        // Дебаффы намеренно без оверлея: они уже читаются баджем статуса, а оверлей поверх
+        // персонажа выглядел плохо. Видов дебаффов много, и висеть они будут подолгу — общий
+        // значок поверх фигуры только замусоривает силуэт, ничего не добавляя к баджу.
         return null;
     }
 
@@ -100,7 +97,6 @@ public static class CombatVfx
         CombatVfxKind.Chains => new Color(0.80f, 0.86f, 0.94f),
         CombatVfxKind.Frost => new Color(0.59f, 0.84f, 1f),
         CombatVfxKind.Opening => new Color(1f, 0.84f, 0.31f),
-        CombatVfxKind.Debuff => new Color(0.78f, 0.59f, 1f),
         _ => Color.white
     };
 
@@ -125,7 +121,6 @@ public static class CombatVfx
         CombatVfxKind.Chains => new Layout { SizePercent = 95f, TopPercent = 2.5f, Opacity = 0.82f, Fps = 12f, Loop = false },
         CombatVfxKind.Frost => new Layout { SizePercent = 95f, TopPercent = 2.5f, Opacity = 0.78f, Fps = 6f, Loop = true },
         CombatVfxKind.Opening => new Layout { SizePercent = 85f, TopPercent = 1.5f, Opacity = 0.85f, Fps = 8f, Loop = true },
-        CombatVfxKind.Debuff => new Layout { SizePercent = 78f, TopPercent = 21f, Opacity = 0.80f, Fps = 8f, Loop = true },
         _ => new Layout { SizePercent = 80f, TopPercent = 10f, Opacity = 0.8f, Fps = 8f, Loop = false }
     };
 }
