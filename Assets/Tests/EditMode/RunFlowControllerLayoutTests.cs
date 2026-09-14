@@ -20,4 +20,31 @@ public class RunFlowControllerLayoutTests
 
         Assert.GreaterOrEqual(gap, 0f);
     }
+
+    [Test]
+    public void ComputeStageSpriteMarginBottom_SubtractsPaddingSoSpriteSinksToFloor()
+    {
+        // Прозрачная пустота под ногами кадра поднимает видимый силуэт над нижним краем рамки,
+        // поэтому рамку надо ОПУСТИТЬ на эту величину, а не поднять (регрессия «босс парит в
+        // воздухе»: 518px рамка Левиафана с отступом 0.27 уезжала вверх на ~140px).
+        float margin = RunFlowController.ComputeStageSpriteMarginBottom(200f, 0.25f, 400f);
+
+        Assert.AreEqual(100f, margin, 0.0001f);
+    }
+
+    [Test]
+    public void ComputeStageSpriteMarginBottom_NoPadding_KeepsFloorGap()
+    {
+        float margin = RunFlowController.ComputeStageSpriteMarginBottom(200f, 0f, 400f);
+
+        Assert.AreEqual(200f, margin, 0.0001f);
+    }
+
+    [Test]
+    public void ComputeStageSpriteMarginBottom_PaddingLargerThanGap_ClampsToBottomOfPanel()
+    {
+        float margin = RunFlowController.ComputeStageSpriteMarginBottom(40f, 0.5f, 518f);
+
+        Assert.AreEqual(0f, margin, 0.0001f);
+    }
 }

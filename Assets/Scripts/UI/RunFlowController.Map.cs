@@ -141,15 +141,16 @@ public partial class RunFlowController
         foreach (var node in nodes)
         {
             bool isReachable = reachableIds.Contains(node.Id);
-            string reliefLabel = node.IsReliefRoute ? "\nПередышка" : string.Empty;
-            var button = new Button { text = $"{RoomTypeIcon(node.RoomType)}\n{RoomTypeLabel(node.RoomType)}{reliefLabel}" };
+            // Ветка передышки больше не подписывается ни на узле карты, ни в его тултипе:
+            // это служебный ярлык режиссёра этажа (FloorDirector), который раскрывал скрытую
+            // механику раньше, чем игрок вообще мог понять, что он значит. Сама ветка
+            // работает как раньше — просто ощущается как везение на лёгкие бои, а не как
+            // подписанный системой режим.
+            var button = new Button { text = $"{RoomTypeIcon(node.RoomType)}\n{RoomTypeLabel(node.RoomType)}" };
             // Раньше здесь был служебный «Путь 1, глубина 3». Игроку нужно знать, что его ждёт в
             // комнате, а не её координаты в графе. Узлы пересобираются при каждом показе карты.
             string hint = TutorialContent.RoomTypeHint(node.RoomType);
-            if (node.IsReliefRoute)
-                hint += "\n\nВетка передышки: обычные монстры начинают бой без случайных модификаторов.";
-            tutorialManager?.BindTransientTooltip(button,
-                node.IsReliefRoute ? $"{RoomTypeLabel(node.RoomType)} — передышка" : RoomTypeLabel(node.RoomType), hint);
+            tutorialManager?.BindTransientTooltip(button, RoomTypeLabel(node.RoomType), hint);
             button.AddToClassList("floor-map-node");
             button.EnableInClassList("floor-map-node-visited", node.Visited);
             button.EnableInClassList("floor-map-node-current", node.Id == floorManager.CurrentMap.CurrentNodeId);

@@ -664,13 +664,13 @@ public partial class RunFlowController
         // обновление состояния кадр к кадру, без Clear()/пересоздания (иначе анимации на
         // дочерних элементах, вроде всплывающих цифр урона, уничтожались бы каждый тик).
         float stageFloorGap = GetStageFloorGapFromBottom();
-        float playerFloorOffset = CombatSpriteFloorOffset.GetOffsetFraction(player) * playerStageSprite.resolvedStyle.height;
-        playerStageWrapper.style.marginBottom = stageFloorGap + playerFloorOffset;
+        playerStageWrapper.style.marginBottom = ComputeStageSpriteMarginBottom(
+            stageFloorGap, CombatSpriteFloorOffset.GetOffsetFraction(player), playerStageSprite.resolvedStyle.height);
 
         foreach (var entry in enemyStageEntries)
         {
-            float enemyFloorOffset = CombatSpriteFloorOffset.GetOffsetFraction(entry.Combatant) * entry.Sprite.resolvedStyle.height;
-            entry.Wrapper.style.marginBottom = stageFloorGap + enemyFloorOffset;
+            entry.Wrapper.style.marginBottom = ComputeStageSpriteMarginBottom(
+                stageFloorGap, CombatSpriteFloorOffset.GetOffsetFraction(entry.Combatant), entry.Sprite.resolvedStyle.height);
             entry.Sprite.EnableInClassList("enemy-stage-sprite-dead", !entry.Combatant.IsAlive);
             UpdateStatusLabel(entry.StatusLabel, entry.Combatant);
 
@@ -1740,5 +1740,18 @@ public partial class RunFlowController
 
         float floorFromTop = combatBackgroundFloorRowFromTop * scale - cropTop;
         return Mathf.Max(0f, boxHeight - floorFromTop);
+    }
+
+    // Компенсация прозрачного отступа под ногами спрайта (2026-09-03) поверх линии пола.
+    // ЗНАК: marginBottom в bottom-выровненной сцене поднимает спрайт ВВЕРХ, а пустота снизу кадра
+    // означает, что видимые ноги и так висят выше нижнего края рамки — значит рамку надо опустить,
+    // то есть отступ ВЫЧИТАЕТСЯ. Изначально он прибавлялся, и «зависание» удваивалось. На игроке
+    // это не было видно (у Дженифер и Саши отступ 0), у обычных монстров — единицы пикселей
+    // (0.02-0.03 от 260px рамки), а вот у боссов рамка 518px и отступ до 0.27 (Костяной Левиафан),
+    // то есть промах до ~140px — ровно то «парение в воздухе», с которого начался этот фикс.
+    // Clamp снизу: ниже нижнего края боевой панели спрайт уезжать не должен ни при каких данных.
+    public static float ComputeStageSpriteMarginBottom(float floorGap, float floorPaddingFraction, float spriteHeight)
+    {
+        return Mathf.Max(0f, floorGap - floorPaddingFraction * spriteHeight);
     }
 }

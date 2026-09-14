@@ -7,6 +7,7 @@ public class CombatSpriteFloorOffsetTests
     {
         "Jennifer" => 0.08f,
         "Monster_Bat" => 0.14f,
+        "Boss_Warden_Phase1" => 0.046f,
         _ => 0f
     };
 
@@ -36,6 +37,26 @@ public class CombatSpriteFloorOffsetTests
     {
         var monster = new CombatantRuntime { IsPlayer = false, MonsterAnimationKey = "Неизвестный монстр" };
         Assert.AreEqual(0f, CombatSpriteFloorOffset.GetOffsetFraction(monster, FakeLookup), 0.0001f);
+    }
+
+    [Test]
+    public void AnimatedBoss_UsesAnimationFolderTable_NotThePhaseSpritePadding()
+    {
+        // На сцене играют кадры Boss_<animationFolderKey>, а floorPaddingFraction посчитан по
+        // статичному phaseSprite — расходятся (у Стража на ~13px при рамке 518px).
+        var kit = ScriptableObject.CreateInstance<BossKitData>();
+        kit.phases.Add(new BossPhaseData
+        {
+            hpThresholdPercent = 100f,
+            floorPaddingFraction = 0.0208f,
+            animationFolderKey = "Warden_Phase1"
+        });
+        var boss = new CombatantRuntime { IsPlayer = false };
+        boss.BossEncounter = new BossEncounterState(kit);
+
+        Assert.AreEqual(0.046f, CombatSpriteFloorOffset.GetOffsetFraction(boss, FakeLookup), 0.0001f);
+
+        Object.DestroyImmediate(kit);
     }
 
     [Test]
