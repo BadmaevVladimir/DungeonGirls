@@ -144,3 +144,13 @@ InitTestScene*.unity*
 # Материалы аудита: план монетизации и разбор слабых мест. Репозиторий публичный —
 # держим их только локально.
 /Docs/Audit/
+
+# Вывод автоматической приёмки спрайтов и анимаций PixelLab — десятки мегабайт
+# контактных листов, которые пересобираются прогоном инструмента заново.
+# Сами исходные спрайты рядом, в Assets/ArtSource/PixelLab/Bosses, отслеживаются.
+/Assets/ArtSource/PixelLab/Reviews/
+/Assets/ArtSource/PixelLab/Reviews.meta
+
+# Кеш байт-кода Python от скриптов в Tools.
+__pycache__/
+*.pyc
