@@ -754,6 +754,69 @@ Button {
     background-color: rgb(255, 140, 46);
 }
 
+/* Реплики в бою с боссом: бабл над головой бойца. Светлая заливка с чёрным кантом выбрана
+   намеренно против остальной палитры боя — цифры урона, телеграф и баджи статусов все тёмные,
+   и тёмный бабл читался бы как ещё одно системное сообщение, а не как речь.
+   Позиция: bottom:100% ставит низ бабла на верх спрайта, translate доводит по месту —
+   у героини на 14px вниз (над головой пусто), у босса на 40px ВВЕРХ, потому что там уже
+   живёт .boss-telegraph-label со своей полоской обратного отсчёта. Расходится бабл, а не
+   телеграф: предупреждение об атаке игрок обязан прочитать, реплику — нет.
+   Прозрачность и подъём анимируются кодом (см. RunFlowController.Combat.PlaySpeechBubble). */
+.speech-bubble {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    translate: -50% 14px;
+    max-width: 230px;
+    padding: 7px 11px;
+    background-color: rgb(244, 239, 226);
+    border-width: 2px;
+    border-color: rgb(20, 18, 26);
+    border-radius: 10px;
+}
+
+.speech-bubble-text {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: rgb(23, 20, 29);
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+/* Хвост — повёрнутый на 45° квадрат с двумя бортами: USS не умеет ни теней, ни треугольников
+   через border-trick, и это единственная форма, которая честно рисуется его средствами. */
+.speech-bubble-tail {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    translate: -50% 0;
+    rotate: 45deg;
+    width: 13px;
+    height: 13px;
+    background-color: rgb(244, 239, 226);
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-right-color: rgb(20, 18, 26);
+    border-bottom-color: rgb(20, 18, 26);
+}
+
+.speech-bubble-foe {
+    translate: -50% -40px;
+    max-width: 260px;
+    background-color: rgb(42, 17, 22);
+    border-color: rgb(255, 106, 90);
+}
+
+.speech-bubble-foe .speech-bubble-text {
+    color: rgb(255, 226, 220);
+}
+
+.speech-bubble-foe .speech-bubble-tail {
+    background-color: rgb(42, 17, 22);
+    border-right-color: rgb(255, 106, 90);
+    border-bottom-color: rgb(255, 106, 90);
+}
+
 /* 4.7 [ОБНОВЛЕНО]: список баффов/дебаффов участника боя — под спрайтом. Прошлая пастель почти не
    читалась на тёмном каменном фоне сцены (низкий контраст) — цвета (заданы прямо в тексте лейбла,
    см. RunFlowController.UpdateStatusLabel) сделаны средне-насыщенными, плюс тёмная подложка-пилюля

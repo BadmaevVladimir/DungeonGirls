@@ -25,6 +25,37 @@ public class RunCharacterProgress
         DefeatedBosses.Add(boss);
     }
 
+    // Реплики в бою: что героиня уже успела сказать в этом забеге. Здесь же, а не в CombatManager,
+    // по той же причине, что и DefeatedBosses — список должен пережить переход между этажами и
+    // перезапуск этажа через Храм (FloorRestartSnapshot.Clone его копирует), но новый забег
+    // начинается с чистого листа сам собой, вместе с новым RunCharacterProgress.
+    public struct ShownBark
+    {
+        public MonsterData Boss;
+        public EncounterBarkTrigger Trigger;
+        public int PhaseIndex;
+    }
+
+    public List<ShownBark> ShownBarks = new List<ShownBark>();
+
+    // true ровно один раз на сочетание «босс + повод + фаза». Вызывающая сторона показывает
+    // реплику только по true, поэтому отметка и проверка не могут разъехаться.
+    public bool TryMarkBarkShown(MonsterData boss, EncounterBarkTrigger trigger, int phaseIndex)
+    {
+        if (boss == null) return false;
+
+        foreach (var shown in ShownBarks)
+        {
+            if (shown.Boss == boss && shown.Trigger == trigger && shown.PhaseIndex == phaseIndex)
+            {
+                return false;
+            }
+        }
+
+        ShownBarks.Add(new ShownBark { Boss = boss, Trigger = trigger, PhaseIndex = phaseIndex });
+        return true;
+    }
+
     public int UniquePassiveLevel = 1;
     public int UniqueActiveLevel = 1;
     public int LevelUpRerollsRemaining { get; private set; }

@@ -317,6 +317,39 @@ public class BossCompanionSpawn
     public bool isAnchor;
 }
 
+// Реплики в бою: по какому поводу героиня подаёт голос. Список закрытый и намеренно короткий —
+// бой автоматический, и каждая лишняя реплика отнимает внимание у телеграфа и цифр урона.
+public enum EncounterBarkTrigger
+{
+    // Первая встреча с этим боссом в забеге, в момент входа в бой.
+    CombatStart,
+    // Вход босса в новую фазу — повод объяснить игроку, что именно поменялось.
+    PhaseChanged
+}
+
+// Одна реплика. Живёт на ките босса, а не в данных героини: фраза — это реакция на конкретного
+// босса, и заводить её удобнее там же, где расписаны его способности.
+[System.Serializable]
+public class EncounterBark
+{
+    [Tooltip("Чья это фраза. Пусто = подойдёт любой героине; заполненный id перекрывает общую.")]
+    public string characterId;
+
+    [Tooltip("По какому поводу звучит.")]
+    public EncounterBarkTrigger trigger;
+
+    [Tooltip("Только для PhaseChanged: индекс фазы, в которую вошли (0 — стартовая). У CombatStart " +
+        "поле игнорируется.")]
+    public int phaseIndex;
+
+    [TextArea, Tooltip("Что говорит героиня. Две строки максимум — дальше бабл не читается.")]
+    public string heroLine;
+
+    [TextArea, Tooltip("Что говорит босс. Задел на будущее: рендер и очередь общие, но сейчас " +
+        "боссам фраз не пишем.")]
+    public string bossLine;
+}
+
 [CreateAssetMenu(fileName = "NewBossKit", menuName = "DungeonGirls/Boss Kit")]
 public class BossKitData : ScriptableObject
 {
@@ -351,4 +384,7 @@ public class BossKitData : ScriptableObject
 
     [Tooltip("Минимум одна фаза. phases[0].hpThresholdPercent должен быть 100 (активна с начала боя).")]
     public List<BossPhaseData> phases = new List<BossPhaseData>();
+
+    [Tooltip("Реплики героини в этом бою. Пусто = бой проходит молча.")]
+    public List<EncounterBark> encounterBarks = new List<EncounterBark>();
 }

@@ -350,6 +350,11 @@ public partial class RunFlowController
             var bossRuntime = CombatantFactory.CreateBossCombatant(bossForFloor,
                 dungeonManager.CurrentFloorNumber, playerClass, characterManager.Combatant);
             enemies.Add(bossRuntime);
+            // Реплики в бою: память забега адресуется самим ассетом босса (как DefeatedBosses), а
+            // кит нужен, чтобы достать из него фразы. Для Зеркального Двойника это будет кит
+            // выбранной ветки — ровно тот, по которому босс и дерётся.
+            currentBossForBarks = bossForFloor;
+            currentBossKitForBarks = bossRuntime.BossEncounter?.Kit;
             // Групповой босс-бой (Тени-Близнецы): спутники выходят на сцену сразу вместе с боссом.
             enemies.AddRange(CombatantFactory.CreateBossCompanions(bossForFloor,
                 dungeonManager.CurrentFloorNumber, bossRuntime));
@@ -487,6 +492,9 @@ public partial class RunFlowController
         if (isBoss)
         {
             tutorialManager?.QueueOnce(TutorialContent.Boss);
+            // Заявка ставится сразу, а прозвучит она уже после того, как игрок закроет туториал:
+            // гейт очереди ждёт закрытия оверлея (см. PumpBarkQueue).
+            TryEnqueueBark(EncounterBarkTrigger.CombatStart, 0);
         }
         else
         {
@@ -538,6 +546,7 @@ public partial class RunFlowController
 
         UnsubscribeCombatEvents();
         StopPlayerFlipbook();
+        ResetBarks();
         // W11: музыка забега не прерывается между боями. Ни Stop, ни смены клипа, ни сброса
         // позиции — интенсивность плавно уходит к нулю, и остаётся звучать базовый слой.
         MusicPlayer.Instance?.ExitCombat();
@@ -619,6 +628,7 @@ public partial class RunFlowController
     void UpdateCombatUI()
     {
         ShowOnly(combatPanel);
+        PumpBarkQueue();
 
         var player = combatManager.Player;
         // (доп.): пока флипбук (см. StartPlayerIdleFlipbook/PlayPlayerOneShotFlipbook) держит
@@ -730,6 +740,9 @@ public partial class RunFlowController
             if (entry.Combatant.BossEncounter != null && entry.Combatant.BossEncounter.CurrentPhaseIndex != entry.LastBossPhaseIndex)
             {
                 entry.LastBossPhaseIndex = entry.Combatant.BossEncounter.CurrentPhaseIndex;
+                // Реплика на смену фазы: повод объяснить игроку, что именно поменялось. Заявка
+                // может и не прозвучать — если босс успеет уйти дальше, очередь её отбросит.
+                TryEnqueueBark(EncounterBarkTrigger.PhaseChanged, entry.LastBossPhaseIndex);
                 var phase = entry.Combatant.BossEncounter.CurrentPhase;
                 var bossIdleFrames = BossAnimationFrames.Idle(phase.animationFolderKey);
                 if (bossIdleFrames != null && bossIdleFrames.Length > 0)
@@ -1187,6 +1200,171 @@ public partial class RunFlowController
         }
 
         label.text = string.Join("\n", effects.ConvertAll(e => $"<color={(e.isBuff ? "#7CD66B" : "#E2645F")}>{e.label}</color>"));
+    }
+
+    // --- Реплики в бою с боссом ---
+    // Правила «что и когда звучит» живут в CombatBarkQueue/CombatBarkSelector и покрыты тестами.
+    // Здесь остаётся то, что тестами не проверишь: тайминги, элемент и корутина показа.
+
+    const float BarkFadeSeconds = 0.18f;
+    // Оборванная реплика уходит быстрее обычной: её место занимает что-то более важное.
+    const float BarkInterruptFadeSeconds = 0.1f;
+    const float BarkHoldBaseSeconds = 1.6f;
+    const float BarkHoldPerCharSeconds = 0.045f;
+    const float BarkMinHoldSeconds = 2f;
+    const float BarkMaxHoldSeconds = 4.5f;
+    // Пауза между репликами, чтобы две фразы подряд не слиплись в одну.
+    const float BarkGapSeconds = 0.35f;
+    // Насколько бабл «подъезжает» снизу на входе.
+    const float BarkRiseOffsetPixels = 9f;
+
+    void TryEnqueueBark(EncounterBarkTrigger trigger, int phaseIndex)
+    {
+        if (currentBossKitForBarks == null || characterManager == null) return;
+
+        var characterId = characterManager.Character != null ? characterManager.Character.characterId : null;
+        if (CombatBarkSelector.TryBuildRequest(currentBossKitForBarks, characterId, currentBossForBarks,
+                characterManager.Progress, trigger, phaseIndex, out var request))
+        {
+            barkQueue.Enqueue(request);
+        }
+    }
+
+    // Каждый кадр боя: очередь сама решает, можно ли начинать. Оверлей и пауза не отменяют
+    // реплику, а задерживают — именно поэтому реплика на вход в бой звучит ПОСЛЕ туториала.
+    void PumpBarkQueue()
+    {
+        if (speechBubbleCoroutine != null) return;
+
+        var gate = new BarkGate
+        {
+            OverlayVisible = tutorialManager != null && tutorialManager.OverlayVisible,
+            Paused = Time.timeScale <= 0f,
+            CombatRunning = combatManager != null && combatManager.IsCombatActive,
+            CurrentBossPhaseIndex = CurrentBossPhaseIndexForBarks()
+        };
+
+        if (barkQueue.TryTake(gate, out var request))
+        {
+            speechBubbleCoroutine = StartCoroutine(PlaySpeechBubble(request));
+        }
+    }
+
+    int CurrentBossPhaseIndexForBarks()
+    {
+        foreach (var entry in enemyStageEntries)
+        {
+            if (entry.Combatant?.BossEncounter != null)
+            {
+                return entry.Combatant.BossEncounter.CurrentPhaseIndex;
+            }
+        }
+
+        return 0;
+    }
+
+    CombatantRuntime FindBossCombatantForBarks()
+    {
+        foreach (var entry in enemyStageEntries)
+        {
+            if (entry.Combatant?.BossEncounter != null && entry.Combatant.IsAlive)
+            {
+                return entry.Combatant;
+            }
+        }
+
+        return null;
+    }
+
+    void ResetBarks()
+    {
+        if (speechBubbleCoroutine != null)
+        {
+            StopCoroutine(speechBubbleCoroutine);
+            speechBubbleCoroutine = null;
+        }
+
+        activeSpeechBubble?.RemoveFromHierarchy();
+        activeSpeechBubble = null;
+        barkQueue.Reset();
+        currentBossForBarks = null;
+        currentBossKitForBarks = null;
+    }
+
+    IEnumerator PlaySpeechBubble(BarkRequest request)
+    {
+        var speaker = request.Speaker == BarkSpeaker.Hero
+            ? combatManager.Player
+            : FindBossCombatantForBarks();
+        var wrapper = speaker != null ? FindStageWrapper(speaker) : null;
+        if (wrapper == null || string.IsNullOrWhiteSpace(request.Text))
+        {
+            speechBubbleCoroutine = null;
+            barkQueue.MarkFinished();
+            yield break;
+        }
+
+        // Базовый сдвиг по Y задан в USS и здесь повторяется числом, потому что код анимирует
+        // translate целиком: у героини бабл сидит на голове, у босса поднят над телеграфом.
+        float baseOffset = request.Speaker == BarkSpeaker.Hero ? 14f : -40f;
+
+        var bubble = new VisualElement();
+        bubble.AddToClassList("speech-bubble");
+        if (request.Speaker == BarkSpeaker.Boss) bubble.AddToClassList("speech-bubble-foe");
+
+        var text = new Label(request.Text);
+        text.AddToClassList("speech-bubble-text");
+        bubble.Add(text);
+
+        var tail = new VisualElement();
+        tail.AddToClassList("speech-bubble-tail");
+        bubble.Add(tail);
+
+        wrapper.Add(bubble);
+        bubble.BringToFront();
+        activeSpeechBubble = bubble;
+
+        yield return AnimateBubble(bubble, baseOffset, 0f, 1f, BarkFadeSeconds, BarkRiseOffsetPixels, 0f);
+
+        float hold = Mathf.Clamp(BarkHoldBaseSeconds + request.Text.Length * BarkHoldPerCharSeconds,
+            BarkMinHoldSeconds, BarkMaxHoldSeconds);
+        float elapsed = 0f;
+        while (elapsed < hold && !barkQueue.InterruptRequested)
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        float fadeOut = barkQueue.InterruptRequested ? BarkInterruptFadeSeconds : BarkFadeSeconds;
+        yield return AnimateBubble(bubble, baseOffset, 1f, 0f, fadeOut, 0f, -7f);
+
+        bubble.RemoveFromHierarchy();
+        if (activeSpeechBubble == bubble) activeSpeechBubble = null;
+
+        yield return new WaitForSeconds(BarkGapSeconds);
+        speechBubbleCoroutine = null;
+        barkQueue.MarkFinished();
+    }
+
+    // Прозрачность и подъём одним проходом. translate задаётся целиком, поэтому -50% по X
+    // (центровка из USS) приходится повторять здесь — иначе бабл уедет вправо на половину себя.
+    IEnumerator AnimateBubble(VisualElement bubble, float baseOffset, float fromOpacity, float toOpacity,
+        float seconds, float fromRise, float toRise)
+    {
+        float elapsed = 0f;
+        while (elapsed < seconds)
+        {
+            float t = seconds > 0f ? Mathf.Clamp01(elapsed / seconds) : 1f;
+            bubble.style.opacity = Mathf.Lerp(fromOpacity, toOpacity, t);
+            bubble.style.translate = new Translate(
+                Length.Percent(-50f),
+                baseOffset + Mathf.Lerp(fromRise, toRise, t));
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        bubble.style.opacity = toOpacity;
+        bubble.style.translate = new Translate(Length.Percent(-50f), baseOffset + toRise);
     }
 
     VisualElement FindStageWrapper(CombatantRuntime combatant)

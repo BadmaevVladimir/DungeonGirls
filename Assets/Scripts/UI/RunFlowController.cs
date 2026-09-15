@@ -117,6 +117,15 @@ public partial class RunFlowController : MonoBehaviour
     Label skillActivationBanner;
     Coroutine skillBannerCoroutine;
 
+    // Реплики в бою с боссом: очередь решает, что и когда звучит (правила — в CombatBarkQueue),
+    // здесь остаются только ссылки на текущего босса, чтобы было чем адресовать память забега,
+    // и на корутину показа. Для обычных боёв всё это остаётся пустым.
+    readonly CombatBarkQueue barkQueue = new CombatBarkQueue();
+    MonsterData currentBossForBarks;
+    BossKitData currentBossKitForBarks;
+    Coroutine speechBubbleCoroutine;
+    VisualElement activeSpeechBubble;
+
     // 4.7 (доп.): VFX "3 линии удара" на цели активного навыка Дженифер "3 быстрые атаки".
     Sprite skillImpactVfxSprite;
     Sprite SkillImpactVfxSprite => skillImpactVfxSprite ??= Resources.Load<Sprite>("VFX/Skill_ThreeStrikes_Impact");

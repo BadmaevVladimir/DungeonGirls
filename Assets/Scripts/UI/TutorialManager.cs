@@ -96,6 +96,13 @@ public class TutorialManager : MonoBehaviour
     public bool HasSeen(string hintId) =>
         saveManager != null && !string.IsNullOrWhiteSpace(hintId) && saveManager.HasSeenTutorialHint(hintId);
 
+    // Открыт ли сейчас хоть какой-то оверлей. То же условие, по которому TryShowNext решает не
+    // показывать следующую подсказку, — вынесено наружу, потому что реплики в бою обязаны ждать
+    // закрытия оверлея (см. RunFlowController.Combat, CombatBarkQueue): иначе первая же реплика
+    // прозвучит за туториалом и её никто не увидит.
+    public bool OverlayVisible => initialized &&
+        (tutorialOverlay.style.display == DisplayStyle.Flex || helpScreen.style.display == DisplayStyle.Flex);
+
     public void QueueOnce(string hintId)
     {
         if (!initialized || string.IsNullOrWhiteSpace(hintId) || !TutorialContent.TryGet(hintId, out _) ||
